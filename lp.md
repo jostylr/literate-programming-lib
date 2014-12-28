@@ -1,4 +1,4 @@
-# [literate-programming](# "version:0.9.0")
+# [literate-programming-lib](# "version:0.9.0")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -15,7 +15,8 @@ after a fashion, as it weaves.
 
 ## Directory structure
 
-* [index.js](#the-lp-module "save:   | jshint | jstidy") The bulk of the work is in the node module. That has all the core weaving. It also hasthe ability to load other literate programs / directives which ties it currently to the file system. 
+* [index.js](#the-lp-module "save:   | jshint | jstidy") This is the compiler
+  heart of the program. 
 * [test/test.js](#testing "save: |jshint") This is a set of tests. 
 * [README.md](#readme "save:| clean raw") The standard README.
 * [package.json](#npm-package "save: json  | jshint") The requisite package file for a npm project. 
@@ -27,9 +28,12 @@ after a fashion, as it weaves.
 
 ## The event nature of this program
 
-We use the event-when module to provide a flow-control based on events. As
+We use the [event-when module](https://github.com/jostylr/event-wheni)
+to provide a flow-control based on events. As
 each code block compiles, it issues an event that it is done. Anything
 listening for it, then acts.
+
+The emitter is a part of the document object. 
 
 ## Break with previous versions
 
@@ -44,20 +48,137 @@ code block under the same heading. I find it convenient. But in trying to
 match the general parsing of markdown programs, I am moving towards using a
 professional markdown parser that would make it difficult to recognize the
 positioning of a link, but trivial to parse one.  So the switch link will be a
-link whose title quote starts with a colon. So like an empty directive. It can
+link whose title quote starts with a colon. So an empty directive. It can
 still be positioned as always.  
 
 For header purposes, a link's square bracket portion will be returned to the
 surrounding block.
 
-Also headers will have a way to be modified based on their levels. The default
-will see no difference, but I think it can be very useful to have some of the
-headers such as level 5 and 6 be for other purposes. I have never used them.
+Also headers will have a way to be modified based on their levels. 
+I have never used levels 5 and 6, for example.
 As an example, one could have level 5 headers for tests, docs, and examples,
-that could then be compiled and run bey selecting those headers. It is a bit
-of a reverse from the typical. By having headers, we can then still use switch
-links within a test block and demarcate it. I might make something like that
-default. Not sure yet. 
+that could then be compiled and run bey selecting those headers.  Not sure yet. 
+
+Also, there is no tracking of the non-significant text. So for example, raw
+will not work in the same way. It was always a bit of a hack and now it will
+be more so. There can be easily a plugin that will search for the heading and
+cut the rest, etc. 
+
+## Structure of the module
+
+This is where we outline the structure of the compile document. Essentially,
+it is the module boilerplate setup, importing marked and event-when, and
+exporting the Document constructor. You can pass in a string and an array of
+event assignments to initialize or one can do that after the initialization.
+If you pass in stuff, the compilation will begin then. If you add all of that
+later, then you have to start the compilation by emitting a "ready to
+compile".
+
+By default, there are no methods for reading or writing out the results. It is
+the responsible of the caller to pass handlers to accomplish that.
+
+At the top of the heirarchy is a group of documents. This includes an event
+emitter 
+
+
+    /*global require, module process */
+    /*jslint evil:true*/
+
+    var EvW = require('event-when');
+    var marked = require('marked');
+
+    Folder = _"folder constructor"
+
+    Doc = _"doc constructor";
+
+    module.exports.Doc = Doc;
+
+## folder constructor
+
+This is the container that contains a bunch of related docs if need be and
+allows them to communicate to each other if need be. It is also where
+something like the read and write methods can be defined. It is likely only
+one will be used but in case there is a need for something else, we can do
+this. 
+
+    function () {
+
+        var gcd = this.gcd = new EvW();
+
+        _"load global actions"
+
+        return this;
+    }
+
+
+## Doc constructor
+
+This is the constructor which creates the doc structures. 
+
+We create an emitter of type EventWhen which we scope and expose publicly. This
+has a property doc that gets to the doc itself.
+
+    function (md, options) {
+        
+        var gcd = this.gcd = new EvW();
+        gcd.doc = this;
+
+        _"default actions"
+
+        _"customize actions"
+
+        if (md) {
+            this.litpro = md;
+            gcd.emit("ready to compile"); 
+        }
+        
+        return this;
+    }
+
+
+
+
+## default actions
+
+All of these get attached to the emitter of the doc and can be replaced or
+augmented 
+
+
+
+## On action 
+
+To smoothly integrate event-action workflows, we want to take a block, using
+the first line for an on and action pairing. 
+
+Then the rest of it will be in the function block of the action. 
+
+The syntax is  `event --> action : context` on the first line and the rest
+are to be used as the function body of the handler associated with the
+action. The handler has signature data, evObj. 
+
+
+    function (code) {
+        var lines = code.split("\n");
+    
+        var top = lines.shift().split("-->");
+        var event = top[0].trim();
+        var actcon = top[1].split(":");
+        var action = actcon[0].trim();
+        var context = (actcon[1] || "").trim();
+        
+        var ret = 'gcd.on("' + event + '", "' + action + 
+            '"' + (context ? (', ' + context) : '') + ");\n\n";
+
+       ret += 'gcd.action("' +  action + '", ';
+       ret += 'function (data, evObj) {\n        var gcd = evObj.emitter;\n';
+       ret += '        ' + lines.join('\n        ');
+       ret += '\n    }\n);';
+       
+       return ret;
+    }
+
+[oa](#on-action "define: command | | now")
+
 
 ## How to write a literate program
 
