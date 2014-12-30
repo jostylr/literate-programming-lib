@@ -161,6 +161,113 @@ and hten what to do.
     
     folder.gcd.emit("need document", filename);
 
+### parsing events
+
+These are common events that need to be loaded to the emitter. These are the
+ones that assemble the literate programs. 
+
+
+[heading]()
+
+Headings create blocks. For heading levels 1-4, they create new blocks on an
+equal footing. For heading leavels 5,6, they create relative blocks using
+slashes from the currently selected block (a directive could be used to switch
+current block?) Level 6 is relative to level 5 and the level above so
+something like `great code/test/particular` from a 3, 5, 6 combo. 
+
+The headings are there to start code blocks. The code blocks concatenate into
+whatever is there. The code looks at subcur first and if nothing is there,
+then it use hcur. The subcur comes from switches, and level 5, 6.
+
+    heading found --> add block
+    var file = evObj.pieces[0];
+    var doc = gcd.parent.docs[file];
+    var curname = doc.curname = text;
+    doc.levels[0] = text;
+    doc.levels[1] = '';
+    doc.levels[2] = '';
+    doc.blocks[curname] = '';
+
+[heading 5]()
+
+The 5 level is one level below current heading. We stop the event propagation.
+
+
+    heading found:5 --> add slashed block 
+    var file = evObj.pieces[0];
+    var doc = gcd.parent.docs[file];
+    doc.levels[1] = text;
+    doc.levels[2] = '';
+    var curname = doc.curname = doc.levels[0]+'/'+text;
+    doc.blocks[curname] = '';
+    evObj.stop = true;
+
+
+[heading 6]()
+
+The 6 level is one level below current heading. We stop the event propagation.
+
+
+    heading found:5 --> add slashed block 
+    var file = evObj.pieces[0];
+    var doc = gcd.parent.docs[file];
+    doc.levels[2] = text;
+    var curname = doc.curname = doc.levels[0]+'/'+doc.levels[1]+'/'+text;
+    doc.blocks[curname] = '';
+    evObj.stop = true;
+
+[switch]()
+
+Whenever a minor switch block directive is found, this is used. 
+
+    minor switch --> 
+
+[code]()
+
+We emit found code blocks with optional language. These should be stored and
+concatenated as need be. 
+
+    function (code, lang) {
+        if (lang) {
+            gcd.emit("code block found:"+lang+":"+file,code);
+        } else {
+            gcd.emit("code block found:"+ file, code);
+        }
+        return code;
+    }
+
+[link]() 
+
+Links may be directives if one of the following things occur:
+
+1. Title contains a colon. If so, then it is emitted as a directive with the
+   stuff preceeding the colon being a directive. The data sent is an array
+   with the link text, the stuff after the colon, and the href being sent.
+2. Title starts with a colon in which case it is a switch directive. The stuff
+   after the colon is sent as second in the data array, with the link text as
+   first. The href in this instance is completely ignored.
+3. Title and href are empty. 
+
+Return the text in case it is included in a header; only the link text will be
+in the heading then. 
+
+    function (href, title, text) {
+        var ind;
+        if ((!href) && (!title)) {
+            gcd.emit("switch code block"+file, [text, ""]);
+        } else if (title[0] === ":") {
+            gcd.emit("switch code block"+file, [text, title.slice(1)]);
+        } else if ( (ind = title.indexOf(":")) !== -1) {
+            gcd.emit("directive found:"+title.slice(0,ind)+":"+file, 
+                [text, title.slice(ind+1), href]);
+        }
+        return text;
+    }
+
+
+
+
+
 ## Doc constructor
 
 This is the constructor which creates the doc structures. 
@@ -187,6 +294,9 @@ All of these get attached to the emitter of the doc and can be replaced or
 augmented 
 
 
+
+
+
 ## marked
 
 Here we model the flow of parsing of the text. We use the parser marked but
@@ -195,8 +305,14 @@ have overwrite its output. Or rather, we output events.
 We wrap it all in a function using a closure for the file and gcd variables
 for emitting purposes. 
 
+We have a .when for being done with parsing. Any kind of async in the
+rendering (directives!) can be waited for with a `.when(..., "parsing
+done:"+file);
+
     function (doc, file, gcd) {
     
+        emitter.when("marked done:"+file, "parsing done:"+file);
+        
         var renderer = new marked.Renderer(); 
 
         renderer.heading = _":heading";
@@ -204,6 +320,8 @@ for emitting purposes.
         renderer.link = _":link";   
         
         marked(doc, {renderer:renderer});
+
+        emitter.emit("marked done:"+file);
 
     }
 
@@ -225,7 +343,7 @@ concatenated as need be.
         if (lang) {
             gcd.emit("code block found:"+lang+":"+file,code);
         } else {
-            gcd.emit("code blcok found:"+ file, code);
+            gcd.emit("code block found:"+ file, code);
         }
         return code;
     }
@@ -279,6 +397,19 @@ the emitter.
     }
 
 
+## Some Plugins
+
+Here we have some commands and directives that are of common use
+
+### Eval
+
+This implements the command `eval`. This evaluates the code as JavaScript. The
+parameters setup the vars of the environment and what is accessible. 
+
+### 
+
+
+
 ## On action 
 
 To smoothly integrate event-action workflows, we want to take a block, using
@@ -317,7 +448,7 @@ action. The handler has signature data, evObj.
 ## How to write a literate program
 
 Use markdown. Each heading is a new heading block (hblock) and can be
-referenced by using `_"title"`. This substitution has more features,
+referenced by using _"title"`. This substitution has more features,
 documented below. 
 
 Within each hBlock, one can write free form markdown explanatory text,
