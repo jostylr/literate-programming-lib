@@ -49,7 +49,9 @@ match the general parsing of markdown programs, I am moving towards using a
 professional markdown parser that would make it difficult to recognize the
 positioning of a link, but trivial to parse one.  So the switch link will be a
 link whose title quote starts with a colon. So an empty directive. It can
-still be positioned as always.  
+still be positioned as always.  Also can implement it so that if the
+parenthetical is completely empty, then that is a switch. I noticed that that
+is what I often do. 
 
 For header purposes, a link's square bracket portion will be returned to the
 surrounding block.
@@ -86,6 +88,10 @@ emitter
 
     var EvW = require('event-when');
     var marked = require('marked');
+    
+    var apply = _"apply";
+
+    var parse = _"marked";
 
     Folder = _"folder constructor"
 
@@ -99,42 +105,79 @@ This is the container that contains a bunch of related docs if need be and
 allows them to communicate to each other if need be. It is also where
 something like the read and write methods can be defined. It is likely only
 one will be used but in case there is a need for something else, we can do
-this. 
+this.
 
-    function () {
+Some things such as how to take in input and put out output are needed to be
+added. The internal basic compiling is baked in though it can be overwritten.
+
+    function (actions) {
 
         var gcd = this.gcd = new EvW();
+        this.docs = {};
+        gcd.parent = this;
 
-        _"load global actions"
+        apply(actions);
 
         return this;
     }
 
+
+
+    
+
+
+### Example of folder constructor use
+
+This is an example that roughly sketches out what to pass in to constructor
+and hten what to do.
+
+    folder = new Folder({
+        "on" : [ 
+            ["need document", "fetch document"],
+            ["document fetched", "compile document"],
+            ["file compiled, "write file"]
+           ],
+        "action" : [
+            ["fetch document", function (file, evObj) {
+                var gcd = evObj.emitter;
+                 readfile(file, function (err, text) {
+                    if (err) {
+                        gcd.emit("document fetching failed:"+file, err);
+                    } else {
+                        gcd.parent[file] = text;
+                        gcd.emit("document fetched:"+file);
+                    }
+               });
+           ],
+           ["compile document", function (text, evObj) {
+              var gcd = evObj.emitter;
+              var filename = evObj.pieces[0];
+              var doc folder.docs[filename] = new Doc(text);
+              gcd.emit("need parsing:"+filename);
+           }];
+        ]
+        .....
+    });
+    
+    folder.gcd.emit("need document", filename);
 
 ## Doc constructor
 
 This is the constructor which creates the doc structures. 
 
-We create an emitter of type EventWhen which we scope and expose publicly. This
-has a property doc that gets to the doc itself.
+The emitter is shared within a folder, each document is scoped using its
+filename location. The doc structure is just a holding object with none of its
+own methods. 
 
-    function (md, options) {
-        
-        var gcd = this.gcd = new EvW();
-        gcd.doc = this;
+To have event/action flows different than standard, one can write scoped
+listeners and then set `evObj.stop = true` to prevent the propagation upwards.
 
-        _"default actions"
 
-        _"customize actions"
+    function (text) {
+        this.text = text;
+        this.cblocks = {};
 
-        if (md) {
-            this.litpro = md;
-            gcd.emit("ready to compile"); 
-        }
-        
-        return this;
     }
-
 
 
 
@@ -143,6 +186,97 @@ has a property doc that gets to the doc itself.
 All of these get attached to the emitter of the doc and can be replaced or
 augmented 
 
+
+## marked
+
+Here we model the flow of parsing of the text. We use the parser marked but
+have overwrite its output. Or rather, we output events.
+
+We wrap it all in a function using a closure for the file and gcd variables
+for emitting purposes. 
+
+    function (doc, file, gcd) {
+    
+        var renderer = new marked.Renderer(); 
+
+        renderer.heading = _":heading";
+        renderer.code = _":code";
+        renderer.link = _":link";   
+        
+        marked(doc, {renderer:renderer});
+
+    }
+
+[heading]()
+
+Headings create blocks. We emit an event to say we found one.
+
+    function (text, level) {
+        gcd.emit("heading found:"+level+":"+file,text);
+        return text;
+    }
+    
+[code]()
+
+We emit found code blocks with optional language. These should be stored and
+concatenated as need be. 
+
+    function (code, lang) {
+        if (lang) {
+            gcd.emit("code block found:"+lang+":"+file,code);
+        } else {
+            gcd.emit("code blcok found:"+ file, code);
+        }
+        return code;
+    }
+
+[link]() 
+
+Links may be directives if one of the following things occur:
+
+1. Title contains a colon. If so, then it is emitted as a directive with the
+   stuff preceeding the colon being a directive. The data sent is an array
+   with the link text, the stuff after the colon, and the href being sent.
+2. Title starts with a colon in which case it is a switch directive. The stuff
+   after the colon is sent as second in the data array, with the link text as
+   first. The href in this instance is completely ignored.
+3. Title and href are empty. 
+
+Return the text in case it is included in a header; only the link text will be
+in the heading then. 
+
+    function (href, title, text) {
+        var ind;
+        if ((!href) && (!title)) {
+            gcd.emit("switch code block"+file, [text, ""]);
+        } else if (title[0] === ":") {
+            gcd.emit("switch code block"+file, [text, title.slice(1)]);
+        } else if ( (ind = title.indexOf(":")) !== -1) {
+            gcd.emit("directive found:"+title.slice(0,ind)+":"+file, 
+                [text, title.slice(ind+1), href]);
+        }
+        return text;
+    }
+
+
+## apply
+
+We will load events, actions, and handlers, etc., here. They should be passed
+in to the constructor in the form of  `method name: [ [args 1], [args2], ...]`
+and this method will iterate over it all to load the events and so forth to
+the emitter. 
+
+    function (instance, obj) {
+        var meth, i, n;
+
+        for (meth in obj) {
+            n = obj[meth].length;
+            for (i = 0; i < n; i += 1) {
+                instance[meth].apply(instance, obj[meth][i]);
+            }
+
+        }
+    }
 
 
 ## On action 
