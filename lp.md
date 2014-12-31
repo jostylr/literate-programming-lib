@@ -167,6 +167,15 @@ These are common events that need to be loaded to the emitter. These are the
 ones that assemble the literate programs. 
 
 
+[heading vars]()
+
+This is just an intro that seems commonly needed.
+ 
+    var file = evObj.pieces[0];
+    var doc = gcd.parent.docs[file];
+    var text = data;
+    
+
 [heading]()
 
 Headings create blocks. For heading levels 1-4, they create new blocks on an
@@ -180,13 +189,14 @@ whatever is there. The code looks at subcur first and if nothing is there,
 then it use hcur. The subcur comes from switches, and level 5, 6.
 
     heading found --> add block
-    var file = evObj.pieces[0];
-    var doc = gcd.parent.docs[file];
+    _"heading vars"
+    var text = data;
     var curname = doc.curname = text;
     doc.levels[0] = text;
     doc.levels[1] = '';
     doc.levels[2] = '';
     doc.blocks[curname] = '';
+    doc.minor = '';
 
 [heading 5]()
 
@@ -194,13 +204,13 @@ The 5 level is one level below current heading. We stop the event propagation.
 
 
     heading found:5 --> add slashed block 
-    var file = evObj.pieces[0];
-    var doc = gcd.parent.docs[file];
+    _"heading vars"
     doc.levels[1] = text;
     doc.levels[2] = '';
     var curname = doc.curname = doc.levels[0]+'/'+text;
     doc.blocks[curname] = '';
     evObj.stop = true;
+    doc.minor = '';
 
 
 [heading 6]()
@@ -208,24 +218,37 @@ The 5 level is one level below current heading. We stop the event propagation.
 The 6 level is one level below current heading. We stop the event propagation.
 
 
-    heading found:5 --> add slashed block 
-    var file = evObj.pieces[0];
-    var doc = gcd.parent.docs[file];
+    heading found:5 --> add double slashed block 
+    _"heading vars"
     doc.levels[2] = text;
     var curname = doc.curname = doc.levels[0]+'/'+doc.levels[1]+'/'+text;
     doc.blocks[curname] = '';
     evObj.stop = true;
+    doc.minor = '';
 
 [switch]()
 
-Whenever a minor switch block directive is found, this is used. 
+Whenever a minor block directive is found, this is used.
 
-    minor switch --> 
+can add to minor label by 
+
+    switch found  --> create minor block
+    _"heading vars"
+    text = data[0];
+    doc.minor = text;
+    doc.blocks[curname+":"+text] = '';
+
 
 [code]()
 
-We emit found code blocks with optional language. These should be stored and
-concatenated as need be. 
+Code blocks are concatenated into the current one. The language is ignored for
+this.
+
+    code block found --> add code block
+    _"heading vars"
+    if (doc.minor) {
+        
+    }
 
     function (code, lang) {
         if (lang) {
@@ -235,6 +258,17 @@ concatenated as need be.
         }
         return code;
     }
+
+[code ignore]()
+
+If you want to have code that gets ignored, you can use code fences with a
+language of `ignore`. We do nothing other than stop the event propagation. 
+
+The downside is that we loose the highlight. 
+
+    code block found:ignore --> ignore code block
+    evObj.stop = true;
+
 
 [link]() 
 
@@ -265,7 +299,12 @@ in the heading then.
     }
 
 
+### Parsing commands
 
+Commands are the stuff after pipes. They consist of some text followed by an
+option set of parentheses. The insides of the parentheses is a comma
+separated list of argument. Those arguments are interpreted as commands or
+variables unless quoted (quotes are escapable). 
 
 
 ## Doc constructor
@@ -307,7 +346,7 @@ for emitting purposes.
 
 We have a .when for being done with parsing. Any kind of async in the
 rendering (directives!) can be waited for with a `.when(..., "parsing
-done:"+file);
+done:"+file);`
 
     function (doc, file, gcd) {
     
@@ -366,9 +405,9 @@ in the heading then.
     function (href, title, text) {
         var ind;
         if ((!href) && (!title)) {
-            gcd.emit("switch code block"+file, [text, ""]);
+            gcd.emit("switch found:"+file, [text, ""]);
         } else if (title[0] === ":") {
-            gcd.emit("switch code block"+file, [text, title.slice(1)]);
+            gcd.emit("switch found:"+file, [text, title.slice(1)]);
         } else if ( (ind = title.indexOf(":")) !== -1) {
             gcd.emit("directive found:"+title.slice(0,ind)+":"+file, 
                 [text, title.slice(ind+1), href]);
@@ -467,11 +506,11 @@ To reference a cblock, the full precise name, a cblock name, is  "litprodoc ::
 hblock : cblock.ext"  where all but hblock is optional. Also hblock.ext grabs
 the unnamed extension relevant to it. 
 
-To use a cblock, use the substitution command  _"cblock name | commands ..."
+To use a cblock, use the substitution command  `_"cblock name | commands ..."`
 where commands can do stuff on the code text and each pipes into the next. 
 
-Examples:  _"Great:jack|marked",  _"Great:.md" or "Great.md",
-_"Great|marked", _"Great:jack.md",  ":jack"  will load the internal block
+Examples:`  _"Great:jack|marked",  _"Great:.md" or "Great.md",
+_"Great|marked", _"Great:jack.md",  ":jack"`  will load the internal block
 named jack
 
 The save directive is used to save a file:
@@ -1975,7 +2014,7 @@ Once all matches are found, we replace the text in the code block. We use the cu
 
 The substitutions may become asynchronous. 
 
-For evaling, no substitutions are done. It is just straight, one line code. If evaling a block is needed use _"block to run|eval"
+For evaling, no substitutions are done. It is just straight, one line code. If evaling a block is needed use `_"block to run|eval"`
 
 
 
