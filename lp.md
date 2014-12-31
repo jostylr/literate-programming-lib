@@ -230,16 +230,12 @@ Whenever a minor block directive is found, this is used.
 
 It uses the doc.heading as the base, appending a colonated heading stored in
 the current name. Note the colon is a triple colon. All variable recalls will
-have colons transformed into triple colons. This is stored in doc.colon for
-overriding if need be. 
+have colons transformed into triple colons. This is stored in colon.v for
+global overriding if need be. 
 
     switch found  --> create minor block
     _"heading vars"
     text = data[0];
-    var title = data[1];
-    if (title) {
-
-    }
     var curname = doc.curname = doc.heading+colon.v+text;
     doc.blocks[curname] = '';
     var title = data[1];
