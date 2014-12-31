@@ -88,7 +88,9 @@ emitter
 
     var EvW = require('event-when');
     var marked = require('marked');
-    
+   
+    _"colon"
+
     var apply = _"apply";
 
     var parse = _"marked";
@@ -97,7 +99,7 @@ emitter
 
     Doc = _"doc constructor";
 
-    module.exports.Doc = Doc;
+    module.exports.Folder = Folder;
 
 ## folder constructor
 
@@ -190,13 +192,11 @@ then it use hcur. The subcur comes from switches, and level 5, 6.
 
     heading found --> add block
     _"heading vars"
-    var text = data;
-    var curname = doc.curname = text;
+    var curname = doc.heading = doc.curname = text;
     doc.levels[0] = text;
     doc.levels[1] = '';
     doc.levels[2] = '';
     doc.blocks[curname] = '';
-    doc.minor = '';
 
 [heading 5]()
 
@@ -207,10 +207,9 @@ The 5 level is one level below current heading. We stop the event propagation.
     _"heading vars"
     doc.levels[1] = text;
     doc.levels[2] = '';
-    var curname = doc.curname = doc.levels[0]+'/'+text;
+    var curname = doc.heading = doc.curname = doc.levels[0]+'/'+text;
     doc.blocks[curname] = '';
     evObj.stop = true;
-    doc.minor = '';
 
 
 [heading 6]()
@@ -218,25 +217,35 @@ The 5 level is one level below current heading. We stop the event propagation.
 The 6 level is one level below current heading. We stop the event propagation.
 
 
-    heading found:5 --> add double slashed block 
+    heading found:6 --> add double slashed block 
     _"heading vars"
     doc.levels[2] = text;
-    var curname = doc.curname = doc.levels[0]+'/'+doc.levels[1]+'/'+text;
+    var curname = doc.heading = doc.curname = doc.levels[0]+'/'+doc.levels[1]+'/'+text;
     doc.blocks[curname] = '';
     evObj.stop = true;
-    doc.minor = '';
 
 [switch]()
 
 Whenever a minor block directive is found, this is used.
 
-can add to minor label by 
+It uses the doc.heading as the base, appending a colonated heading stored in
+the current name. Note the colon is a triple colon. All variable recalls will
+have colons transformed into triple colons. This is stored in doc.colon for
+overriding if need be. 
 
     switch found  --> create minor block
     _"heading vars"
     text = data[0];
-    doc.minor = text;
-    doc.blocks[curname+":"+text] = '';
+    var title = data[1];
+    if (title) {
+
+    }
+    var curname = doc.curname = doc.heading+colon.v+text;
+    doc.blocks[curname] = '';
+    var title = data[1];
+    if (title) {
+        
+    }
 
 
 [code]()
@@ -322,7 +331,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
     function (text) {
         this.text = text;
         this.cblocks = {};
-
+        
     }
 
 
@@ -333,7 +342,28 @@ All of these get attached to the emitter of the doc and can be replaced or
 augmented 
 
 
+## colon
 
+This is about the colon stuff. Colons are used in event-when for separating
+events; this is convenient. But colons are also used for minor blocks as well
+as present in protocols and what not. So if we use those unescaped, then the
+colons will create separate events. This is not good. So we escape colons to
+triple colons which hopefully is visible to most as a triple colon. Don't know
+of any use of them so that should be good too. 
+
+This defines the colon which we use internally. To escape the colon or
+unescape, we define methods and export them. 
+
+
+    var colon = module.exports.colon =  {
+        v : "\u2AF6",
+        escape : function (text) {
+            text.replace(":", colon);
+        },
+        restore : function (text) {
+            text.replace(colon, ":");
+        }
+    };
 
 
 ## marked
