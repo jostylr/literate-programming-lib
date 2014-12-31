@@ -434,16 +434,45 @@ in the heading then.
 
     function (href, title, text) {
         var ind;
+        var pipes, middle;
         if ((!href) && (!title)) {
             gcd.emit("switch found:"+file, [text, ""]);
         } else if (title[0] === ":") {
-            gcd.emit("switch found:"+file, [text, title.slice(1)]);
+            ind = 0;
+            _":before pipe"
+            if (middle) {
+                text += "." + middle;    
+            }
+            gcd.emit("switch found:" + file, [text,pipes]);
         } else if ( (ind = title.indexOf(":")) !== -1) {
-            gcd.emit("directive found:"+title.slice(0,ind)+":"+file, 
-                [text, title.slice(ind+1), href]);
+            _":before pipe"
+            gcd.emit("directive found:"+title.slice(0,ind) + ":" + file, 
+                [text, middle, pipes, href]);
         }
         return text;
     }
+
+[before pipe]()
+
+This takes the possible part in the middle between the directive's colon and
+the first pipe. Note that this is assuming there are no pipes in the directive
+names, an assumption which I think is a good one. Pipes are to be used for
+piping. Ideally, directives are names. 
+
+This will produce  `middle === 'js'` for `: js` or  `: js| jshint` with the
+latter producing `pipes === 'jshint'`.  If there is no extension such as `:`
+or `: | jshint`, then `middle === ''` and should be falsey. 
+
+
+    pipes = title.indexOf("|");
+    if (pipes === -1) {
+        middle = title.slice(ind+1).trim(); 
+        pipes = '';
+    } else {
+        middle = title.slice(ind+1, pipes).trim();
+        pipes = title.slice(pipes+1).trim();
+    }
+
 
 
 ## apply
