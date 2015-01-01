@@ -534,6 +534,9 @@ loop. The fragments part of document is where we assemble the pieces of the
 code block, but the subsitute part and the part in between. When all the
 pieces have settled, we join them as the final step (another event).
 
+This function can also be used as a directive, just send in a text and var
+name to store it. This is another way to do multiple substitution runs.
+
     function (block, name) {
         var found, pipe, quote;
         var ind = 0;
@@ -568,6 +571,25 @@ pieces have settled, we join them as the final step (another event).
 
 Is the character after the underscore a quote? Can be double or single or
 backtick. 
+
+    if (block[ind].match(/['"`]/)) {
+        quote = block[ind];
+    } else {
+        continue;
+    }
+
+[check for escaped]()
+
+So we need to see if there are backslashes before the underscore.
+
+     slashcount = 
+
+
+[we are a go]()
+
+[figure out indent]()
+
+[parse to pipe]()
 
 
 
