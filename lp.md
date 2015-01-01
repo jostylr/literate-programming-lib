@@ -64,7 +64,16 @@ that could then be compiled and run bey selecting those headers.  Not sure yet.
 Also, there is no tracking of the non-significant text. So for example, raw
 will not work in the same way. It was always a bit of a hack and now it will
 be more so. There can be easily a plugin that will search for the heading and
-cut the rest, etc. 
+cut the rest, etc.
+
+Multiple substitue cycles are no longer supported. I always found it hard to
+reason about it and it greatly simplifies the code. If you need that
+functionality, it probably is workable with substitues and the variable
+storage introduced. 
+
+The compiled blocks are stored as variables. We can store arbitrary variable
+names and so potentially can conflict with block names. You have been warned.
+It is all "global" scopre though you can use syntax to kind of scope it. 
 
 ## Structure of the module
 
@@ -304,12 +313,8 @@ in the heading then.
     }
 
 
-### Parsing commands
 
-Commands are the stuff after pipes. They consist of some text followed by an
-option set of parentheses. The insides of the parentheses is a comma
-separated list of argument. Those arguments are interpreted as commands or
-variables unless quoted (quotes are escapable). 
+
 
 
 ## Doc constructor
@@ -327,7 +332,8 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
     function (text) {
         this.text = text;
         this.cblocks = {};
-        
+        this.fragments = {};
+        this.vars = {};
     }
 
 
@@ -459,6 +465,9 @@ This will produce  `middle === 'js'` for `: js` or  `: js| jshint` with the
 latter producing `pipes === 'jshint'`.  If there is no extension such as `:`
 or `: | jshint`, then `middle === ''` and should be falsey. 
 
+We add a quote to pipes to terminate it as that is a signal to end in other
+pipe parsings, one that got stripped by the title matching of links. 
+
 
     pipes = title.indexOf("|");
     if (pipes === -1) {
@@ -466,7 +475,7 @@ or `: | jshint`, then `middle === ''` and should be falsey.
         pipes = '';
     } else {
         middle = title.slice(ind+1, pipes).trim();
-        pipes = title.slice(pipes+1).trim();
+        pipes = title.slice(pipes+1).trim()+";
     }
 
 
@@ -491,6 +500,110 @@ the emitter.
     }
 
 
+## Substitute parsing
+
+This is where we deal with parsing a given code block and handling the
+substituting. 
+
+This is an function that responds to the event `block needs compiling:file:block name`. 
+
+
+    block needs compiling --> compiling block
+    var file = evObj.scopes[1];
+    var blockname = evObj.scopes[0];
+    var doc = gcd.parent.doc[file]; 
+    var block = doc.blocks[blockname];
+    blockCompiling(block, file+":"+blockname);
+
+### Block compiling
+
+This is the actual parsing function. We look for underscores, basically. 
+
+Some tricky bits. 
+
+* We want to escape out underscores with slashes. So slashes
+in front of an underscore get replaced in pairs. Note that we will need to
+escape any underscores that are nested, i.e. `\_"\_"asd " "`
+* We want smart indenting
+* We need to replace the substitute. Thinking making an array that gets
+  joined. We divide the text. 
+* We allow any quote (single, double, backtick) and need it matched.
+
+After each check, if we need to stop, we break out of the if by continuing the
+loop. The fragments part of document is where we assemble the pieces of the
+code block, but the subsitute part and the part in between. When all the
+pieces have settled, we join them as the final step (another event).
+
+    function (block, name) {
+        var found, pipe, quote;
+        var ind = 0;
+        var loc = 0; 
+        doc.fragments[name] = [];
+        var last = 0; 
+        var n  = string.length;
+        gcd.when("block substitute parsing done:"+name, "block compiled:"+name);
+        while (ind < n) {
+            if (block[ind] === "_") {
+                found = ind;
+                ind += 1;
+
+                _":check for quote"
+                
+                _":check for escaped" 
+
+                _":we are a go"
+
+                _":figure out indent"
+
+                _":parse to pipe"
+
+                end = pipeParse(block, pipe, quote, name+":"+loc);
+                
+            }
+        }
+        gcd.emit("block substitute parsing done:"+name);
+    }
+
+[check for quote]()
+
+Is the character after the underscore a quote? Can be double or single or
+backtick. 
+
+
+
+## Parsing commands
+
+Commands are the stuff after pipes. They consist of some text followed by an
+optional set of parentheses or square brackets (useful in title links). The insides of the parentheses is a comma
+separated list of arguments. Those arguments are pased raw unless in `_"..."`
+or `_'...'` which is appropriate in a title of a link directive as embedded
+quotes are not so good.
+
+When the parsing is done for the embedded commands, the output is passed in as
+an argument into the surrounding command. 
+
+A slash escapes anything that follows it though mileage may vary for double
+quotes in titles in links. 
+
+We start the parsing assuming that a command is the first thing to see and it
+will end either with a parentheses, pipe, or quote. No escaping is done here. 
+
+When in argument mode, we check for the first character being an underscore
+followed by a quote. If so, then we parse that out as a substitution. 
+
+Otherwise, we chunk along until a comma, parentheses, or an escape slash is
+found. Then we take appropriate action. 
+
+When a command is finalized, we emit the command as the leading event followed
+by its scope. 
+
+    function (text, scope) {
+        
+
+    }
+
+
+
 ## Some Plugins
 
 Here we have some commands and directives that are of common use
@@ -500,9 +613,15 @@ Here we have some commands and directives that are of common use
 This implements the command `eval`. This evaluates the code as JavaScript. The
 parameters setup the vars of the environment and what is accessible. 
 
-### 
+### Literal
 
+In order to have the full expressive power one might want, we have a literal
+command that can be used to output whatever without further subbing. So
+something like `_"|literal(\_\"\"")` would output `_""`.  ????
 
+    function (arg) {
+        return arg;
+    }
 
 ## On action 
 
@@ -538,11 +657,17 @@ action. The handler has signature data, evObj.
 
 [oa](#on-action "define: command | | now")
 
+## todo
+
+This is a list of things todo in the short term: 
+
+* command parsing
+
 
 ## How to write a literate program
 
 Use markdown. Each heading is a new heading block (hblock) and can be
-referenced by using _"title"`. This substitution has more features,
+referenced by using `_"title"`. This substitution has more features,
 documented below. 
 
 Within each hBlock, one can write free form markdown explanatory text,
