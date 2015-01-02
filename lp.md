@@ -73,7 +73,18 @@ storage introduced.
 
 The compiled blocks are stored as variables. We can store arbitrary variable
 names and so potentially can conflict with block names. You have been warned.
-It is all "global" scopre though you can use syntax to kind of scope it. 
+It is all "global" scope though you can use syntax to kind of scope it. Well,
+actually we are scoped to the documents, that is `docname::..` gives another
+scope which the var setting respects. 
+
+Another break is that block names need to match. There is the main block which
+has no minor associated with it and then there are the minors of the block. If
+you want the minor commands on the main, then start the code line with `[](#
+":|...")` where the colon is there to indicate a minor directive, but with no
+name and no extension, this will signal the main block. Note that this will
+overwrite whatever was in the main code block, if anything. Once a block
+(minor or not) is switched from, it cannot be added to later. Trust me, this
+is a good thing. 
 
 ## Structure of the module
 
@@ -107,6 +118,8 @@ emitter
     Folder = _"folder constructor"
 
     Doc = _"doc constructor";
+
+    Doc.prototype.find = _"variable retrieval"
 
     module.exports.Folder = Folder;
 
@@ -499,6 +512,31 @@ the emitter.
         }
     }
 
+## Variable retrieval
+
+This function retrieves the variable either from the local document or from
+other scopes. 
+
+The local variables are in the vars object, easily enough. The scopes refer to
+var containing objects of other documents or artificial scopes (which may or
+may not be global, depending on how it is made). Note that one doc can name the scopes
+potentially different than other docs do. Directives define the scope name
+locally. Also note that scopes, even perfectly valid ones, may not exist 
+
+    function (name) {
+        var ind, scope;
+        if (  (ind = name.indexOf( colon.v + colon.v) ) !== -1 ) {
+            scope = this.scopes[ name.slice(0,ind) ] ;
+            if (typeof scope === "undefined" ) {
+                scope = 
+            }
+            name = name.slice(ind + 2);
+        } else {
+            scope = this.vars;
+        }
+        if (scope.hasOwnProperty(
+    }
+
 
 ## Substitute parsing
 
@@ -537,11 +575,14 @@ pieces have settled, we join them as the final step (another event).
 This function can also be used as a directive, just send in a text and var
 name to store it. This is another way to do multiple substitution runs.
 
+The variable last is where to start from the last match. 
+
     function (block, name) {
-        var found, pipe, quote;
+        var found, pipe, quote, place, qfrag, 
+            backcount, index, first, chr;
         var ind = 0;
-        var loc = 0; 
-        doc.fragments[name] = [];
+        var loc = 0; // location in fragment array 
+        var frags = doc.fragments[name] = [];
         var last = 0; 
         var n  = string.length;
         gcd.when("block substitute parsing done:"+name, "block compiled:"+name);
@@ -556,11 +597,9 @@ name to store it. This is another way to do multiple substitution runs.
 
                 _":we are a go"
 
-                _":figure out indent"
 
                 _":parse to pipe"
 
-                end = pipeParse(block, pipe, quote, name+":"+loc);
                 
             }
         }
@@ -580,17 +619,169 @@ backtick.
 
 [check for escaped]()
 
-So we need to see if there are backslashes before the underscore.
+So we need to see if there are backslashes before the underscore. We first
+decide if there are any and how many. If there are, then we need to cut a
+fragment off pre slashes. Next, we figure out if the underscore is escaped and
+replace any backslashes that have been escaped. With one slash, we continue
+the loop ignoring all that has been.  We subtract 2 from ind since we already
+incremented for smooth continuity. 
 
-     slashcount = 
+     place = ind-2;
+     slashcount = 0;
+     while (block[place]) === '\\') {
+        slashcount += 1;
+        place -= 1;
+     }
+     if (slashcount) {
+        _":deal with escapes"
+     }
+
+[deal with escapes]() 
+
+Here we are in the case of escapes. It is not particularly efficient but should rarely
+happen. We definitely split here at this point.
+
+If underscore is escaped, then we cut up to ind (remember it is added 1
+already). This cuts to the underscore. 
+
+    qfrag = ''; 
+    while (slashcount > 1) {
+        qfrag += "\\";
+        slashcount -= 2;
+    }
+
+    frags[loc] = block.slice(last,place+1)+qfrag + 
+       ( ( slashcount === 1) ? "_" : "" ) ;
+    loc += 1;
+    if (slashcount === 1) {
+        last = ind; // will start next frag after escaped underscore.
+        continue;
+    } else {
+        last = ind-1;
+    }
+
+Gonna need some testing here.
 
 
 [we are a go]()
 
+So at this point we know we have the start of a sub command. So we process
+forward. In part, this means cutting up the previous string for loc. We reuse
+the place variable as ind-1, the place of underscore
+
+    place = ind-1;
+    if (last !== place ) {
+        frags[loc] = block.slice(last, place);
+        loc += 1;
+    }
+    lname = name + colon.v + loc;
+    if (place > 0) {
+        _":figure out indent"
+    } else {
+        indent = [0,0];
+    }
+
+
 [figure out indent]()
+
+What is the indent? We need to find out where the first new line is and the
+first non-blank character. If the underscore is first, then we have an indent
+for all lines in the end; otherwise we will indent only at the end. 
+
+The if checks if we are already at the beginning of the string; if not, we
+look at the character. first is first non-blank character.
+
+    first = place;
+    backcount = place-1;
+    while (true) {
+        if ( (backcount < 0) || ( (char = block[backcount]) === "\n" ) ) {
+            indent = first - ( backcount + 1 ) 
+            if (first === place) { // indent both
+                indent = [indent, indent];
+            } else {
+                indent = [0, indent];
+            }
+            break;
+        }
+        if (char.search/[S]/) === 0) {
+            first = backcount;
+        }
+        backcount -= 1;
+        doc.indents[lname] = indent;
+    }
+
 
 [parse to pipe]()
 
+This is fairly simple. We want to crunch along until we find a pipe or hit the
+ending quote or run-off the end of the string (shouldn't happen; we emit an
+event and stop subbing).  The
+text taken is the variable, after being trimmed. 
+
+The index is already pointing to the quote.  
+
+The pipe parser is synchronous. It queues up all the commands based on the
+text being ready.
+
+So there are a lot of names going on here. There is `name` which is the block
+name, `lname` which is the block name plus the location added, then there is
+`subname` which is the reference to the variable being subbed in. But there
+might be no `subname` if it is a direct command evaluation. Each text is
+stored in its respective structure in the docs.
+
+An empty subname will retrieve an empty text from the document. 
+
+The events are scoped by numbers using tripe colon as separator. Note the
+colon itself is the event separator. 
+
+The `.when` supplies the data of the events called in an array in order of the
+emitting. The array is specificaly `[ [ev1, data1], [ev2, data2]]` etc. 
+
+
+```js
+
+while(ind < n) {
+    ind += 1;
+    chr = block[ind];
+    lname = name + colon.v + loc;
+    if (!chr) { // end of string
+        gcd.emit("incomplete substitution command:"+lname,
+            [place, ind]);
+        frags[loc] = block.slice(place);
+        last = false;
+        loc += 1;
+        break;
+    }
+    if ( (chr === "|" || (chr === quote) ) {
+        subname = colon.escape(block.slice(place + 2, ind).trim());
+        if ( chr === "|") {
+            last = pipeParse(block, ind, quote, lname);
+            break;
+        } else if (chr === quote) {
+            last = ind + 1;
+            gcd.once("text ready:" + lname + colon.v + "0", function (data) {
+                var text = data[0][1];
+                gcd.emit("substitute text ready:"+lname, text);
+            });   
+            break;
+        }
+    }
+}
+if (last) {
+    subtext = gcd.parent.find(subname);
+    if (typeof subtext === "undefined") {
+        gcd.when( "text stored:" + subname, "text ready:" + lname + colon.v + "0" );
+    } else {
+        gcd.when("text retrieved:"+subname, "text ready:" + lname + colon.v + "0" );
+        gcd.emit("text retrieved:"+subname, subtext);
+    }
+    ind = last; 
+} else {
+    
+}   
+```    
+   
+    
 
 
 ## Parsing commands
