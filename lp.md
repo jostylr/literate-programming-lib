@@ -363,6 +363,13 @@ variable name.
 
 * Document compiling starts with a `need parsing:~filename, text`
 
+
+* `text ready` is for when a text is ready for being used. Each level of use
+  had a name and when the text is ready it gets emitted. The emitted data
+  should either by text itself or a .when wrapped up [[ev, data]] setup.  
+
+
+
 ## default actions
 
 All of these get attached to the emitter of the doc and can be replaced or
@@ -560,15 +567,15 @@ Returning undefined is good and normal.
 This is where we deal with parsing a given code block and handling the
 substituting. 
 
-This is an function that responds to the event `block needs compiling:file:block name`. 
+This is a function that responds to the event `block needs compiling:file:block name`. 
 
 
     block needs compiling --> compiling block
-    var file = evObj.scopes[1];
-    var blockname = evObj.scopes[0];
+    var file = evObj.pieces[1];
+    var blockname = evObj.pieces[0];
     var doc = gcd.parent.doc[file]; 
     var block = doc.blocks[blockname];
-    blockCompiling(block, file+":"+blockname);
+    doc.blockCompiling(block, file, blockname);
 
 ### Block compiling
 
@@ -594,15 +601,19 @@ name to store it. This is another way to do multiple substitution runs.
 
 The variable last is where to start from the last match. 
 
-    function (block, name) {
+We create a stitch handler for the closures here. 
+
+    function (block, file, bname) {
         var found, pipe, quote, place, qfrag, 
             backcount, index, first, chr;
+        var name = file + ":" + bname;
+        var doc = this;
         var ind = 0;
         var loc = 0; // location in fragment array 
-        var frags = doc.fragments[name] = [];
+        var frags = [];
         var last = 0; 
         var n  = string.length;
-        gcd.when("block substitute parsing done:"+name, "block compiled:"+name);
+        gcd.when("block substitute parsing done:"+name, "ready to stitch:"+name);
         while (ind < n) {
             if (block[ind] === "_") {
                 found = ind;
@@ -614,12 +625,17 @@ The variable last is where to start from the last match.
 
                 _":we are a go"
 
-
-                _":parse to pipe"
-
+                doc.substituteParsing(block, ind+1, quote, lname);
                 
             }
         }
+        gcd.once("ready to stitch:"+name, function () {
+            var text = frags.join("\n");
+            doc.store(bname, text);
+            gcd.emit("text ready:"+name, text);
+
+        });
+
         gcd.emit("block substitute parsing done:"+name);
     }
 
@@ -686,19 +702,33 @@ So at this point we know we have the start of a sub command. So we process
 forward. In part, this means cutting up the previous string for loc. We reuse
 the place variable as ind-1, the place of underscore
 
+When the text ready for the location is emitted, we plug it into the array and
+then alert the waiting. 
+
+Note that name contains the file name, but after event parsing, the file gets
+split off.
+
     place = ind-1;
     if (last !== place ) {
         frags[loc] = block.slice(last, place);
         loc += 1;
     }
     lname = name + colon.v + loc;
-    gcd.when("substitute text stored:" + lname, 
-        "ready to substitute all:" + name
+    gcd.once("text ready:" + lname, function (data, evObj) {
+        var locname = evObj.pieces[0];
+        var subtext = (typeof data === "string") ? data : data[0][1];
+        var loc = locname.slice(locname.lastIndex(colon.v)+1);
+        doc.indent(subtext, indents[loc]);
+        frags[loc] = subtext;
+        gcd.emit("location filled:" + file + ":" + locname );
+    })
+    gcd.when("location filled:" + lname, 
+        "ready to stitch:" + name
     );
     if (place > 0) {
         _":figure out indent"
     } else {
-        doc.indents[lname] = [0,0];
+       indents[loc] = [0,0];
     }
 
 
@@ -727,9 +757,35 @@ look at the character. first is first non-blank character.
             first = backcount;
         }
         backcount -= 1;
-        doc.indents[lname] = indent;
+        indents[loc] = indent;
     }
 
+### ! Indent
+
+We need a simple indenting function. It takes a text to indent and a
+two-element array giving the leading indent and the rest. 
+
+    function (text, indents) {
+        var beg, line;
+        var i, n;
+        
+        n = indents[0];
+        beg = '';
+        for (i = 0; i < n; i += 1) {
+            beg += ' ';
+        }
+        
+        n = indents[1];
+        line = '';
+        for (i = 0; i <n; i += 1) {
+            line += ' '
+        }
+
+        return beg + text.replace("\n", "\n"+line);
+    }
+
+
+## ! Substitute parsing
 
 [parse to pipe]()
 
@@ -758,12 +814,47 @@ The `.when` supplies the data of the events called in an array in order of the
 emitting. The array is specificaly `[ [ev1, data1], [ev2, data2]]` etc. 
 
 
-```js
+    function (text, ind, quote, lname ) {
+        
+        var match;
 
-while(ind < n) {
-    ind += 1;
-    chr = block[ind];
-    lname = name + colon.v + loc;
+        var doc = this;
+        var subreg = doc.regexs.subname[quote];
+
+        subreg.lastIndex = ind;
+        
+        match = subreg.exec(text);
+        if (match) {
+            ind = subreg.lastIndex;
+            chr = match[1];
+            subname = colon.escape(match[0].trim());
+            if (chr === "|") {
+                ind = doc.pipeParse(text, ind, quote, lname);
+            } else if (chr === quote) {
+                ind += 1;
+                gcd.when("text ready:" + subname, function (data, evObj) {
+                    var subtext = (typeof data === "string") ? data : data[0][1];
+                    gcd.emit("text ready:"+lname, text); 
+                });                  
+            } else {
+                gcd.emit("failure in parsing:" + name, ind);
+                return ind;
+            }
+        } else {
+            gcd.emit("failure in parsing:" + name, ind);
+            return ind;
+        }
+        
+        subtext = doc.find(subname);
+        if (typeof subtext === "undefined") {
+            gcd.when( "text ready:" + subname, "text ready:" + lname + colon.v + "0" );
+        } else {
+            gcd.emit("text ready:"  + lname + colon.v + "0", subtext);
+        }
+        ind = last; 
+
+    }
+
     if (!chr) { // end of string
         gcd.emit("incomplete substitution command:"+lname,
             [place, ind]);
@@ -775,36 +866,21 @@ while(ind < n) {
     if ( (chr === "|" || (chr === quote) ) {
         subname = colon.escape(block.slice(place + 2, ind).trim());
         if ( chr === "|") {
-            last = pipeParse(block, ind, quote, lname);
+            last = doc.pipeParse(block, ind, quote, lname);
             break;
         } else if (chr === quote) {
             last = ind + 1;
-            gcd.once("text ready:" + lname + colon.v + "0", function (data) {
-                var text = data[0][1];
-                gcd.emit("substitute text ready:"+lname, text);
-            });   
             break;
         }
     }
 }
-if (last) {
-    subtext = gcd.parent.find(subname);
-    if (typeof subtext === "undefined") {
-        gcd.when( "text stored:" + subname, "text ready:" + lname + colon.v + "0" );
-    } else {
-        gcd.when("text retrieved:"+subname, "text ready:" + lname + colon.v + "0" );
-        gcd.emit("text retrieved:"+subname, subtext);
-    }
-    ind = last; 
-} else {
-    
-}   
-```    
+
+###
    
     
 
 
-## Parsing commands
+## ! Parsing commands
 
 Commands are the stuff after pipes. 
 
@@ -822,13 +898,14 @@ so we are passed in that quote as well.
 We need to track the command numbering for the event emitting. 
 
     function (text, ind, quote, name, gcd) {
-      
+        var doc = this;
+
         var chr, argument, argnum, match;
         var folder = gcd.parent;
         var n = text.length;
         var comnum = 0;
-        var comreg = folder.regexs.command[quote];
-        var argreg = folder.regexs.arguments[quote];
+        var comreg = doc.regexs.command[quote];
+        var argreg = doc.regexs.arguments[quote];
         var wsreg = /\s+/g;
 
         while (ind < n) { // command processing loop
@@ -840,7 +917,9 @@ We need to track the command numbering for the event emitting.
             gcd.emit("command parsed:" + comname);
 
         }
-            
+        
+        return ind;
+
     }
 
 
@@ -865,7 +944,7 @@ argument phase.
         comname = name + colon.v + comnum;
         comnum += 1;
         gcd.when("command parsed:" + comname, 
-            "execute command:" + command + ":" + comname );
+            "arguments ready:" + command + ":" + comname );
         if (chr === quote) {
             gcd.emit("command parsed:" + comname);
             break;
@@ -892,14 +971,23 @@ If it is not a substitution block, then we chunk along until a backslash, comma,
 For a backslash, it will escape the following by default: 
 backslashes, underscores, pipes, commas, quotes, and it turns u
 into a unicode gobbler (4 characters) while turning n into a newline and
-turning an embedded newline into a space (that is, if you are wrapping place a
+turning an embedded newline into a space (that is, if you are wrapping place
 slash at the end of the line). We check the doc for something before
 referencing the built in one. 
+
+To assemble a text with embedded stuff, you can do 
+`"|cmd _"|+ the, _"awe", right"` would produce for arg1 `the great right`
+if `awe` had great. Can also have it that commas are unnecessary with subs,
+but I think that leads to uncertainty. Bad enough not having parentheses.  
+
 
 
     
     argnum = 0;
     while (ind < n) { // each argument loop
+        aname = comname + colon.v + argnum;
+        gcd.when("argument completed:" +aname,
+            "arguments ready:"+comname );
         wsreg.lastIndex = ind;
         ind = wsreg.exec(text).lastIndex;
         if (text[ind] === "_") {
@@ -912,39 +1000,20 @@ referencing the built in one.
             _":get full argument"
         }
         if (chr === ",") {
-            _":next argument"
+            argnum += 1;
             continue;
         } else if (chr === "|") {
-            _":next command"
+            gcd.emit("command parsed:" + comname);
+            break;
         } else if (chr === quote) {
-            _":end substitution"
+            gcd.emit("command parsed:" + comname);
+            return ind;
         } else {
-            
+           _":failure" 
         }
-
-
-          match = argreg.exec(text);
-          if (match) {
-            argument += match[1];
-            if (match[0] === "\\") {
-                
-            }
-          } else {
-            _":failure"
-          }
-        }
-    match = argreg.exec(text);
-    if (match) {
-        
-    } else {
-        _":failure"
     }
 
 
-To assemble a text with embedded stuff, you can do 
-`"|cmd _"|+ the, _"awe", right"` would produce for arg1 `the great right`
-if `awe` had great. Can also have it that commas are unnecessary with subs,
-but I think that leads to uncertainty. Bad enough not having parentheses.  
 
 [deal with substitute text]()
 
@@ -953,20 +1022,127 @@ It should return the index right after the end of the subsitution part. After
 that, we try to chunk
 
     if (text[ind+1].indexOf(/['"`]/) !== -1) {
-        subname = comname + colon.v + argnum;
-        gcd.when("substitution finished:" + subname,
-            "argument finished:" + subname);
-        last = parseSubstitute(text, ind+2, subname, text[ind+1]);
-        
-            
+        gcd.when("substitution finished:" + aname, 
+            "ready to finish argument:"+aname);
+        ind = doc.parseSubstitute(text, ind+2, aname, text[ind+1]);
+        continue;
         } else {
             _":failure"
         }
-        continue;
     }
 
 
-### Command Regexs
+[get full argument]()
+
+Here we are mainly dealing with looking for a backslash. If it is stopped
+without a backslash then we quit the loop and deal it with it elsewhere.
+
+For the backslash, we look at the next character and see if we have anything
+we can do. 
+
+    match = argreg.exec(text);
+    if (match) {
+        ind = argreg.lastIndex;
+        argument += match[1];
+        chr = match[1];
+        if (chr === "\\") {
+           result = doc.backslash(text, ind+1);
+           ind = result[1];
+           argument += result[0];
+           continue;
+        } else {
+            gcd.emit("argument completed:" + aname, argument0);
+            break;
+        }
+    } else {
+        _":failure"
+    }
+
+
+
+
+[failure]()
+
+For failure, we just emit there is a failure and exit where we left off. Not a
+good state. Maybe with some testing and experiments, this could be done
+better. 
+
+    gcd.emit("failure in parsing:" + name, ind);
+    return ind;
+ 
+### ! Action for argument finishing
+
+Due to closures and the need to repackage the emit value, we have this action
+for when subsitutions finish. 
+
+     ready to finish argument -> finishing argument
+     var text = data[0][1];
+     gcd.emit("argument completed:"+evObj.pieces[0]);
+
+
+### ! Backslash
+
+The backslash is a function on the doc prototype that can be overwritten if
+need be. 
+
+It takes in a text and an index to examine. This default function escapes
+backslashes, underscores, pipes, quotes and
+
+* u leads to unicode sucking up. This uses fromCodePoint
+* \n will be converted to a space
+* n converted to a new line. 
+
+If none of those are present a backslash is returned. 
+
+We return an object with the post end index in ind and the string to replace
+as chr.
+
+    function (text, ind) {
+        var chr, match;
+        var uni = /[0-9A-F]+/g
+
+        chr = text[ind];
+        switch (chr) {
+        case "|" : return ["|", ind+1];
+        case "_" : return ["_", ind+1];
+        case "\\" : return ["\\", ind+1];
+        case "'" : return ["'", ind+1];
+        case "`" : return ["`", ind+1];
+        case '"' : return ['"', ind+1];
+        case "n" : return ["\n", ind+1];
+        case "\n" : return [" ", ind+1];
+        case "`" : return ["|", ind+1];
+        case "u" :  _":unicode"
+        default : return ["\\", ind];
+
+        }
+    }
+
+[unicode]()
+
+This handles the unicode processing in argument strings. After the u should be
+a hexadecimal number. If not, then a backslash is return and processing starts
+at u. 
+
+If it cannot be converted into a unicode, then the backslash is returned and
+we move on. No warning emitted. 
+
+    uni.lastIndex = ind;
+    match = uni.exec(text);
+    if (match) {
+        num = parseInt(match[0], 16);
+        try {
+            chr = String.fromCodePoint(num);
+            return [chr, uni.lastIndex];
+        } else {
+            return ["\", ind];
+        }
+    } else {
+        return ["\", ind];
+    }
+
+
+### ! Command Regexs
 
 We have an object that has the different flavors of gobbling regexs that we
 need. The problem was the variable quote. I want to have statically compiled
