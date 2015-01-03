@@ -271,6 +271,9 @@ global overriding if need be.
 Code blocks are concatenated into the current one. The language is ignored for
 this.
 
+If no language is provided, we just call it empty. Hopefully there is no
+language called empty?! 
+
     code block found --> add code block
     _"heading vars"
     if (doc.minor) {
@@ -281,7 +284,7 @@ this.
         if (lang) {
             gcd.emit("code block found:"+lang+":"+file,code);
         } else {
-            gcd.emit("code block found:"+ file, code);
+            gcd.emit("code block found:empty:"+ file, code);
         }
         return code;
     }
@@ -291,7 +294,10 @@ this.
 If you want to have code that gets ignored, you can use code fences with a
 language of `ignore`. We do nothing other than stop the event propagation. 
 
-The downside is that we loose the highlight. 
+The downside is that we loose the highlight. One can provide other events in
+plugins the could ignore other languages. For example, if you are coding in
+javascript, you could have javascript being ignored while js not being
+ignored. Or you could just put the code in its own block. 
 
     code block found:ignore --> ignore code block
     evObj.stop = true;
@@ -349,7 +355,13 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.vars = {};
     }
 
+## Event playbook
 
+So this is a quick sketch of the kinds of events and actions that get taken in
+the course of compiling. A tilder means it is not literal but rather a
+variable name. 
+
+* Document compiling starts with a `need parsing:~filename, text`
 
 ## default actions
 
@@ -394,8 +406,9 @@ rendering (directives!) can be waited for with a `.when(..., "parsing
 done:"+file);`
 
     function (doc, file, gcd) {
+        var 
     
-        emitter.when("marked done:"+file, "parsing done:"+file);
+        gcd.when("marked done:"+file, "parsing done:"+file);
         
         var renderer = new marked.Renderer(); 
 
@@ -405,7 +418,7 @@ done:"+file);`
         
         marked(doc, {renderer:renderer});
 
-        emitter.emit("marked done:"+file);
+        gcd.emit("marked done:"+file);
 
     }
 
@@ -523,19 +536,23 @@ may not be global, depending on how it is made). Note that one doc can name the 
 potentially different than other docs do. Directives define the scope name
 locally. Also note that scopes, even perfectly valid ones, may not exist 
 
+Returning undefined is good and normal.
+
     function (name) {
         var ind, scope;
         if (  (ind = name.indexOf( colon.v + colon.v) ) !== -1 ) {
             scope = this.scopes[ name.slice(0,ind) ] ;
             if (typeof scope === "undefined" ) {
-                scope = 
+                return ;
             }
             name = name.slice(ind + 2);
         } else {
             scope = this.vars;
         }
-        if (scope.hasOwnProperty(
+        return scope[name];
     }
+
+
 
 
 ## Substitute parsing
@@ -675,10 +692,13 @@ the place variable as ind-1, the place of underscore
         loc += 1;
     }
     lname = name + colon.v + loc;
+    gcd.when("substitute text stored:" + lname, 
+        "ready to substitute all:" + name
+    );
     if (place > 0) {
         _":figure out indent"
     } else {
-        indent = [0,0];
+        doc.indents[lname] = [0,0];
     }
 
 
@@ -786,32 +806,204 @@ if (last) {
 
 ## Parsing commands
 
-Commands are the stuff after pipes. They consist of some text followed by an
-optional set of parentheses or square brackets (useful in title links). The insides of the parentheses is a comma
-separated list of arguments. Those arguments are pased raw unless in `_"..."`
-or `_'...'` which is appropriate in a title of a link directive as embedded
-quotes are not so good.
+Commands are the stuff after pipes. 
 
-When the parsing is done for the embedded commands, the output is passed in as
-an argument into the surrounding command. 
+A command is a sequence of non-white spaced characters followed by a white
+space plus arguments or pipe.  The arguments are comma separated values that
+are either the literals to be passed in as argument values or are
+substitutions (underscore quote stuff) whose output is passed in as an
+argument. A backslash will escape a comma, underscore, or other backslash. 
 
-A slash escapes anything that follows it though mileage may vary for double
-quotes in titles in links. 
+We assume we are given a piece of text with a starting position that comes
+after the first pipe. We are also given a name that we attach the command
+positions to as we go along. Also the ending quote must match the initial one
+so we are passed in that quote as well.
 
-We start the parsing assuming that a command is the first thing to see and it
-will end either with a parentheses, pipe, or quote. No escaping is done here. 
+We need to track the command numbering for the event emitting. 
 
-When in argument mode, we check for the first character being an underscore
-followed by a quote. If so, then we parse that out as a substitution. 
+    function (text, ind, quote, name, gcd) {
+      
+        var chr, argument, argnum, match;
+        var folder = gcd.parent;
+        var n = text.length;
+        var comnum = 0;
+        var comreg = folder.regexs.command[quote];
+        var argreg = folder.regexs.arguments[quote];
+        var wsreg = /\s+/g;
 
-Otherwise, we chunk along until a comma, parentheses, or an escape slash is
-found. Then we take appropriate action. 
+        while (ind < n) { // command processing loop
 
-When a command is finalized, we emit the command as the leading event followed
-by its scope. 
+            _":get command"
 
-    function (text, scope) {
+            _"get arguments for command parsing"
+
+            gcd.emit("command parsed:" + comname);
+
+        }
+            
+    }
+
+
+[get command]()
+
+So we just chunk along and deal with some cases. The quote at the end
+terminates the loop as the substitution is done. A pipe indicates that we move
+onto the next command; no arguments. A space indicates we move onto the
+argument phase.
+
+    comreg.lastIndex = ind;
+
+    match = comreg.exec(text);
+    if (match) {
+        command = match[1];
+        chr = match[2];
+        ind = comreg.lastIndex;
+        if (command === '') {
+            command = "passthru";    
+        }
+        command = colon.escape(command);
+        comname = name + colon.v + comnum;
+        comnum += 1;
+        gcd.when("command parsed:" + comname, 
+            "execute command:" + command + ":" + comname );
+        if (chr === quote) {
+            gcd.emit("command parsed:" + comname);
+            break;
+        } else if (chr === "|") {
+            gcd.emit("command parsed:" + comname);
+            continue;
+        }
+    } else {
+        _":failure"
+    }
+
+
+
+### get arguments for command parsing
+
+Here it gets a bit trickier. We have one loop for going over the arguments.
+
+For each argument, After an initial white space purge, we need to check for the substitution
+block. After the sub block is done, we expect optional space, followed by a
+comma, pipe, or quote. Otherwise, an error message is alerted and we assume it
+was an ignored comment. 
+
+If it is not a substitution block, then we chunk along until a backslash, comma, pipe or quote.
+For a backslash, it will escape the following by default: 
+backslashes, underscores, pipes, commas, quotes, and it turns u
+into a unicode gobbler (4 characters) while turning n into a newline and
+turning an embedded newline into a space (that is, if you are wrapping place a
+slash at the end of the line). We check the doc for something before
+referencing the built in one. 
+
+
+    
+    argnum = 0;
+    while (ind < n) { // each argument loop
+        wsreg.lastIndex = ind;
+        ind = wsreg.exec(text).lastIndex;
+        if (text[ind] === "_") {
+            _":deal with subtitute text"
+        }
+        // no substitute, just an argument. 
+        argument = '';
+        argreg.lastIndex = ind;
+        while (ind < n) {
+            _":get full argument"
+        }
+        if (chr === ",") {
+            _":next argument"
+            continue;
+        } else if (chr === "|") {
+            _":next command"
+        } else if (chr === quote) {
+            _":end substitution"
+        } else {
+            
+        }
+
+
+          match = argreg.exec(text);
+          if (match) {
+            argument += match[1];
+            if (match[0] === "\\") {
+                
+            }
+          } else {
+            _":failure"
+          }
+        }
+    match = argreg.exec(text);
+    if (match) {
         
+    } else {
+        _":failure"
+    }
+
+
+To assemble a text with embedded stuff, you can do 
+`"|cmd _"|+ the, _"awe", right"` would produce for arg1 `the great right`
+if `awe` had great. Can also have it that commas are unnecessary with subs,
+but I think that leads to uncertainty. Bad enough not having parentheses.  
+
+[deal with substitute text]()
+
+So if there is a quote after an underscore, then we chunk along the substitue.
+It should return the index right after the end of the subsitution part. After
+that, we try to chunk
+
+    if (text[ind+1].indexOf(/['"`]/) !== -1) {
+        subname = comname + colon.v + argnum;
+        gcd.when("substitution finished:" + subname,
+            "argument finished:" + subname);
+        last = parseSubstitute(text, ind+2, subname, text[ind+1]);
+        
+            
+        } else {
+            _":failure"
+        }
+        continue;
+    }
+
+
+### Command Regexs
+
+We have an object that has the different flavors of gobbling regexs that we
+need. The problem was the variable quote. I want to have statically compiled
+regexs and so just stick them in an object and recall them based on quote.
+With just one variable changing over three times, not a big deal. 
+
+For commands, these are non-whitespace character strings that do not include
+the given quote. The regex ignores the initial whitespace returning the word
+in 1 and the next character in 2. A failure to match should mean it is an
+empty string and the passthru can be used.
+
+    {
+
+        command : {
+            "'" : /\s*([^|'\s]*)(.)/g,
+            '"' : /\s*([^|"\s]*)(.)/g,
+            "`" : /\s*([^|`\s]*)(.)/g
+        },
+
+The argument is anything up to a comma, pipe, underscore, or the special
+quote. It ignores initial whitespace. In 1 is the straight text, if any, and
+then in 2 is the character to signal what to do next (quote ends processing,
+pipe ends command, comma ends argument, underscore may initiate substitution,
+and slash may initiate escaping).
+
+        argument : {
+            "'" : /\s*([^,|\\']*)(.)/g,
+            '"' : /\s*([^,|\\"\*)(.)/g,
+            "`" : /\s*([^,|\\`]*)(.)/g
+        },
+        endarg : {
+            "'" : /\s*([,|\\'])/g,
+            '"' : /\s*([,|\\"\)/g,
+            "`" : /\s*([,|\\`])/g
+
+        }
+
 
     }
 
