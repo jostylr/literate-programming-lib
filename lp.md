@@ -128,6 +128,12 @@ emitter
 
     Doc.prototype.pipeParsing = _"Parsing commands";
 
+    Doc.prototype.regexs = _"Command regexs";
+
+    Doc.prototype.backslash = _"Backslash";
+
+    
+
     module.exports.Folder = Folder;
 
 
@@ -230,7 +236,7 @@ This is just an intro that seems commonly needed.
  
     var file = evObj.pieces[0];
     var doc = gcd.parent.docs[file];
-    var text = data;
+    var text = data.toLowerCase();
     
 
 [heading]()
@@ -876,7 +882,7 @@ it into command 0. If there are no commands, then command 0 is the done bit.
 
     ind = subreg.lastIndex;
     chr = match[2];
-    subname = match[1].trim();
+    subname = match[1].trim().toLowerCase();
     _":fix colon subname"
     subname = colon.escape(subname);
     if (chr === "|") {
@@ -967,11 +973,14 @@ arguments being done, and the input (that's the text ready). For the command
 name being parsed emission, we send along the doc, command and the nextname to
 be sent along. 
 
+Commands are case-insensitive just as block names are as well as being
+trimmed. 
+
     comreg.lastIndex = ind;
 
     match = comreg.exec(text);
     if (match) {
-        command = match[1].trim();
+        command = match[1].trim().toLowerCase();
         chr = match[2];
         ind = comreg.lastIndex;
         if (command === '') {
@@ -1013,7 +1022,7 @@ At that point, we emit the text ready for the previous level.
 
     
 
-### get arguments for command parsing
+### Get arguments for command parsing
 
 Here it gets a bit trickier. We have one loop for going over the arguments.
 
@@ -1039,7 +1048,7 @@ but I think that leads to uncertainty. Bad enough not having parentheses.
     argnum = 0;
     while (ind < n) { // each argument loop
         aname = comname + colon.v + argnum;
-        gcd.when("argument completed:" +aname,
+        gcd.when("text ready:" +aname,
             "arguments ready:"+comname );
         wsreg.lastIndex = ind;
         ind = wsreg.exec(text).lastIndex;
@@ -1103,14 +1112,12 @@ we can do.
            argument += result[0];
            continue;
         } else {
-            gcd.emit("argument completed:" + aname, argument0);
+            gcd.emit("text ready:" + aname, argument);
             break;
         }
     } else {
         _":failure"
     }
-
-
 
 
 [failure]()
@@ -1122,17 +1129,8 @@ better.
     gcd.emit("failure in parsing:" + name, ind);
     return ind;
  
-### ! Action for argument finishing
 
-Due to closures and the need to repackage the emit value, we have this action
-for when subsitutions finish. 
-
-     ready to finish argument -> finishing argument
-     var text = data[0][1];
-     gcd.emit("argument completed:"+evObj.pieces[0]);
-
-
-### ! Backslash
+### Backslash
 
 The backslash is a function on the doc prototype that can be overwritten if
 need be. 
@@ -1194,7 +1192,7 @@ we move on. No warning emitted.
     }
 
 
-### ! Command Regexs
+### Command Regexs
 
 We have an object that has the different flavors of gobbling regexs that we
 need. The problem was the variable quote. I want to have statically compiled
@@ -1242,6 +1240,130 @@ And a super simple subname is to chunk up to pipes or quotes.
 
 
     }
+
+
+
+## ! Action for argument finishing
+
+When arguments are ready, we need to fire the command. This is where we do
+this. 
+
+This has to decode a few different events and their data:
+
+* command parsed:  `[doc, command, name to emit when ready]`. This has what
+   we need to run the command and deal with its return. 
+* text ready: for pipe input, we can recognize it by being the shortest. This is
+  the input that is being piped into a command. 
+* text ready: arguments. These should be all the other ones. We pop off the
+  last colon.v separated number for the argument placement. 
+
+Once all is setup, we execute the command. 
+
+We need to decode the input from the arguments crudely instead of by
+specificity as the text being emitted by subsitution would not otherwise know.
+And this is simple enough. 
+
+Commands are bound to doc by applying the arguments. The first argument is the
+pipe input. The second argument is an array containing all the other
+arguments. The third argument is the name to emit when all is done. 
+
+    agruments ready -> run command
+    var doc, input, name, command, min = [Infinity,-1];
+    var args = [];
+    
+    _":extract data"
+
+    var fun = doc.findCommand(command);
+
+    fun.apply(doc, [input, args, name, command])
+
+[extract data]()
+
+We first run through, teasing out the command parsed event and its data while
+also finding the minimum length of the text ready events.
+
+This is a bit of arcane code. While seeking the minimum, any bit which is not
+the minimum is an argument. We extract its position by being the last number
+in the string. If something is the minimum, then we extract the previous
+minimum winner and gets its text into the proper place. 
+
+    var i, j, k, m, n=data.length;
+    for (i = 0; i += 1; i < n) {
+        cur = data[i];
+        if (data[i][0].indexOf("command parsed") === 0 ) {
+            doc = data[i][0];
+            command = data[i][1];
+            name = data[i][2];
+        } else { // should only be text ready
+            j = i;
+            if ( ( m = data[i][0].length ) < min[0] ) {
+                j = min[1];
+                min = [m, i];
+            }
+            if (j !== -1) {
+                k = data[j][0].match(/([0-9]+)$/);
+                if (k) {
+                    args[k[1]] = data[j][1];
+                }
+            }
+        }
+    }
+
+    input = data[min[1]][1];
+
+
+### ! Command wrapper sync
+
+This is a utility for wrapping synchronous functions that have signature
+`input, arg1, ... argn --> output`  Basically, we throw the arguments into the
+form of interest and upon output, we emit it. Doc is the context of the sync. 
+
+We catch any errors and emit an error event. This prevents further processing
+of this block as the text ready event does not further. It just stops
+executing. 
+
+    function (fun) {
+        return function (input, args, name, command) {
+            var doc = this;
+            var gcd = doc.gcd;
+
+            try {
+                var out = fun.apply(doc, [].concat(input, args));
+                gcd.emit("text ready:" + name, out); 
+            } catch (e) {
+                gcd.emit("error:command execution:"+name, 
+                    [e, input, args, command]); 
+            }
+        }
+    }
+
+
+
+
+### ! Command wrapper async
+
+Here we wrap callback functionated async functions. We assume the function
+call will be of `input, arg1, ..., argn, callback` and the callback will
+receive `err, data` where data is the text to emit. 
+
+    function (fun) {
+        return function (input, args, name, command) {
+            
+            var doc = this;
+            var gcd = doc.gc;
+
+            var callback = function (err, data) {
+                if (err) {
+                    gcd.emit("error:command execution:" name, 
+                        [err, input, args, command]);
+                } else {
+                    gcd.emit("text read:" + name, data);
+                }
+            }
+
+            fun.apply(doc, [].concat(input, args, callback);
+    }
+
 
 
 
