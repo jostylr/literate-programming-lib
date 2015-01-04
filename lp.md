@@ -109,7 +109,6 @@ emitter
     var EvW = require('event-when');
     var marked = require('marked');
    
-    _"colon"
 
     var apply = _"apply";
 
@@ -120,8 +119,17 @@ emitter
     Doc = _"doc constructor";
 
     Doc.prototype.find = _"variable retrieval"
+    
+    Doc.prototype.colon = _"colon";
+    
+    Doc.prototype.indent = _"indent";
+    
+    Doc.prototype.substituteParsing = _"Substitute parsing";
+
+    Doc.prototype.pipeParsing = _"Parsing commands";
 
     module.exports.Folder = Folder;
+
 
 ## folder constructor
 
@@ -146,6 +154,31 @@ added. The internal basic compiling is baked in though it can be overwritten.
     }
 
 
+
+## Doc constructor
+
+This is the constructor which creates the doc structures. 
+
+The emitter is shared within a folder, each document is scoped using its
+filename location. The doc structure is just a holding object with none of its
+own methods. 
+
+To have event/action flows different than standard, one can write scoped
+listeners and then set `evObj.stop = true` to prevent the propagation upwards.
+
+
+    function (text, parent) {
+        this.parent = parent;
+        this.gcd = parent.gcd;
+
+        this.text = text;
+        
+        this.cblocks = {};
+        this.fragments = {};
+        this.scopes = {};
+        this.vars = {};
+    
+    }
 
     
 
@@ -336,25 +369,6 @@ in the heading then.
 
 
 
-## Doc constructor
-
-This is the constructor which creates the doc structures. 
-
-The emitter is shared within a folder, each document is scoped using its
-filename location. The doc structure is just a holding object with none of its
-own methods. 
-
-To have event/action flows different than standard, one can write scoped
-listeners and then set `evObj.stop = true` to prevent the propagation upwards.
-
-
-    function (text) {
-        this.text = text;
-        this.cblocks = {};
-        this.fragments = {};
-        this.vars = {};
-    }
-
 ## Event playbook
 
 So this is a quick sketch of the kinds of events and actions that get taken in
@@ -367,6 +381,8 @@ variable name.
 * `text ready` is for when a text is ready for being used. Each level of use
   had a name and when the text is ready it gets emitted. The emitted data
   should either by text itself or a .when wrapped up [[ev, data]] setup.  
+
+* filename:blockname;loc;comnum;argnum(;comnum;argnum...)
 
 
 
@@ -389,8 +405,7 @@ This defines the colon which we use internally. To escape the colon or
 unescape, we define methods and export them. 
 
 
-    var colon = module.exports.colon =  {
-        v : "\u2AF6",
+    {   v : "\u2AF6",
         escape : function (text) {
             text.replace(":", colon);
         },
@@ -604,18 +619,26 @@ The variable last is where to start from the last match.
 We create a stitch handler for the closures here. 
 
     function (block, file, bname) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var colon = doc.colon;
+        
         var found, pipe, quote, place, qfrag, 
             backcount, index, first, chr;
         var name = file + ":" + bname;
-        var doc = this;
         var ind = 0;
         var loc = 0; // location in fragment array 
         var frags = [];
         var last = 0; 
         var n  = string.length;
         gcd.when("block substitute parsing done:"+name, "ready to stitch:"+name);
-        while (ind < n) {
-            if (block[ind] === "_") {
+        while (true) {
+            ind = block.indexOf("_", ind);
+            if (ind === -1) {
+                frags[loc] = block.slice(last);
+                loc += 1;
+                break;
+            } else {
                 found = ind;
                 ind += 1;
 
@@ -690,7 +713,7 @@ already). This cuts to the underscore.
         last = ind; // will start next frag after escaped underscore.
         continue;
     } else {
-        last = ind-1;
+        last = ind-1; // probably overwritten before used
     }
 
 Gonna need some testing here.
@@ -716,7 +739,7 @@ split off.
     lname = name + colon.v + loc;
     gcd.once("text ready:" + lname, function (data, evObj) {
         var locname = evObj.pieces[0];
-        var subtext = (typeof data === "string") ? data : data[0][1];
+        var subtext = data;
         var loc = locname.slice(locname.lastIndex(colon.v)+1);
         doc.indent(subtext, indents[loc]);
         frags[loc] = subtext;
@@ -760,7 +783,7 @@ look at the character. first is first non-blank character.
         indents[loc] = indent;
     }
 
-### ! Indent
+### Indent
 
 We need a simple indenting function. It takes a text to indent and a
 two-element array giving the leading indent and the rest. 
@@ -785,9 +808,8 @@ two-element array giving the leading indent and the rest.
     }
 
 
-## ! Substitute parsing
+## Substitute parsing
 
-[parse to pipe]()
 
 This is fairly simple. We want to crunch along until we find a pipe or hit the
 ending quote or run-off the end of the string (shouldn't happen; we emit an
@@ -813,74 +835,82 @@ colon itself is the event separator.
 The `.when` supplies the data of the events called in an array in order of the
 emitting. The array is specificaly `[ [ev1, data1], [ev2, data2]]` etc. 
 
+The numbering of the commands is the input into that command number, not the
+output. So we use subname to get the text from that location and then feed
+it into command 0. If there are no commands, then command 0 is the done bit. 
 
-    function (text, ind, quote, lname ) {
-        
-        var match;
+    function (text, ind, quote, lname ) { 
 
         var doc = this;
+        var gcd = doc.gcd;
+        var colon = doc.colon;
+
+        var match, colind, mainblock;
         var subreg = doc.regexs.subname[quote];
 
         subreg.lastIndex = ind;
         
         match = subreg.exec(text);
         if (match) {
-            ind = subreg.lastIndex;
-            chr = match[1];
-            subname = colon.escape(match[0].trim());
-            if (chr === "|") {
-                ind = doc.pipeParse(text, ind, quote, lname);
-            } else if (chr === quote) {
-                ind += 1;
-                gcd.when("text ready:" + subname, function (data, evObj) {
-                    var subtext = (typeof data === "string") ? data : data[0][1];
-                    gcd.emit("text ready:"+lname, text); 
-                });                  
-            } else {
-                gcd.emit("failure in parsing:" + name, ind);
-                return ind;
-            }
+            _":got subname"
         } else {
-            gcd.emit("failure in parsing:" + name, ind);
+            gcd.emit("failure in parsing:" + lname, ind);
             return ind;
         }
         
         subtext = doc.find(subname);
         if (typeof subtext === "undefined") {
-            gcd.when( "text ready:" + subname, "text ready:" + lname + colon.v + "0" );
+            gcd.once( "text ready:" + subname, function (text, evObj) {
+                gcd.emit("text ready:" + lname + colon.v + "0", text); 
+            });
         } else {
             gcd.emit("text ready:"  + lname + colon.v + "0", subtext);
         }
-        ind = last; 
+
+        return ind;
 
     }
 
-    if (!chr) { // end of string
-        gcd.emit("incomplete substitution command:"+lname,
-            [place, ind]);
-        frags[loc] = block.slice(place);
-        last = false;
-        loc += 1;
-        break;
+[got subname]()
+
+
+    ind = subreg.lastIndex;
+    chr = match[2];
+    subname = match[1].trim();
+    _":fix colon subname"
+    subname = colon.escape(subname);
+    if (chr === "|") {
+        ind = doc.pipeParsing(text, ind, quote, lname);
+    } else if (chr === quote) {
+        ind += 1;
+        gcd.once("text ready:" + lname + colon.v + "0", 
+            function (data) {
+                var subtext = data;
+                gcd.emit("text ready:"+lname, text); 
+            });                  
+    } else {
+        gcd.emit("failure in parsing:" + lname, ind);
+        return ind;
     }
-    if ( (chr === "|" || (chr === quote) ) {
-        subname = colon.escape(block.slice(place + 2, ind).trim());
-        if ( chr === "|") {
-            last = doc.pipeParse(block, ind, quote, lname);
-            break;
-        } else if (chr === quote) {
-            last = ind + 1;
-            break;
-        }
+
+[fix colon subname]()
+
+A convenient shorthand is to lead with a colon to mean a minor block. We need
+to put the big blockname in for that. 
+
+So the name variable should start with a file name with a colon after it and
+then from there to a triple colon should be the major block name on record. 
+
+Directives may be a bit dodgy on this point. 
+
+    if (subname[0] === ":") {
+        colind = lname.indexOf(":");
+        mainblock = lname.slice(colind, lname.indexOf(colon.v, colind));
+        subname = mainblock+subname;
     }
-}
-
-###
-   
-    
 
 
-## ! Parsing commands
+## Parsing commands
 
 Commands are the stuff after pipes. 
 
@@ -897,11 +927,13 @@ so we are passed in that quote as well.
 
 We need to track the command numbering for the event emitting. 
 
-    function (text, ind, quote, name, gcd) {
+    function (text, ind, quote, name) {
         var doc = this;
+        var gcd = doc.gcd;
+        var colon = doc.colon;
+        
 
         var chr, argument, argnum, match;
-        var folder = gcd.parent;
         var n = text.length;
         var comnum = 0;
         var comreg = doc.regexs.command[quote];
@@ -930,11 +962,16 @@ terminates the loop as the substitution is done. A pipe indicates that we move
 onto the next command; no arguments. A space indicates we move onto the
 argument phase.
 
+The .whens are setup to track the command being done parsing (sync), the
+arguments being done, and the input (that's the text ready). For the command
+name being parsed emission, we send along the doc, command and the nextname to
+be sent along. 
+
     comreg.lastIndex = ind;
 
     match = comreg.exec(text);
     if (match) {
-        command = match[1];
+        command = match[1].trim();
         chr = match[2];
         ind = comreg.lastIndex;
         if (command === '') {
@@ -943,20 +980,38 @@ argument phase.
         command = colon.escape(command);
         comname = name + colon.v + comnum;
         comnum += 1;
-        gcd.when("command parsed:" + comname, 
-            "arguments ready:" + command + ":" + comname );
+        nextname = name + colon.v + comnum;
+        gcd.when(["command parsed:" + comname, 
+            "text ready:" + comname],
+            "arguments ready:"  + comname );
         if (chr === quote) {
-            gcd.emit("command parsed:" + comname);
+            _"ending a command subsitution:com parse"
             break;
         } else if (chr === "|") {
-            gcd.emit("command parsed:" + comname);
+            _"ending a command subsitution"
             continue;
         }
     } else {
         _":failure"
     }
 
+### ending a command substituion
 
+The command number that is beyond the inputs represents the end of the chain.
+At that point, we emit the text ready for the previous level. 
+
+
+    _":com parse"
+    gcd.once("text ready:" + nextname, function(data) {
+        var subtext = data;
+        gcd.emit("text ready:" + name);
+    });
+
+[com parse]()
+
+    gcd.emit("command parsed:" + comname, [doc, command, nextname]);
+
+    
 
 ### get arguments for command parsing
 
@@ -980,8 +1035,6 @@ To assemble a text with embedded stuff, you can do
 if `awe` had great. Can also have it that commas are unnecessary with subs,
 but I think that leads to uncertainty. Bad enough not having parentheses.  
 
-
-
     
     argnum = 0;
     while (ind < n) { // each argument loop
@@ -1003,15 +1056,17 @@ but I think that leads to uncertainty. Bad enough not having parentheses.
             argnum += 1;
             continue;
         } else if (chr === "|") {
-            gcd.emit("command parsed:" + comname);
+            _"ending a command subsitution:com parse"
             break;
         } else if (chr === quote) {
-            gcd.emit("command parsed:" + comname);
+            _"ending a command subsitution"
             return ind;
         } else {
            _":failure" 
         }
     }
+
+
 
 
 
@@ -1022,13 +1077,10 @@ It should return the index right after the end of the subsitution part. After
 that, we try to chunk
 
     if (text[ind+1].indexOf(/['"`]/) !== -1) {
-        gcd.when("substitution finished:" + aname, 
-            "ready to finish argument:"+aname);
+        gcd.when("text ready:" + aname, 
+            "arguments ready:"+aname);
         ind = doc.parseSubstitute(text, ind+2, aname, text[ind+1]);
         continue;
-        } else {
-            _":failure"
-        }
     }
 
 
@@ -1170,14 +1222,22 @@ and slash may initiate escaping).
 
         argument : {
             "'" : /\s*([^,|\\']*)(.)/g,
-            '"' : /\s*([^,|\\"\*)(.)/g,
+            '"' : /\s*([^,|\\"]*)(.)/g,
             "`" : /\s*([^,|\\`]*)(.)/g
         },
         endarg : {
             "'" : /\s*([,|\\'])/g,
-            '"' : /\s*([,|\\"\)/g,
+            '"' : /\s*([,|\\"])/g,
             "`" : /\s*([,|\\`])/g
 
+        },
+
+And a super simple subname is to chunk up to pipes or quotes.
+
+        subname : {
+            "'" : /\s*([^|']*)(.)/g,
+            '"' : /\s*([^|"]*)(.)/g,
+            "`" : /\s*([^|`]*)(.)/g
         }
 
 
