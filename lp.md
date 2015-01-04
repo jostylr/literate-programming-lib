@@ -15,9 +15,8 @@ after a fashion, as it weaves.
 
 ## Directory structure
 
-* [index.js](#the-lp-module "save:   | jshint | jstidy") This is the compiler
-  heart of the program. 
-* [test/test.js](#testing "save: |jshint") This is a set of tests. 
+* [index.js](#structure-of-the-module "save:   | jshint ") This is the
+  compiler.
 * [README.md](#readme "save:| clean raw") The standard README.
 * [package.json](#npm-package "save: json  | jshint") The requisite package file for a npm project. 
 * [TODO.md](#todo "save: | clean raw") A list of growing and shrinking items todo.
@@ -108,6 +107,7 @@ emitter
 
     var EvW = require('event-when');
     var marked = require('marked');
+    require('string.fromcodepoint');
    
 
     var apply = _"apply";
@@ -118,21 +118,11 @@ emitter
 
     Doc = _"doc constructor";
 
-    Doc.prototype.find = _"variable retrieval"
-    
-    Doc.prototype.colon = _"colon";
-    
-    Doc.prototype.indent = _"indent";
-    
-    Doc.prototype.substituteParsing = _"Substitute parsing";
+    _"doc constrcutor:prototype"
 
-    Doc.prototype.pipeParsing = _"Parsing commands";
-
-    Doc.prototype.regexs = _"Command regexs";
-
-    Doc.prototype.backslash = _"Backslash";
 
     
+
 
     module.exports.Folder = Folder;
 
@@ -154,11 +144,38 @@ added. The internal basic compiling is baked in though it can be overwritten.
         this.docs = {};
         gcd.parent = this;
 
+        _":handlers"
+
         apply(actions);
 
         return this;
     }
 
+
+[handlers]()
+
+These are the handler actions common to much. Note that some handlers are
+defined in the code and are difficult to overwrite. This was done for
+closure's sake and ease. Perhaps it will get revised. 
+
+
+    _"Substitute parsing | oa"
+
+    _"Action for argument finishing | oa"
+
+    _"Parsing events:heading | oa"
+
+    _"Parsing events:heading 5| oa"
+
+    _"Parsing events:heading 6| oa"
+
+    _"Parsing events:switch| oa"
+
+    _"Parsing events:code | oa"
+
+    _"Parsing events:code ignore | oa"
+
+    _"Parsing events:links | oa"
 
 
 ## Doc constructor
@@ -173,20 +190,43 @@ To have event/action flows different than standard, one can write scoped
 listeners and then set `evObj.stop = true` to prevent the propagation upwards.
 
 
-    function (text, parent) {
+    function (text, file, parent) {
         this.parent = parent;
         this.gcd = parent.gcd;
 
+        this.file = file; // globally unique name for this doc
+
         this.text = text;
         
-        this.cblocks = {};
-        this.fragments = {};
+        this.blocks = {};
         this.scopes = {};
         this.vars = {};
     
     }
 
+
+[prototype]()
+
+
+    Doc.prototype.find = _"variable retrieval"
     
+    Doc.prototype.colon = _"colon";
+    
+    Doc.prototype.indent = _"indent";
+    
+    Doc.prototype.substituteParsing = _"Substitute parsing";
+
+    Doc.prototype.pipeParsing = _"Parsing commands";
+
+    Doc.prototype.regexs = _"Command regexs";
+
+    Doc.prototype.backslash = _"Backslash";
+
+    Doc.prototype.wrapSync = _"Command wrapper sync";
+
+    Doc.prototype.wrapAsync = _"Comman wrapper async":
+
+    Doc.prototype.store = _"Store"
 
 
 ### Example of folder constructor use
@@ -236,8 +276,18 @@ This is just an intro that seems commonly needed.
  
     var file = evObj.pieces[0];
     var doc = gcd.parent.docs[file];
-    var text = data.toLowerCase();
-    
+    var text; 
+
+[init block]()
+
+I am separating out this one line since I may want to revise it. We have the
+option of concatenating what is already there or overwriting. While I think it
+is best form not to have the same block name twice and concatenating it up,
+there may be use cases for it and this might also help track down accidental
+double blocking (you get the code of both blocks to search for!).
+
+    doc.blocks[curname] = doc.blocks[curname] || '';
+
 
 [heading]()
 
@@ -248,16 +298,18 @@ current block?) Level 6 is relative to level 5 and the level above so
 something like `great code/test/particular` from a 3, 5, 6 combo. 
 
 The headings are there to start code blocks. The code blocks concatenate into
-whatever is there. The code looks at subcur first and if nothing is there,
-then it use hcur. The subcur comes from switches, and level 5, 6.
+whatever is there. 
+
+We use doc.levels to navigate 
 
     heading found --> add block
-    _"heading vars"
+    _":heading vars"
+    var text = data.trim().toLowerCase();
     var curname = doc.heading = doc.curname = text;
     doc.levels[0] = text;
     doc.levels[1] = '';
     doc.levels[2] = '';
-    doc.blocks[curname] = '';
+    _":init block"
 
 [heading 5]()
 
@@ -265,11 +317,12 @@ The 5 level is one level below current heading. We stop the event propagation.
 
 
     heading found:5 --> add slashed block 
-    _"heading vars"
+    _":heading vars"
+    var text = data.trim().toLowerCase();
     doc.levels[1] = text;
     doc.levels[2] = '';
     var curname = doc.heading = doc.curname = doc.levels[0]+'/'+text;
-    doc.blocks[curname] = '';
+    _":init block"
     evObj.stop = true;
 
 
@@ -279,10 +332,11 @@ The 6 level is one level below current heading. We stop the event propagation.
 
 
     heading found:6 --> add double slashed block 
-    _"heading vars"
+    _":heading vars"
+    var text = data.trim().toLowerCase();
     doc.levels[2] = text;
     var curname = doc.heading = doc.curname = doc.levels[0]+'/'+doc.levels[1]+'/'+text;
-    doc.blocks[curname] = '';
+    _":init block"
     evObj.stop = true;
 
 [switch]()
@@ -294,14 +348,41 @@ the current name. Note the colon is a triple colon. All variable recalls will
 have colons transformed into triple colons. This is stored in colon.v for
 global overriding if need be. 
 
+Switches can execute stuff on the compiled block. To signify when done, we
+emit gcd.emit("text ready:"+ curname). But within the block compiling, we will
+emit a text ready:minor:... which we should listen for here. 
+
+Note that for piping of minors, there could be a problem if those listening
+for the text then call something else wanting it; there could be a gap from
+when the text ready event is fired and the storage happens. It won't happen
+unless piping is going on. And the risk seems low. Let me know if it is a
+problem. 
+
     switch found  --> create minor block
-    _"heading vars"
-    text = data[0];
+    _":heading vars"
+    var colon = doc.colon;
+    text = data[0].trim().toLowerCase();
+
     var curname = doc.curname = doc.heading+colon.v+text;
-    doc.blocks[curname] = '';
+    _":init block"
+
+
     var title = data[1];
-    if (title) {
-        
+    if (title) { // need piping
+        title = title.trim()+'"';
+        doc.pipeParsing(title, 0, '"' , curname);
+        gcd.once("minor ready:" + curname, function (text) {
+            gcd.emit("text ready:" + curname + colon.v + "0", 
+                text);
+        });
+        gcd.once("text ready:" + curname, function (text) {
+            doc.store(curname, text);
+        });
+    } else { //just go
+        gcd.once("minor ready:" + curname, function (text) {
+            doc.store(curname, text);
+            gcd.emit("text ready:" + curname, text);
+        });
     }
 
 
@@ -310,23 +391,13 @@ global overriding if need be.
 Code blocks are concatenated into the current one. The language is ignored for
 this.
 
-If no language is provided, we just call it empty. Hopefully there is no
-language called empty?! 
+If no language is provided, we just call it none. Hopefully there is no
+language called none?! 
 
     code block found --> add code block
-    _"heading vars"
-    if (doc.minor) {
-        
-    }
+    _":heading vars"
+    doc.blocks[doc.curname] +=  "\n"+data;
 
-    function (code, lang) {
-        if (lang) {
-            gcd.emit("code block found:"+lang+":"+file,code);
-        } else {
-            gcd.emit("code block found:empty:"+ file, code);
-        }
-        return code;
-    }
 
 [code ignore]()
 
@@ -342,34 +413,26 @@ ignored. Or you could just put the code in its own block.
     evObj.stop = true;
 
 
-[link]() 
+[directive]() 
 
-Links may be directives if one of the following things occur:
+Here we deal with directives. A directive can do a variety of things and it is
+not at all clear what can be done in general to help the process. Note that
+directives, unlike switches, are not parsed for pipes or anything after the
+colon is touched. 
 
-1. Title contains a colon. If so, then it is emitted as a directive with the
-   stuff preceeding the colon being a directive. The data sent is an array
-   with the link text, the stuff after the colon, and the href being sent.
-2. Title starts with a colon in which case it is a switch directive. The stuff
-   after the colon is sent as second in the data array, with the link text as
-   first. The href in this instance is completely ignored.
-3. Title and href are empty. 
+You can also stop this generic handling by listening for a specific directive
+and stopping the propagation with evObj.stop = true.
 
-Return the text in case it is included in a header; only the link text will be
-in the heading then. 
+This really just converts from event handling to function calling. Probably a
+bit easier for others to handle. 
 
-    function (href, title, text) {
-        var ind;
-        if ((!href) && (!title)) {
-            gcd.emit("switch code block"+file, [text, ""]);
-        } else if (title[0] === ":") {
-            gcd.emit("switch code block"+file, [text, title.slice(1)]);
-        } else if ( (ind = title.indexOf(":")) !== -1) {
-            gcd.emit("directive found:"+title.slice(0,ind)+":"+file, 
-                [text, title.slice(ind+1), href]);
-        }
-        return text;
+
+    directive found --> process directives
+    _":heading vars"
+    var directive = evObj.pieces[1];
+    if (directive && (fun = doc.directives[directive] ) {
+        fun.apply(doc, data);
     }
-
 
 
 
@@ -391,11 +454,6 @@ variable name.
 * filename:blockname;loc;comnum;argnum(;comnum;argnum...)
 
 
-
-## default actions
-
-All of these get attached to the emitter of the doc and can be replaced or
-augmented 
 
 
 ## colon
@@ -497,13 +555,16 @@ in the heading then.
             ind = 0;
             _":before pipe"
             if (middle) {
-                text += "." + middle;    
+                text += "." + middle.toLowerCase();    
             }
             gcd.emit("switch found:" + file, [text,pipes]);
         } else if ( (ind = title.indexOf(":")) !== -1) {
-            _":before pipe"
-            gcd.emit("directive found:"+title.slice(0,ind) + ":" + file, 
-                [text, middle, pipes, href]);
+            gcd.emit("directive found:" + 
+               title.slice(0,ind).trim().toLowerCase() + ":" + file, 
+                {doc:doc, 
+                 link : text,
+                 remainder : title.slice(ind+1),
+                 href:href});
         }
         return text;
     }
@@ -529,7 +590,7 @@ pipe parsings, one that got stripped by the title matching of links.
         pipes = '';
     } else {
         middle = title.slice(ind+1, pipes).trim();
-        pipes = title.slice(pipes+1).trim()+";
+        pipes = title.slice(pipes+1).trim();
     }
 
 
@@ -658,12 +719,7 @@ We create a stitch handler for the closures here.
                 
             }
         }
-        gcd.once("ready to stitch:"+name, function () {
-            var text = frags.join("\n");
-            doc.store(bname, text);
-            gcd.emit("text ready:"+name, text);
-
-        });
+        _":stitching"
 
         gcd.emit("block substitute parsing done:"+name);
     }
@@ -758,6 +814,26 @@ split off.
         _":figure out indent"
     } else {
        indents[loc] = [0,0];
+    }
+
+
+[stitching]()
+
+Here we stitch it all together. Seems simple, but if this is a minor block,
+then we need 
+
+    if (bname.indexOf(colon.v) !== -1) {
+        gcd.once("ready to stitch: + name, function () {
+            var text = frags.join("\n");
+            gcd.emit("minor ready:" + bname, text);
+        });
+    } else {
+        gcd.once("ready to stitch:"+name, function () {
+            var text = frags.join("\n");
+            doc.store(bname, text);
+            gcd.emit("text ready:"+name, text);
+
+        });
     }
 
 
@@ -1243,7 +1319,7 @@ And a super simple subname is to chunk up to pipes or quotes.
 
 
 
-## ! Action for argument finishing
+## Action for argument finishing
 
 When arguments are ready, we need to fire the command. This is where we do
 this. 
@@ -1312,7 +1388,7 @@ minimum winner and gets its text into the proper place.
     input = data[min[1]][1];
 
 
-### ! Command wrapper sync
+### Command wrapper sync
 
 This is a utility for wrapping synchronous functions that have signature
 `input, arg1, ... argn --> output`  Basically, we throw the arguments into the
@@ -1340,7 +1416,7 @@ executing.
 
 
 
-### ! Command wrapper async
+### Command wrapper async
 
 Here we wrap callback functionated async functions. We assume the function
 call will be of `input, arg1, ..., argn, callback` and the callback will
@@ -1365,6 +1441,18 @@ receive `err, data` where data is the text to emit.
     }
 
 
+### Store
+
+This stores some text under a name.
+
+    function (name, text) {
+        var doc = this;
+        if (doc.vars.hasOwnProperty(name) ) {
+            gcd.emit("overwriting existing var:" + doc.file + ":" name, 
+            {old:doc.vars[name], new: text} );
+        }
+        doc.vars[name] = text;
+    }
 
 
 ## Some Plugins
@@ -4592,9 +4680,10 @@ The requisite npm package file.
       "engines": {
         "node": ">0.10"
       },
-      "dependencies":{
-        "literate-programming-standard": "^0.2.5",
-        "commander": "~1.1.1"
+      "dependencies": {
+        "event-when": "^0.7.0",
+        "marked": "^0.3.2",
+        "string.fromcodepoint": "^0.2.1"
       },
       "devDependencies" : {
         "diff" : "~1.0.7"
