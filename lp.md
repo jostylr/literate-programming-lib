@@ -693,7 +693,7 @@ This is a function that responds to the event `block needs compiling:file:block 
     block needs compiling --> compiling block
     var file = evObj.pieces[1];
     var blockname = evObj.pieces[0];
-    var doc = gcd.parent.doc[file]; 
+    var doc = gcd.parent.docs[file]; 
     var block = doc.blocks[blockname];
     doc.blockCompiling(block, file, blockname);
 
