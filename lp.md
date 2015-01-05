@@ -17,6 +17,7 @@ after a fashion, as it weaves.
 
 * [index.js](#structure-of-the-module "save:  | jshint ") This is the
   compiler.
+* [test.js](#tests "save: | jshint") The test runner. 
 * [README.md](#readme "save:| clean raw") The standard README.
 * [package.json](#npm-package "save: json  | jshint") The requisite package file for a npm project. 
 * [TODO.md](#todo "save: | clean raw") A list of growing and shrinking items todo.
@@ -114,13 +115,15 @@ emitter
 
     var Folder = _"folder constructor";
 
-    Folder.prototype.parse = "_marked";
+    Folder.prototype.parse = _"marked";
+
+    Folder.prototype.newdoc = _"Make a new document";
 
     var Doc = _"doc constructor";
 
     _"doc constructor:prototype"
  
-    module.exports.Folder = Folder;
+    module.exports = Folder;
 
 
 ## folder constructor
@@ -137,8 +140,8 @@ added. The internal basic compiling is baked in though it can be overwritten.
 
         var gcd = this.gcd = new EvW();
         this.docs = {};
-        this.commands = {};
-        this.directives = {};
+        this.commands = _"Commands";
+        this.directives = _"Directives";
         
         this.maker = _"maker";
 
@@ -146,7 +149,9 @@ added. The internal basic compiling is baked in though it can be overwritten.
 
         _":handlers"
 
-        apply(actions);
+        if (actions) {
+            apply(gcd, actions);
+        }
 
         return this;
     }
@@ -190,14 +195,17 @@ To have event/action flows different than standard, one can write scoped
 listeners and then set `evObj.stop = true` to prevent the propagation upwards.
 
 
-    function (text, file, parent) {
+    function (file, text, parent, actions) {
         this.parent = parent;
         this.gcd = parent.gcd;
 
         this.file = file; // globally unique name for this doc
 
+        parent.docs[file] = this;
+
         this.text = text;
         
+        this.levels = {};
         this.blocks = {};
         this.scopes = {};
         this.vars = {};
@@ -206,6 +214,10 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.directives = Object.create(parent.directives);
         this.maker = Object.create(parent.maker);
     
+        if (actions) {
+            apply(gcd, actions);
+        }
+
     }
 
 
@@ -233,6 +245,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
     Doc.prototype.wrapAsync = _"Command wrapper async";
 
     Doc.prototype.store = _"Store";
+
 
 
 ### Example of folder constructor use
@@ -433,7 +446,7 @@ bit easier for others to handle.
     var fun;
     var directive = evObj.pieces[1];
     if (directive && (fun = doc.directives[directive] ) ) {
-        fun.apply(doc, data);
+        fun.call(doc, data);
     }
 
 
@@ -473,13 +486,28 @@ unescape, we define methods and export them.
 
     {   v : "\u2AF6",
         escape : function (text) {
-            text.replace(":",  "\u2AF6");
+             return text.replace(":",  "\u2AF6");
         },
         restore : function (text) {
-            text.replace( "\u2AF6", ":");
+            return text.replace( "\u2AF6", ":");
         }
     }
 
+## Make a new document 
+
+This takes in a file name, text, and possibly some more event/handler actions. 
+
+    function (name, text, actions) {
+        var parent = this;
+
+        var doc = new Doc(name, text, parent, actions);
+        
+
+        parent.parse(doc);
+
+        return doc;
+
+    }
 
 ## marked
 
@@ -493,9 +521,16 @@ We have a .when for being done with parsing. Any kind of async in the
 rendering (directives!) can be waited for with a `.when(..., "parsing
 done:"+file);`
 
-    function (doc, file, gcd) {
+    function (doc) {
+
+        var gcd = doc.gcd;
+        var file = doc.file;
     
         gcd.when("marked done:"+file, "parsing done:"+file);
+
+        gcd.on("parsing done:"+file, function () {
+            doc.parsed = true;
+        });
         
         var renderer = new marked.Renderer(); 
 
@@ -503,9 +538,10 @@ done:"+file);`
         renderer.code = _":code";
         renderer.link = _":link";   
         
-        marked(doc, {renderer:renderer});
+        marked(doc.text, {renderer:renderer});
 
-        gcd.emit("marked done:"+file);
+        gcd.emit("marked done:" + file);
+
 
     }
 
@@ -562,8 +598,7 @@ in the heading then.
         } else if ( (ind = title.indexOf(":")) !== -1) {
             gcd.emit("directive found:" + 
                title.slice(0,ind).trim().toLowerCase() + ":" + file, 
-                {doc:doc, 
-                 link : text,
+                { link : text,
                  remainder : title.slice(ind+1),
                  href:href});
         }
@@ -1492,30 +1527,67 @@ them per document or folder making them accessible to manipulations.
     }
 
 
-        
-    
-
-
-
-
-## Some Plugins
+## Commands
 
 Here we have some commands and directives that are of common use
+
+    { eval : _"eval"}
 
 ### Eval
 
 This implements the command `eval`. This evaluates the code as JavaScript. The
 parameters setup the vars of the environment and what is accessible. 
 
-### Literal
+    function ( input) {
 
-In order to have the full expressive power one might want, we have a literal
-command that can be used to output whatever without further subbing. So
-something like `_"|literal(\_\"\"")` would output `_""`.  ????
-
-    function (arg) {
-        return arg;
+        return eval(input);
+    
     }
+
+
+## Directives
+
+The most basic directive is saving the text. 
+
+For now, just simple saving, but we can implement the pipe parsing a bit later
+for saving as well. 
+
+    { save : _"save"}
+
+### Save
+
+We save it in vars of the document with the name in the link. The href tells
+us where to begin. The rest of the title will be dealt with later. 
+
+!! add in pipes, add in variable checking if stored, other document parsing,
+... 
+
+    function (args) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var file = doc.file;
+        var savename = args.link;
+        var title = args.remainder;
+        var start = doc.colon.escape(
+            args.href.slice(1).replace(/-/g, " ").trim().toLowerCase() );
+        console.log(start, args.href,
+            args.href.slice(1).replace(/-/g, " ").trim().toLowerCase()); 
+        gcd.once("text ready:" + file + ":" + start, function (data) {
+            doc.store(savename, data);
+            gcd.emit("text saved:"+file + ":" + start);
+        });
+
+        if (doc.parsed) {
+           
+        } else {
+            gcd.when("parsing done:" + file, "block needs compiling:" + 
+                file + ":" + start);
+        }
+
+    }
+
+
+
 
 ## On action 
 
@@ -1550,6 +1622,54 @@ action. The handler has signature data, evObj.
     }
 
 [oa](#on-action "define: command | | now")
+
+
+## Tests
+
+Let's create a testing environment. The idea is that we'll have a series of
+documents in the tests folder that will have the convention `name -
+description` at the top, then three dashed separator line to create a new
+document to parse followed by its result. In more advanced tests, we will
+introduce a syntax of input/output and related names. 
+
+    /*global require, process, console*/
+    /*jslint evil:true*/
+
+    var fs = require('fs');
+    var test = require('tape');
+    var Litpro = require('./index.js');
+
+    var text = fs.readFileSync('./tests/first.md', 'utf-8');
+    
+    var pieces = text.split("\n---\n");
+    var firstLine = pieces[0].split('-');
+    var name = firstLine[0].trim();;
+
+
+    test(name, function (t) {
+        t.plan(2);
+
+        var folder = new Litpro();
+        var gcd = folder.gcd;
+        gcd.makeLog();
+        console.log("dude"); 
+        
+        process.on('exit', function () {
+            console.log("hey"); 
+            console.log(gcd.log.logs());
+        });
+
+        gcd.on("text saved:first:note", function (data) {
+            t.equal(data, pieces[2]);
+            t.equal(doc.vars.note, pieces[2]);
+        });
+        var doc = folder.newdoc(name, pieces[1]);
+       
+        console.log(gcd.log.logs());
+    
+    });
+
+
 
 
 
@@ -1885,7 +2005,7 @@ The requisite npm package file.
         "string.fromcodepoint": "^0.2.1"
       },
       "devDependencies" : {
-        "diff" : "~1.0.7"
+        "tape": "^3.0.3"
       },
       "scripts" : { 
         "test" : "node ./test/test.js"
