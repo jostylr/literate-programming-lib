@@ -1547,6 +1547,7 @@ them per document or folder making them accessible to manipulations.
             };},
        'stitch store emit' : function (bname, name, frags, doc) {
             return function () {
+                console.log("F", frags);
                 var text = frags.join("");
                 doc.store(bname, text);
                 doc.gcd.emit("text ready:"+name, text);
@@ -1681,6 +1682,8 @@ introduce a syntax of input/output and related names.
         gcd.on("text saved:first:note", function (data, evObj) {
             var doc = folder.docs[evObj.pieces[1]];
             t.equal(data, pieces[2]);
+            console.log(data);
+            console.log("cut part", pieces[2]);
             t.equal(doc.vars.note, pieces[2]);
         });
         
