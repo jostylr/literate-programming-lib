@@ -391,7 +391,6 @@ problem.
 
     var title = data[1];
     var fname = evObj.pieces[0] + ":" + curname;
-    console.log("minor", fname);
     if (title) { // need piping
         title = title.trim()+'"';
         doc.pipeParsing(title, 0, '"' , fname);
@@ -780,7 +779,7 @@ We create a stitch handler for the closures here.
 
                 _":we are a go"
 
-                doc.substituteParsing(block, ind+1, quote, lname);
+                last = ind = doc.substituteParsing(block, ind+1, quote, lname);
                 
             }
         }
@@ -879,6 +878,7 @@ split off.
     } else {
        indents[loc] = [0,0];
     }
+    loc += 1;
 
 
 [stitching]()
@@ -1024,7 +1024,7 @@ it into command 0. If there are no commands, then command 0 is the done bit.
     if (chr === "|") {
         ind = doc.pipeParsing(text, ind, quote, lname);
     } else if (chr === quote) { 
-        ind += 1;
+        //index already points at after quote so do not increment
         gcd.once("text ready:" + lname + colon.v + "0",
             doc.maker['emit text ready'](lname, gcd));
     } else {
@@ -1547,7 +1547,6 @@ them per document or folder making them accessible to manipulations.
             };},
        'stitch store emit' : function (bname, name, frags, doc) {
             return function () {
-                console.log("F", frags);
                 var text = frags.join("");
                 doc.store(bname, text);
                 doc.gcd.emit("text ready:"+name, text);
@@ -1662,6 +1661,7 @@ introduce a syntax of input/output and related names.
     var text = fs.readFileSync('./tests/first.md', 'utf-8');
     
     var pieces = text.split("\n---\n");
+    pieces[2] = pieces[2].trim();
     var firstLine = pieces[0].split('-');
     var name = firstLine[0].trim();;
 
@@ -1682,8 +1682,6 @@ introduce a syntax of input/output and related names.
         gcd.on("text saved:first:note", function (data, evObj) {
             var doc = folder.docs[evObj.pieces[1]];
             t.equal(data, pieces[2]);
-            console.log(data);
-            console.log("cut part", pieces[2]);
             t.equal(doc.vars.note, pieces[2]);
         });
         

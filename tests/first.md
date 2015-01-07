@@ -15,18 +15,23 @@ Let's start at the end
 Just a postscript
 
 
-    P.S. This works. 
+    P.S. This works.
 
 ## Begin
 
 And now for the beginning.
 
-    Big deal. Let's get this working. You are _"end"
-    
-    _"End:P.S."
+```
+Big deal. Let's get this working. You are _"end"ha
 
+In between.
+
+_"End:P.S."
+```
 
 ---
-Big deal. Let's get this working. You are great. Wonderful. 
+Big deal. Let's get this working. You are great. Wonderful.ha
+
+In between.
 
 P.S. This works.
