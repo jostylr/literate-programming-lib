@@ -182,6 +182,8 @@ closure's sake and ease. Perhaps it will get revised.
 
     _"Parsing events:directive | oa"
 
+    _"Ready to start compiling blocks |oa"
+
 
 ## Doc constructor
 
@@ -217,6 +219,8 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         if (actions) {
             apply(gcd, actions);
         }
+
+        return this;
 
     }
 
@@ -386,17 +390,20 @@ problem.
 
 
     var title = data[1];
+    var fname = evObj.pieces[0] + ":" + curname;
+    console.log("minor", fname);
     if (title) { // need piping
         title = title.trim()+'"';
-        doc.pipeParsing(title, 0, '"' , curname);
-        gcd.once("minor ready:" + curname, 
-            doc.maker['emit text ready']( curname + colon.v + "0", 
+        doc.pipeParsing(title, 0, '"' , fname);
+        
+        gcd.once("minor ready:" + fname, 
+            doc.maker['emit text ready']( fname + colon.v + "0", 
                 gcd));
-        gcd.once("text ready:" + curname, 
-            doc.maker.store(curname, doc));
+        gcd.once("text ready:" + fname, 
+            doc.maker.store(fname, doc));
     } else { //just go
-        gcd.once("minor ready:" + curname, 
-            doc.maker['store emit'](curname, doc));
+        gcd.once("minor ready:" + fname, 
+            doc.maker['store emit'](fname, doc));
     }
 
 
@@ -410,7 +417,7 @@ language called none?!
 
     code block found --> add code block
     _":heading vars"
-    doc.blocks[doc.curname] +=  "\n"+data;
+    doc.blocks[doc.curname] +=  data;
 
 
 [code ignore]()
@@ -502,7 +509,6 @@ This takes in a file name, text, and possibly some more event/handler actions.
 
         var doc = new Doc(name, text, parent, actions);
         
-
         parent.parse(doc);
 
         return doc;
@@ -630,6 +636,22 @@ pipe parsings, one that got stripped by the title matching of links.
     }
 
 
+## Ready to start compiling blocks
+
+We will compile each block once the parsing is done. 
+
+To exclude a block from the compiling phase, use the directive `exclude block`
+at the end of the heading block. 
+
+    parsing done --> list blocks to compile
+    var file = evObj.pieces[0];
+    var doc = gcd.parent.docs[file];
+    var blocks = doc.blocks;
+    var name;
+    for (name in blocks) {
+        gcd.emit("block needs compiling:" + file + ":" + name); 
+    }
+
 
 ## apply
 
@@ -649,6 +671,9 @@ the emitter.
 
         }
     }
+
+
+
 
 ## Variable retrieval
 
@@ -771,7 +796,6 @@ We create a stitch handler for the closures here.
 Is the character after the underscore a quote? Can be double or single or
 backtick. 
 
-
     if (block[ind].match(/['"`]/)) {
         quote = block[ind];
     } else {
@@ -842,6 +866,7 @@ split off.
     if (last !== place ) {
         frags[loc] = block.slice(last, place);
         loc += 1;
+        last = place;
     }
     lname = name + colon.v + loc;
     gcd.once("text ready:" + lname, 
@@ -859,11 +884,11 @@ split off.
 [stitching]()
 
 Here we stitch it all together. Seems simple, but if this is a minor block,
-then we need 
+then we need to run the commands if applicable after the stitching. 
 
     if (bname.indexOf(colon.v) !== -1) {
         gcd.once("ready to stitch:" + name, 
-            doc.maker['stitch emit'](bname, frags, gcd));
+            doc.maker['stitch emit'](name, frags, gcd));
     } else {
         gcd.once("ready to stitch:"+name,
             doc.maker['stitch store emit'](bname, name, frags, doc));
@@ -881,6 +906,7 @@ look at the character. first is first non-blank character.
 
     first = place;
     backcount = place-1;
+    indent = [0,0];
     while (true) {
         if ( (backcount < 0) || ( (chr = block[backcount]) === "\n" ) ) {
             indent = first - ( backcount + 1 ); 
@@ -895,8 +921,8 @@ look at the character. first is first non-blank character.
             first = backcount;
         }
         backcount -= 1;
-        indents[loc] = indent;
     }
+    indents[loc] = indent;
 
 ### Indent
 
@@ -960,6 +986,7 @@ it into command 0. If there are no commands, then command 0 is the done bit.
         var doc = this;
         var gcd = doc.gcd;
         var colon = doc.colon;
+        var file = doc.file;
 
         var match, colind, mainblock, subname, chr, subtext;
         var subreg = doc.regexs.subname[quote];
@@ -976,7 +1003,7 @@ it into command 0. If there are no commands, then command 0 is the done bit.
         
         subtext = doc.find(subname);
         if (typeof subtext === "undefined") {
-            gcd.once( "text ready:" + subname, 
+            gcd.once( "text ready:" + file + ":" + subname, 
                 doc.maker['emit text ready'](lname + colon.v + "0", gcd));
         } else {
             gcd.emit("text ready:"  + lname + colon.v + "0", subtext);
@@ -1512,15 +1539,15 @@ them per document or folder making them accessible to manipulations.
                 var gcd = doc.gcd;
                 doc.indent(subtext, indents[loc]);
                 frags[loc] = subtext;
-                gcd.emit("location filled:" + doc.file + ":" + lname );
+                gcd.emit("location filled:" +  lname );
             };},
         'stitch emit' : function (name, frags, gcd) {
             return function () {
-                gcd.emit("minor ready:" + name, frags.join("\n"));
+                gcd.emit("minor ready:" + name, frags.join(""));
             };},
        'stitch store emit' : function (bname, name, frags, doc) {
             return function () {
-                var text = frags.join("\n");
+                var text = frags.join("");
                 doc.store(bname, text);
                 doc.gcd.emit("text ready:"+name, text);
             };}
@@ -1570,19 +1597,11 @@ us where to begin. The rest of the title will be dealt with later.
         var title = args.remainder;
         var start = doc.colon.escape(
             args.href.slice(1).replace(/-/g, " ").trim().toLowerCase() );
-        console.log(start, args.href,
-            args.href.slice(1).replace(/-/g, " ").trim().toLowerCase()); 
         gcd.once("text ready:" + file + ":" + start, function (data) {
             doc.store(savename, data);
-            gcd.emit("text saved:"+file + ":" + start);
+            gcd.emit("text saved:"+file + ":" + savename, data);
         });
 
-        if (doc.parsed) {
-           
-        } else {
-            gcd.when("parsing done:" + file, "block needs compiling:" + 
-                file + ":" + start);
-        }
 
     }
 
@@ -1652,20 +1671,23 @@ introduce a syntax of input/output and related names.
         var folder = new Litpro();
         var gcd = folder.gcd;
         gcd.makeLog();
-        console.log("dude"); 
-        
+       
+        var doc;
+
         process.on('exit', function () {
-            console.log("hey"); 
             console.log(gcd.log.logs());
         });
 
-        gcd.on("text saved:first:note", function (data) {
+        gcd.on("text saved:first:note", function (data, evObj) {
+            var doc = folder.docs[evObj.pieces[1]];
             t.equal(data, pieces[2]);
             t.equal(doc.vars.note, pieces[2]);
         });
-        var doc = folder.newdoc(name, pieces[1]);
+        
+        doc = folder.newdoc(name, pieces[1]);
        
-        console.log(gcd.log.logs());
+        //console.log(gcd.log.logs());
+
     
     });
 
