@@ -37,7 +37,7 @@ var Folder = function (actions) {
                     args.href.slice(1).replace(/-/g, " ").trim().toLowerCase() );
                 gcd.once("text ready:" + file + ":" + start, function (data) {
                     doc.store(savename, data);
-                    gcd.emit("text saved:"+file + ":" + savename, data);
+                    gcd.emit("file ready:" + savename, data);
                 });
             
             }};
@@ -323,9 +323,18 @@ Folder.prototype.newdoc = function (name, text, actions) {
     
     };
 
+Folder.prototype.colon = {   v : "\u2AF6",
+        escape : function (text) {
+             return text.replace(":",  "\u2AF6");
+        },
+        restore : function (text) {
+            return text.replace( "\u2AF6", ":");
+        }
+    };
+
 var Doc = function (file, text, parent, actions) {
         this.parent = parent;
-        this.gcd = parent.gcd;
+        var gcd = this.gcd = parent.gcd;
     
         this.file = file; // globally unique name for this doc
     
@@ -341,6 +350,7 @@ var Doc = function (file, text, parent, actions) {
         this.commands = Object.create(parent.commands);
         this.directives = Object.create(parent.directives);
         this.maker = Object.create(parent.maker);
+        this.colon = Object.create(parent.colon); 
     
         if (actions) {
             apply(gcd, actions);
@@ -365,16 +375,7 @@ Doc.prototype.find = function (name) {
     }
     return scope[name];
 };
-
-Doc.prototype.colon = {   v : "\u2AF6",
-        escape : function (text) {
-             return text.replace(":",  "\u2AF6");
-        },
-        restore : function (text) {
-            return text.replace( "\u2AF6", ":");
-        }
-    };
-
+ 
 Doc.prototype.indent = function (text, indents) {
         var beg, line;
         var i, n;

@@ -119,6 +119,8 @@ emitter
 
     Folder.prototype.newdoc = _"Make a new document";
 
+    Folder.prototype.colon = _"colon";
+
     var Doc = _"doc constructor";
 
     _"doc constructor:prototype"
@@ -199,7 +201,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
 
     function (file, text, parent, actions) {
         this.parent = parent;
-        this.gcd = parent.gcd;
+        var gcd = this.gcd = parent.gcd;
 
         this.file = file; // globally unique name for this doc
 
@@ -215,6 +217,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.commands = Object.create(parent.commands);
         this.directives = Object.create(parent.directives);
         this.maker = Object.create(parent.maker);
+        this.colon = Object.create(parent.colon); 
     
         if (actions) {
             apply(gcd, actions);
@@ -229,9 +232,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
 
 
     Doc.prototype.find = _"variable retrieval";
-    
-    Doc.prototype.colon = _"colon";
-    
+     
     Doc.prototype.indent = _"indent";
 
     Doc.prototype.blockCompiling = _"block compiling";
@@ -1581,6 +1582,11 @@ for saving as well.
 
     { save : _"save"}
 
+
+ Directives get a single argument object which gets the link, the href, and
+ the text after the colon. 
+ 
+
 ### Save
 
 We save it in vars of the document with the name in the link. The href tells
@@ -1599,11 +1605,54 @@ us where to begin. The rest of the title will be dealt with later.
             args.href.slice(1).replace(/-/g, " ").trim().toLowerCase() );
         gcd.once("text ready:" + file + ":" + start, function (data) {
             doc.store(savename, data);
-            gcd.emit("text saved:"+file + ":" + savename, data);
+            gcd.emit("file ready:" + savename, data);
         });
 
 
     }
+
+
+### Exclude
+
+This excludes the current section from being compiled.
+ 
+### Load
+
+This loads files into the folder and asscoiates the nickname with it in the
+local doc.
+
+All docs that are already loading or loaded will be present in the
+folder.docs object. If not, then we need to load it. We will also need to
+check for the nickname already existing in vars. If it does exist, we emit an
+error and do not load the file. 
+
+We use the folder colon escape for the url since that is global to folders
+while the nickname is strictly internal and uses the local colon escape.
+Somehow I get the feelng I have made a mess of this escape stuff; it should
+not have been so flexible.
+
+    function (args) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var folder = doc.parent;
+        var requester = doc.file;
+        var url = args.remainder.trim() || args.href.trim();
+        var urlesc = folder.colon.escape(url);
+        var nickname = doc.colon.escap(eargs.link.trim());
+        
+        if (doc.scopes.hasOwnProperty(nickname) ) {
+            gcd.emit("error:scope name already exists:" + 
+                doc.colon.escape(nickname) );
+        } else {
+            doc.scopes[nickname] = urlesc;
+            if (!(folder.docs.hasOwnProperty(urlesc) ) {
+                gcd.emit("need document:" + urlesc, url );
+            }
+        }
+
+    }
+
+
 
 
 
@@ -1651,48 +1700,187 @@ description` at the top, then three dashed separator line to create a new
 document to parse followed by its result. In more advanced tests, we will
 introduce a syntax of input/output and related names. 
 
-    /*global require, process, console*/
+    /*global require*/
     /*jslint evil:true*/
 
     var fs = require('fs');
     var test = require('tape');
     var Litpro = require('./index.js');
 
-    var text = fs.readFileSync('./tests/first.md', 'utf-8');
-    
-    var pieces = text.split("\n---\n");
-    pieces[2] = pieces[2].trim();
-    var firstLine = pieces[0].split('-');
-    var name = firstLine[0].trim();;
+    var testdata = {};
+
+    var testrunner = _"testrunner";
+
+    var equalizer = _"equalizer";
+
+    var testfiles = [ 'first.md'];
+
+    var i, n = testfiles.length;
+
+    for (i =0; i < n; i += 1) {
+        testrunner(testfiles[i]);
+    }
 
 
-    test(name, function (t) {
-        t.plan(2);
+### testrunner
 
-        var folder = new Litpro();
-        var gcd = folder.gcd;
-        gcd.makeLog();
-       
-        var doc;
+This is a function that sets up and then runs the test. We need a function to
+avoid the implicit closures if it was looped over code. Yay async!
 
-        process.on('exit', function () {
-            console.log(gcd.log.logs());
-        });
+The plan is: read in the file, split it on `---`, figure out what is to be
+input vs output and link the tests to the outputs being saved, and then
+process the inputs. 
 
-        gcd.on("text saved:first:note", function (data, evObj) {
-            var doc = folder.docs[evObj.pieces[1]];
-            t.equal(data, pieces[2]);
-            t.equal(doc.vars.note, pieces[2]);
-        });
+    function (file) {
+ 
+        var pieces, name, i, n, td, newline, piece,
+            start, text, j, m, filename;
+
+        text = fs.readFileSync('./tests/'+file, 'utf-8');
+        pieces = text.split("\n---");
         
-        doc = folder.newdoc(name, pieces[1]);
-       
-        //console.log(gcd.log.logs());
+        name = file + ": " + pieces.shift().split('-')[0].trim();
 
-    
-    });
+        td = testdata[name] = {
+            start : [],
+            in : {},
+            out : {}
+        };
+        
+        _":set up test data"
+
+        var folder = new Litpro({
+            "on" : [
+                ["need document", "fetch document"],
+                ["document fetched", "compile document"]
+                ],
+             "action" : [
+                ["fetch document", _"test fetch document"],
+                ["compile document", _"test compile document"]
+              ]
+        });
+        var gcd = folder.gcd;
+
+        //gcd.makeLog();
+
+        test(name, function (t) {
+            var outs, m, j, out;
+            outs = Object.keys(td.out);
+            m  = outs.length;
+            t.plan(m);
+            for (j = 0; j < m; j += 1) {
+                out = outs[j];
+                gcd.on("file ready:" + out, equalizer(t, td.out[out]) );
+            }
+
+            start = td.start;
+            n = start.length; 
+            for (i = 0; i < n; i += 1) {
+                filename = start[i];
+                if (!folder.docs.hasOwnProperty(filename) ) { 
+                    folder.newdoc(filename, td.in[filename]);
+                }
+            }
+
+            //console.log(gcd.log.logs());
+        });
+    }
 
 
+
+
+[set up test data]() 
+
+Here we put the tests into testdata either as an input or output. If there are
+just two, we assume the first is input and the second is output. The default
+names are in and out, respectively. So we should save the output to out. 
+
+The start listing are the ones that get specifically processed. The in, which
+includes the starts, are those that can be loaded from within the documents. 
+
+     if (pieces.length === 2) {
+        // \n---\n  will be assumed and the rest is to be used
+        // the first is input, the second is output
+       td.start.push("in");
+       td.in.in = pieces[0].slice(1);
+       td.out.out = pieces[1].slice(1).trim();
+    } else {
+        j = pieces.length;
+        for (j = 0; j < m; j += 1) {
+            piece = pieces[j];
+            newline = piece.indexOf("\n");
+            if (piece.slice(0,3) === "in:") {
+                td.in[piece.slice(3, newline)] = piece.slice(newline + 1);
+            } else if (piece.slice(0,4) === "out:") {
+                td.out[piece.slice(4, newline)] = 
+                    piece.slice(newline + 1).trim();
+            } else if (piece.slice(0,5) === "start:") {
+                td.start.push(piece.slice(5, newline));
+                td.in[piece.slice(5, newline)] = piece.slice(newline + 1);
+            }
+        }
+    }
+
+   
+### Equalizer
+
+This is just a little function constructor to close around the handler for the
+output file name. 
+
+    function (t, out) {
+        return function (text) {
+            t.equals(text, out);
+        };
+    }
+
+### Test fetch document
+
+This will fetch the document from the ins of the testdata. 
+
+The emit will be of the form "need document:file location",
+with data being the actual file location.
+
+    function (rawname, evObj) {
+        var gcd = evObj.emitter;
+        var filename = evObj.pieces[0];
+        
+        if (td.in.hasOwnProperty(filename) ) {
+            gcd.emit("document fetched:" + filename, td.in[rawname]);        
+        } else {
+            gcd.emit("error:file not found:"+ filename);
+        }
+
+    }
+
+### Test compile document
+
+This takes in the text of a file and compiles it. 
+
+    function (text, evObj) {
+        var gcd = evObj.emitter;
+        var filename = evObj.pieces[0];
+        var folder = gcd.parent;
+
+        folder.newdoc(filename, text);
+
+    }
+
+
+### Test list
+
+Refactor to have multiple tests. Should be simple. 
+
+Test list
+* first was basic concatenation
+* command piping
+* directives
+* command, directive definitions
+* asynchronous commands, directives
+* tests for each of the core commands, directives. 
+* indented code block, code fence, pre, code fence with ignore, directives to
+  chage ignorable commmands
+* multiple input, outpu documents
+* variables, storing and retrieving, scopes. 
 
 
 

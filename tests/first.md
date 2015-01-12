@@ -2,7 +2,7 @@ first - the most basic example. Just do a quick stitch and save
 ---
 # First
 
-This is a first test. We save it [note](#begin "save:")
+This is a first test. We save it [out](#begin "save:")
 
 ## End 
 
