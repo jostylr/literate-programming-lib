@@ -509,7 +509,11 @@ This takes in a file name, text, and possibly some more event/handler actions.
 
         var doc = new Doc(name, text, parent, actions);
         
-        parent.parse(doc);
+        try {
+            parent.parse(doc);
+        } catch (e) {
+            console.log(doc);       
+        }
 
         return doc;
 
@@ -1071,14 +1075,14 @@ We need to track the command numbering for the event emitting.
         var doc = this;
         var gcd = doc.gcd;
         var colon = doc.colon;
-        
+       
 
         var chr, argument, argnum, match, command, 
             comname, nextname, aname, result ;
         var n = text.length;
         var comnum = 0;
         var comreg = doc.regexs.command[quote];
-        var argreg = doc.regexs.arguments[quote];
+        var argreg = doc.regexs.argument[quote];
         var wsreg = /\s+/g;
 
         while (ind < n) { // command processing loop
@@ -1129,10 +1133,10 @@ trimmed.
             "text ready:" + comname],
             "arguments ready:"  + comname );
         if (chr === quote) {
-            _"ending a command substitution:com parse"
+            _"ending a command substitution"
             break;
         } else if (chr === "|") {
-            _"ending a command substitution"
+            _"ending a command substitution:com parse"
             continue;
         }
     } else {
@@ -1145,15 +1149,15 @@ The command number that is beyond the inputs represents the end of the chain.
 At that point, we emit the text ready for the previous level. 
 
 
-    _":com parse"
     gcd.once("text ready:" + nextname, 
         doc.maker['emit text ready'](name, gcd));
+    _":com parse"
 
 [com parse]()
 
-This is plit off for convenience. 
+This is split off for convenience. 
 
-    gcd.emit("command parsed:" + comname, [doc, command, nextname]);
+    gcd.emit("command parsed:" + comname, [doc.file, command, nextname]);
 
     
 
@@ -1404,15 +1408,21 @@ Commands are bound to doc by applying the arguments. The first argument is the
 pipe input. The second argument is an array containing all the other
 arguments. The third argument is the name to emit when all is done. 
 
-    agruments ready --> run command
+    arguments ready --> run command
     var doc, input, name, cur, command, min = [Infinity,-1];
     var args = [];
-    
+
+
     _":extract data"
 
-    var fun = doc.findCommand(command);
 
-    fun.apply(doc, [input, args, name, command]);
+    var fun = doc.commands[command];
+
+    if (fun) {
+        fun.apply(doc, [input, args, name, command]);
+    } else {
+        gcd.emit("error:no such command:" + name, [command, input, args]);
+    }
 
 [extract data]()
 
@@ -1428,9 +1438,9 @@ minimum winner and gets its text into the proper place.
     for (i = 0; i < n; i += 1) {
         cur = data[i];
         if (data[i][0].indexOf("command parsed") === 0 ) {
-            doc = data[i][0];
-            command = data[i][1];
-            name = data[i][2];
+            doc = gcd.parent.docs[data[i][1][0]];
+            command = data[i][1][1];
+            name = data[i][1][2];
         } else { // should only be text ready
             j = i;
             if ( ( m = data[i][0].length ) < min[0] ) {
@@ -1563,14 +1573,21 @@ Here we have some commands and directives that are of common use
 
 ### Eval
 
-This implements the command `eval`. This evaluates the code as JavaScript. The
-parameters setup the vars of the environment and what is accessible. 
+This implements the command `eval`. This evaluates the code as JavaScript. 
 
-    function ( input) {
 
-        return eval(input);
-    
+    function ( input, args, name) {
+        var gcd = this.gcd;
+
+
+        try {
+         gcd.emit("text ready:" + name, eval(input)+"" );
+        } catch (e) {
+            gcd.emit("error:command execution:" +  name, 
+                [e, input, "eval"]);
+        }
     }
+
 
 
 ## Directives
@@ -1713,7 +1730,10 @@ introduce a syntax of input/output and related names.
 
     var equalizer = _"equalizer";
 
-    var testfiles = [ 'first.md'];
+    var testfiles = [ 
+        "first.md", 
+        "eval.md"
+    ];
 
     var i, n = testfiles.length;
 
@@ -1761,7 +1781,7 @@ process the inputs.
         });
         var gcd = folder.gcd;
 
-        //gcd.makeLog();
+        gcd.makeLog();
 
         test(name, function (t) {
             var outs, m, j, out;

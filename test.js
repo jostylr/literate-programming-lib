@@ -96,7 +96,7 @@ var testrunner = function (file) {
                 }
             }
     
-            console.log(gcd.log.logs());
+            //console.log(gcd.log.logs());
         });
     };
 
@@ -106,7 +106,10 @@ var equalizer = function (t, out) {
         };
     };
 
-var testfiles = [ 'first.md'];
+var testfiles = [ 
+    "first.md", 
+    "eval.md"
+];
 
 var i, n = testfiles.length;
 

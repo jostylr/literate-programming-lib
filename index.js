@@ -22,10 +22,15 @@ var Folder = function (actions) {
     
         var gcd = this.gcd = new EvW();
         this.docs = {};
-        this.commands = { eval : function ( input) {
+        this.commands = { eval : function ( input, args, name) {
+                var gcd = this.gcd;
             
-                return eval(input);
-            
+                try {
+                 gcd.emit("text ready:" + name, eval(input)+"" );
+                } catch (e) {
+                    gcd.emit("error:command execution:" +  name, 
+                        [e, input, "eval"]);
+                }
             }};
         this.directives = { save : function (args) {
                 var doc = this;
@@ -88,7 +93,7 @@ var Folder = function (actions) {
             }
         );
         
-        gcd.on("agruments ready", "run command");
+        gcd.on("arguments ready", "run command");
         
         gcd.action("run command", function (data, evObj) {
                 var gcd = evObj.emitter;
@@ -99,9 +104,9 @@ var Folder = function (actions) {
                 for (i = 0; i < n; i += 1) {
                     cur = data[i];
                     if (data[i][0].indexOf("command parsed") === 0 ) {
-                        doc = data[i][0];
-                        command = data[i][1];
-                        name = data[i][2];
+                        doc = gcd.parent.docs[data[i][1][0]];
+                        command = data[i][1][1];
+                        name = data[i][1][2];
                     } else { // should only be text ready
                         j = i;
                         if ( ( m = data[i][0].length ) < min[0] ) {
@@ -119,9 +124,13 @@ var Folder = function (actions) {
                 
                 input = data[min[1]][1];
                 
-                var fun = doc.findCommand(command);
+                var fun = doc.commands[command];
                 
-                fun.apply(doc, [input, args, name, command]);
+                if (fun) {
+                    fun.apply(doc, [input, args, name, command]);
+                } else {
+                    gcd.emit("error:no such command:" + name, [command, input, args]);
+                }
             }
         );
         
@@ -317,7 +326,11 @@ Folder.prototype.newdoc = function (name, text, actions) {
     
         var doc = new Doc(name, text, parent, actions);
         
-        parent.parse(doc);
+        try {
+            parent.parse(doc);
+        } catch (e) {
+            console.log(doc);       
+        }
     
         return doc;
     
@@ -555,14 +568,14 @@ Doc.prototype.pipeParsing = function (text, ind, quote, name) {
         var doc = this;
         var gcd = doc.gcd;
         var colon = doc.colon;
-        
+       
     
         var chr, argument, argnum, match, command, 
             comname, nextname, aname, result ;
         var n = text.length;
         var comnum = 0;
         var comreg = doc.regexs.command[quote];
-        var argreg = doc.regexs.arguments[quote];
+        var argreg = doc.regexs.argument[quote];
         var wsreg = /\s+/g;
     
         while (ind < n) { // command processing loop
@@ -585,12 +598,12 @@ Doc.prototype.pipeParsing = function (text, ind, quote, name) {
                     "text ready:" + comname],
                     "arguments ready:"  + comname );
                 if (chr === quote) {
-                    gcd.emit("command parsed:" + comname, [doc, command, nextname]);
-                    break;
-                } else if (chr === "|") {
-                    gcd.emit("command parsed:" + comname, [doc, command, nextname]);
                     gcd.once("text ready:" + nextname, 
                         doc.maker['emit text ready'](name, gcd));
+                    gcd.emit("command parsed:" + comname, [doc.file, command, nextname]);
+                    break;
+                } else if (chr === "|") {
+                    gcd.emit("command parsed:" + comname, [doc.file, command, nextname]);
                     continue;
                 }
             } else {
@@ -642,12 +655,12 @@ Doc.prototype.pipeParsing = function (text, ind, quote, name) {
                     argnum += 1;
                     continue;
                 } else if (chr === "|") {
-                    gcd.emit("command parsed:" + comname, [doc, command, nextname]);
+                    gcd.emit("command parsed:" + comname, [doc.file, command, nextname]);
                     break;
                 } else if (chr === quote) {
-                    gcd.emit("command parsed:" + comname, [doc, command, nextname]);
                     gcd.once("text ready:" + nextname, 
                         doc.maker['emit text ready'](name, gcd));
+                    gcd.emit("command parsed:" + comname, [doc.file, command, nextname]);
                     return ind;
                 } else {
                    gcd.emit("failure in parsing:" + name, ind);
