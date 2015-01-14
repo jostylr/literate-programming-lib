@@ -1083,7 +1083,8 @@ We need to track the command numbering for the event emitting.
         var comnum = 0;
         var comreg = doc.regexs.command[quote];
         var argreg = doc.regexs.argument[quote];
-        var wsreg = /\s+/g;
+        var wsreg = /\s*/g;
+
 
         while (ind < n) { // command processing loop
 
@@ -1095,6 +1096,7 @@ We need to track the command numbering for the event emitting.
 
         }
         
+
         return ind;
 
     }
@@ -1190,7 +1192,8 @@ but I think that leads to uncertainty. Bad enough not having parentheses.
         gcd.when("text ready:" +aname,
             "arguments ready:"+comname );
         wsreg.lastIndex = ind;
-        ind = wsreg.exec(text).lastIndex;
+        wsreg.exec(text)
+        ind = wsreg.lastIndex;
         if (text[ind] === "\u005F") {
             _":deal with substitute text"
         }
@@ -1245,7 +1248,7 @@ we can do.
     if (match) {
         ind = argreg.lastIndex;
         argument += match[1];
-        chr = match[1];
+        chr = match[2];
         if (chr === "\\") {
            result = doc.backslash(text, ind+1);
            ind = result[1];
@@ -1264,10 +1267,10 @@ we can do.
 
 For failure, we just emit there is a failure and exit where we left off. Not a
 good state. Maybe with some testing and experiments, this could be done
-better. 
+better. Incrementing index prevent possible endless loop. 
 
     gcd.emit("failure in parsing:" + name, ind);
-    return ind;
+    return ind+1;
  
 
 ### Backslash
@@ -1569,7 +1572,9 @@ them per document or folder making them accessible to manipulations.
 
 Here we have some commands and directives that are of common use
 
-    { eval : _"eval"}
+    {   eval : _"eval",
+        sub : _"sub",
+    }
 
 ### Eval
 
@@ -1587,6 +1592,69 @@ This implements the command `eval`. This evaluates the code as JavaScript.
                 [e, input, "eval"]);
         }
     }
+
+### Sub
+
+This is the sub command which allows us to do substitutions. It takes in the
+feeder text and replaces any occurrence of the given symbol with the
+arguments. In particular, the template is `input --> * , a, b, c` will
+replace in the input of `*1` with `a`, `*2` with `b`, etc., 
+
+We will do the replacement using indeOf and splicing due to potentiald
+conflicts with .replace (the $ replacements and the lack of global aspect if
+given a string).
+
+
+    function (str, args, name) {
+        var gcd = this.gcd;
+
+        var index = 0, m = str.length, al = args.length,
+            i, j, old, newstr;
+
+
+        if ( (!args[0]) ) {
+            gcd.emit("error:sub has insufficient arguments:" + name);
+        }
+
+
+        if (al === 2) {
+            old = args[0];
+            newstr = args[1] || '';
+            while ( index < m ) { 
+                _":replace"
+            }
+        } else {
+
+We count down to ensure that we have larger numbers matched first, i.e.,
+eliminate `*11` before `*1`. 
+
+            for (j = al-1; j >= 0; j -= 1) {
+                index = 0;
+                old = args[0] + j;
+                newstr = args[j] || '';
+                while (index < m) {
+                    _":replace"
+                }
+            }
+        }
+        
+
+        gcd.emit("text ready:" + name, str);
+    }
+
+[replace]()
+
+This is the function that replaces a part of a string with another.
+
+
+        i = str.indexOf(old, index);
+
+        if (i === -1) {
+            break;
+        } else {
+            str = str.slice(0,i) + newstr + str.slice(i+old.length);
+            index = i+newstr.length;
+        }
 
 
 
@@ -1732,7 +1800,8 @@ introduce a syntax of input/output and related names.
 
     var testfiles = [ 
         "first.md", 
-        "eval.md"
+        "eval.md",
+        "sub.md"
     ];
 
     var i, n = testfiles.length;

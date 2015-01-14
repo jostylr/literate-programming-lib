@@ -108,7 +108,8 @@ var equalizer = function (t, out) {
 
 var testfiles = [ 
     "first.md", 
-    "eval.md"
+    "eval.md",
+    "sub.md"
 ];
 
 var i, n = testfiles.length;

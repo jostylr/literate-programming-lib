@@ -22,7 +22,7 @@ var Folder = function (actions) {
     
         var gcd = this.gcd = new EvW();
         this.docs = {};
-        this.commands = { eval : function ( input, args, name) {
+        this.commands = {   eval : function ( input, args, name) {
                 var gcd = this.gcd;
             
                 try {
@@ -31,7 +31,53 @@ var Folder = function (actions) {
                     gcd.emit("error:command execution:" +  name, 
                         [e, input, "eval"]);
                 }
-            }};
+            },
+                sub : function (str, args, name) {
+                        var gcd = this.gcd;
+                    
+                        var index = 0, m = str.length, al = args.length,
+                            i, j, old, newstr;
+                    
+                        if ( (!args[0]) ) {
+                            gcd.emit("error:sub has insufficient arguments:" + name);
+                        }
+                    
+                        if (al === 2) {
+                            old = args[0];
+                            newstr = args[1] || '';
+                            while ( index < m ) { 
+                                    i = str.indexOf(old, index);
+                                
+                                    if (i === -1) {
+                                        break;
+                                    } else {
+                                        str = str.slice(0,i) + newstr + str.slice(i+old.length);
+                                        index = i+newstr.length;
+                                    }
+                            }
+                        } else {
+                    
+                            for (j = al-1; j >= 0; j -= 1) {
+                                index = 0;
+                                old = args[0] + j;
+                                newstr = args[j] || '';
+                                while (index < m) {
+                                        i = str.indexOf(old, index);
+                                    
+                                        if (i === -1) {
+                                            break;
+                                        } else {
+                                            str = str.slice(0,i) + newstr + str.slice(i+old.length);
+                                            index = i+newstr.length;
+                                        }
+                                }
+                            }
+                        }
+                        
+                    
+                        gcd.emit("text ready:" + name, str);
+                    },
+            };
         this.directives = { save : function (args) {
                 var doc = this;
                 var gcd = doc.gcd;
@@ -576,7 +622,7 @@ Doc.prototype.pipeParsing = function (text, ind, quote, name) {
         var comnum = 0;
         var comreg = doc.regexs.command[quote];
         var argreg = doc.regexs.argument[quote];
-        var wsreg = /\s+/g;
+        var wsreg = /\s*/g;
     
         while (ind < n) { // command processing loop
     
@@ -608,7 +654,7 @@ Doc.prototype.pipeParsing = function (text, ind, quote, name) {
                 }
             } else {
                 gcd.emit("failure in parsing:" + name, ind);
-                return ind;
+                return ind+1;
                 
             }
     
@@ -618,7 +664,8 @@ Doc.prototype.pipeParsing = function (text, ind, quote, name) {
                 gcd.when("text ready:" +aname,
                     "arguments ready:"+comname );
                 wsreg.lastIndex = ind;
-                ind = wsreg.exec(text).lastIndex;
+                wsreg.exec(text)
+                ind = wsreg.lastIndex;
                 if (text[ind] === "\u005F") {
                     if (text[ind+1].indexOf(/['"`]/) !== -1) {
                         gcd.when("text ready:" + aname, 
@@ -635,7 +682,7 @@ Doc.prototype.pipeParsing = function (text, ind, quote, name) {
                     if (match) {
                         ind = argreg.lastIndex;
                         argument += match[1];
-                        chr = match[1];
+                        chr = match[2];
                         if (chr === "\\") {
                            result = doc.backslash(text, ind+1);
                            ind = result[1];
@@ -647,7 +694,7 @@ Doc.prototype.pipeParsing = function (text, ind, quote, name) {
                         }
                     } else {
                         gcd.emit("failure in parsing:" + name, ind);
-                        return ind;
+                        return ind+1;
                         
                     }
                 }
@@ -664,7 +711,7 @@ Doc.prototype.pipeParsing = function (text, ind, quote, name) {
                     return ind;
                 } else {
                    gcd.emit("failure in parsing:" + name, ind);
-                   return ind;
+                   return ind+1;
                     
                 }
             }
@@ -673,6 +720,7 @@ Doc.prototype.pipeParsing = function (text, ind, quote, name) {
     
         }
         
+    
         return ind;
     
     };
