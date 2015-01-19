@@ -127,8 +127,8 @@ emitter
 
     var async = Folder.prototype.wrapAsync = _"Command wrapper async";
 
-    commands = _"Commands";
-    directives = _"Directives";
+    Folder.prototype.commands = _"Commands";
+    Folder.prototype.directives = _"Directives";
 
 
     var Doc = _"doc constructor";
@@ -152,8 +152,6 @@ added. The internal basic compiling is baked in though it can be overwritten.
 
         var gcd = this.gcd = new EvW();
         this.docs = {};
-        this.commands = Object.create(commands);
-        this.directives = Object.create(directives);
         
         this.maker = _"maker";
 
@@ -1018,13 +1016,17 @@ it into command 0. If there are no commands, then command 0 is the done bit.
             gcd.emit("failure in parsing:" + lname, ind);
             return ind;
         }
-        
-        subtext = doc.find(subname);
-        if (typeof subtext === "undefined") {
-            gcd.once( "text ready:" + file + ":" + subname, 
-                doc.maker['emit text ready'](lname + colon.v + "0", gcd));
+       
+        if (subname === '') {
+            gcd.emit("text ready:"  + lname + colon.v + "0", '');
         } else {
-            gcd.emit("text ready:"  + lname + colon.v + "0", subtext);
+            subtext = doc.find(subname);
+            if (typeof subtext === "undefined") {
+                gcd.once( "text ready:" + file + ":" + subname, 
+                    doc.maker['emit text ready'](lname + colon.v + "0", gcd));
+            } else {
+                gcd.emit("text ready:"  + lname + colon.v + "0", subtext);
+            }
         }
 
         return ind;
@@ -1519,7 +1521,7 @@ receive `err, data` where data is the text to emit.
         var f = function (input, args, name, command) {
             
             var doc = this;
-            var gcd = doc.gc;
+            var gcd = doc.gcd;
 
             var callback = function (err, data) {
                 if (err) {
@@ -1527,7 +1529,7 @@ receive `err, data` where data is the text to emit.
                     gcd.emit("error:command execution:" + name, 
                         [err, input, args, command]);
                 } else {
-                    gcd.emit("text read:" + name, data);
+                    gcd.emit("text ready:" + name, data);
                 }
             };
 
@@ -1708,10 +1710,6 @@ This is the function that replaces a part of a string with another.
         }
 
 
-### Readfile
-
-This is the example async function. It takes in a filename and reads it,
-giving the text as the result, 
 
 
 ## Directives
@@ -1843,7 +1841,7 @@ description` at the top, then three dashed separator line to create a new
 document to parse followed by its result. In more advanced tests, we will
 introduce a syntax of input/output and related names. 
 
-    /*global require*/
+    /*global require, setTimeout*/
     /*jslint evil:true*/
 
     var fs = require('fs');
@@ -1859,8 +1857,13 @@ introduce a syntax of input/output and related names.
     var testfiles = [ 
         "first.md", 
         "eval.md",
-        "sub.md"
+        "sub.md",
+        "async.md"
     ];
+
+    var lp = Litpro.prototype;
+
+    lp.commands.readfile = lp.wrapAsync(_"test async", "readfile");
 
     var i, n = testfiles.length;
 
@@ -1929,7 +1932,7 @@ process the inputs.
                 }
             }
 
-            //console.log(gcd.log.logs().join('\n'));
+            //setTimeout( function () {console.log(gcd.log.logs().join('\n'));}, 100);
         });
     }
 
@@ -1976,6 +1979,7 @@ output file name.
 
     function (t, out) {
         return function (text) {
+            //console.log(text + "\n---\n" + out);
             t.equals(text, out);
         };
     }
@@ -2011,6 +2015,26 @@ This takes in the text of a file and compiles it.
         folder.newdoc(filename, text);
 
     }
+
+### Test async
+
+This is the example async function. It takes in filename and gives out the
+text after a timeout. This is to simulate a readfile, but without actually
+using the file structures. 
+
+    function (input, args, cb) {
+        var f = function () {
+            if (args[0] === "stuff") {
+                cb(null, "Hello world. I am cool.");
+            } else if ( args[0] === "hello") {
+                cb(null, "'Hello world.' + ' I am js.'");
+            } else {
+                cb(new Error("no such file")) ;
+            }
+        };
+        setTimeout(f, 5);
+    }
+
 
 
 ### Test list

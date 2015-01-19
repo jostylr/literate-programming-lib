@@ -24,8 +24,6 @@ var Folder = function (actions) {
     
         var gcd = this.gcd = new EvW();
         this.docs = {};
-        this.commands = Object.create(commands);
-        this.directives = Object.create(directives);
         
         this.maker = {   'emit text ready' : function (name, gcd) {
                         var f = function (text) {
@@ -369,7 +367,7 @@ var async = Folder.prototype.wrapAsync = function (fun, label) {
         var f = function (input, args, name, command) {
             
             var doc = this;
-            var gcd = doc.gc;
+            var gcd = doc.gcd;
     
             var callback = function (err, data) {
                 if (err) {
@@ -377,7 +375,7 @@ var async = Folder.prototype.wrapAsync = function (fun, label) {
                     gcd.emit("error:command execution:" + name, 
                         [err, input, args, command]);
                 } else {
-                    gcd.emit("text read:" + name, data);
+                    gcd.emit("text ready:" + name, data);
                 }
             };
     
@@ -390,7 +388,7 @@ var async = Folder.prototype.wrapAsync = function (fun, label) {
         return f;
     };
 
-commands = {   eval : sync(function ( input, args, name ) {
+Folder.prototype.commands = {   eval : sync(function ( input, args, name ) {
         var doc = this;
         return eval(input).toString();
     }, "eval"),
@@ -441,7 +439,7 @@ commands = {   eval : sync(function ( input, args, name ) {
             },
         //readfile : sync(_"readfile", "readfile"), 
     };
-directives = { save : function (args) {
+Folder.prototype.directives = { save : function (args) {
         var doc = this;
         var gcd = doc.gcd;
         var file = doc.file;
@@ -665,13 +663,17 @@ Doc.prototype.substituteParsing = function (text, ind, quote, lname ) {
             gcd.emit("failure in parsing:" + lname, ind);
             return ind;
         }
-        
-        subtext = doc.find(subname);
-        if (typeof subtext === "undefined") {
-            gcd.once( "text ready:" + file + ":" + subname, 
-                doc.maker['emit text ready'](lname + colon.v + "0", gcd));
+       
+        if (subname === '') {
+            gcd.emit("text ready:"  + lname + colon.v + "0", '');
         } else {
-            gcd.emit("text ready:"  + lname + colon.v + "0", subtext);
+            subtext = doc.find(subname);
+            if (typeof subtext === "undefined") {
+                gcd.once( "text ready:" + file + ":" + subname, 
+                    doc.maker['emit text ready'](lname + colon.v + "0", gcd));
+            } else {
+                gcd.emit("text ready:"  + lname + colon.v + "0", subtext);
+            }
         }
     
         return ind;

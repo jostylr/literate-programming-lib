@@ -1,4 +1,4 @@
-/*global require*/
+/*global require, setTimeout*/
 /*jslint evil:true*/
 
 var fs = require('fs');
@@ -96,12 +96,13 @@ var testrunner = function (file) {
                 }
             }
     
-            //console.log(gcd.log.logs().join('\n'));
+            //setTimeout( function () {console.log(gcd.log.logs().join('\n'));}, 100);
         });
     };
 
 var equalizer = function (t, out) {
         return function (text) {
+            //console.log(text + "\n---\n" + out);
             t.equals(text, out);
         };
     };
@@ -109,8 +110,24 @@ var equalizer = function (t, out) {
 var testfiles = [ 
     "first.md", 
     "eval.md",
-    "sub.md"
+    "sub.md",
+    "async.md"
 ];
+
+var lp = Litpro.prototype;
+
+lp.commands.readfile = lp.wrapAsync(function (input, args, cb) {
+        var f = function () {
+            if (args[0] === "stuff") {
+                cb(null, "Hello world. I am cool.");
+            } else if ( args[0] === "hello") {
+                cb(null, "'Hello world.' + ' I am js.'");
+            } else {
+                cb(new Error("no such file")) ;
+            }
+        };
+        setTimeout(f, 5);
+    }, "readfile");
 
 var i, n = testfiles.length;
 
