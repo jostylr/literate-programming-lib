@@ -25,7 +25,7 @@
     "node": ">0.10"
   },
   "dependencies": {
-    "event-when": "^0.7.0",
+    "event-when": "^0.7.1",
     "marked": "^0.3.2",
     "string.fromcodepoint": "^0.2.1"
   },

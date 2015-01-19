@@ -86,43 +86,63 @@ var Folder = function (actions) {
                 var title = args.remainder;
                 var start = doc.colon.escape(
                     args.href.slice(1).replace(/-/g, " ").trim().toLowerCase() );
-                gcd.once("text ready:" + file + ":" + start, function (data) {
+                var f = function (data) {
                     doc.store(savename, data);
                     gcd.emit("file ready:" + savename, data);
-                });
+                };
+                f._label = "save;;";
+                gcd.once("text ready:" + file + ":" + start, f);
             
             }};
         
         this.maker = {   'emit text ready' : function (name, gcd) {
-                    return function (text) {
-                        gcd.emit("text ready:" + name, text);
-                    };},
+                        var f = function (text) {
+                            gcd.emit( "text ready:" + name, text);
+                        };
+                        f._label = "emit text ready;;" + name;
+                        return f;
+                    },
                 'store' : function (name, doc) {
-                    return function (text) {
-                        doc.store(name, text);
-                    };},
+                        var f = function (text) {
+                            doc.store(name, text);
+                        };
+                        f._label = "store;;" + name;
+                        return f;
+                    },
                 'store emit' : function (name, doc) {
-                    return function (text) {
-                        doc.store(name, text);
-                        doc.gcd.emit("text ready:" + name, text);
-                    };},
+                        var f = function (text) {
+                            doc.store(name, text);
+                            doc.gcd.emit("text ready:" + name, text);
+                        };
+                        f._label = "store emit;;" +  name;
+                        return f;
+                    },
                 'location filled' : function (lname, loc, doc, frags, indents ) {
-                    return function (subtext) {
-                        var gcd = doc.gcd;
-                        doc.indent(subtext, indents[loc]);
-                        frags[loc] = subtext;
-                        gcd.emit("location filled:" +  lname );
-                    };},
+                        var f = function (subtext) {
+                            var gcd = doc.gcd;
+                            doc.indent(subtext, indents[loc]);
+                            frags[loc] = subtext;
+                            gcd.emit("location filled:" +  lname );
+                        };
+                        f._label = "location filled;;" + lname;
+                        return f;
+                    },
                 'stitch emit' : function (name, frags, gcd) {
-                    return function () {
-                        gcd.emit("minor ready:" + name, frags.join(""));
-                    };},
+                        var f = function () {
+                            gcd.emit("minor ready:" + name, frags.join(""));
+                        };
+                        f._label = "stitch emit;;" + name;
+                        return f;
+                    },
                'stitch store emit' : function (bname, name, frags, doc) {
-                    return function () {
-                        var text = frags.join("");
-                        doc.store(bname, text);
-                        doc.gcd.emit("text ready:"+name, text);
-                    };}
+                        var f = function () {
+                            var text = frags.join("");
+                            doc.store(bname, text);
+                            doc.gcd.emit("text ready:"+name, text);
+                        };
+                        f._label = "stitch store emit;;" + name;
+                        return f;
+                    }
             };
     
         gcd.parent = this;
@@ -544,6 +564,7 @@ Doc.prototype.blockCompiling = function (block, file, bname) {
                    indents[loc] = [0,0];
                 }
                 loc += 1;
+            
     
                 last = ind = doc.substituteParsing(block, ind+1, quote, lname);
                 
@@ -667,10 +688,9 @@ Doc.prototype.pipeParsing = function (text, ind, quote, name) {
                 wsreg.exec(text)
                 ind = wsreg.lastIndex;
                 if (text[ind] === "\u005F") {
-                    if (text[ind+1].indexOf(/['"`]/) !== -1) {
-                        gcd.when("text ready:" + aname, 
-                            "arguments ready:"+aname);
-                        ind = doc.parseSubstitute(text, ind+2, aname, text[ind+1]);
+                    if (['"', "'", "`"].indexOf(text[ind+1]) !== -1) {
+                    
+                        ind = doc.substituteParsing(text, ind+2, text[ind+1], aname);
                         continue;
                     }
                 }

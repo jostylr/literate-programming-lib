@@ -120,6 +120,11 @@ emitter
     Folder.prototype.newdoc = _"Make a new document";
 
     Folder.prototype.colon = _"colon";
+    
+    Folder.prototype.wrapSync = _"Command wrapper sync";
+
+    Folder.prototype.wrapAsync = _"Command wrapper async";
+
 
     var Doc = _"doc constructor";
 
@@ -245,9 +250,9 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
 
     Doc.prototype.backslash = _"Backslash";
 
-    Doc.prototype.wrapSync = _"Command wrapper sync";
+    Doc.prototype.wrapSync = Folder.prototype.wrapSync;
 
-    Doc.prototype.wrapAsync = _"Command wrapper async";
+    Doc.prototype.wrapAsync = Folder.prototype.wrapAsync;
 
     Doc.prototype.store = _"Store";
 
@@ -783,6 +788,7 @@ We create a stitch handler for the closures here.
                 _":check for escaped" 
 
                 _":we are a go"
+            
 
                 last = ind = doc.substituteParsing(block, ind+1, quote, lname);
                 
@@ -995,6 +1001,8 @@ it into command 0. If there are no commands, then command 0 is the done bit.
 
         var match, colind, mainblock, subname, chr, subtext;
         var subreg = doc.regexs.subname[quote];
+
+
 
         subreg.lastIndex = ind;
         
@@ -1228,13 +1236,11 @@ So if there is a quote after an underscore, then we chunk along the substitue.
 It should return the index right after the end of the subsitution part. After
 that, we try to chunk
 
-    if (text[ind+1].indexOf(/['"`]/) !== -1) {
-        gcd.when("text ready:" + aname, 
-            "arguments ready:"+aname);
-        ind = doc.parseSubstitute(text, ind+2, aname, text[ind+1]);
+    if (['"', "'", "`"].indexOf(text[ind+1]) !== -1) {
+
+        ind = doc.substituteParsing(text, ind+2, text[ind+1], aname);
         continue;
     }
-
 
 [get full argument]()
 
@@ -1420,6 +1426,7 @@ arguments. The third argument is the name to emit when all is done.
 
 
     var fun = doc.commands[command];
+    
 
     if (fun) {
         fun.apply(doc, [input, args, name, command]);
@@ -1473,18 +1480,24 @@ of this block as the text ready event does not further. It just stops
 executing. 
 
     function (fun) {
-        return function (input, args, name, command) {
+        var f = function (input, args, name, command) {
             var doc = this;
             var gcd = doc.gcd;
 
             try {
-                var out = fun.apply(doc, [].concat(input, args));
+                var out = fun.apply(doc, input, args);
                 gcd.emit("text ready:" + name, out); 
             } catch (e) {
                 gcd.emit("error:command execution:" + name, 
                     [e, input, args, command]); 
             }
         };
+
+        if (fun.hasOwnProperty("_label") ) {
+            f._label = fun._label;
+        }
+
+        return f;
     }
 
 
@@ -1497,7 +1510,7 @@ call will be of `input, arg1, ..., argn, callback` and the callback will
 receive `err, data` where data is the text to emit. 
 
     function (fun) {
-        return function (input, args, name, command) {
+        var f = function (input, args, name, command) {
             
             var doc = this;
             var gcd = doc.gc;
@@ -1511,8 +1524,13 @@ receive `err, data` where data is the text to emit.
                 }
             };
 
-            fun.apply(doc, [].concat(input, args, callback));
+            fun.call(doc, input, args, callback);
         };
+        if (fun.hasOwnProperty("_label") ) {
+            f._label = fun._label;
+        }
+        
+        return f;
     }
 
 
@@ -1536,35 +1554,53 @@ This is an object that makes the handlers for various once's. We can overwrite
 them per document or folder making them accessible to manipulations. 
 
     {   'emit text ready' : function (name, gcd) {
-            return function (text) {
-                gcd.emit("text ready:" + name, text);
-            };},
+                var f = function (text) {
+                    gcd.emit( "text ready:" + name, text);
+                };
+                f._label = "emit text ready;;" + name;
+                return f;
+            },
         'store' : function (name, doc) {
-            return function (text) {
-                doc.store(name, text);
-            };},
+                var f = function (text) {
+                    doc.store(name, text);
+                };
+                f._label = "store;;" + name;
+                return f;
+            },
         'store emit' : function (name, doc) {
-            return function (text) {
-                doc.store(name, text);
-                doc.gcd.emit("text ready:" + name, text);
-            };},
+                var f = function (text) {
+                    doc.store(name, text);
+                    doc.gcd.emit("text ready:" + name, text);
+                };
+                f._label = "store emit;;" +  name;
+                return f;
+            },
         'location filled' : function (lname, loc, doc, frags, indents ) {
-            return function (subtext) {
-                var gcd = doc.gcd;
-                doc.indent(subtext, indents[loc]);
-                frags[loc] = subtext;
-                gcd.emit("location filled:" +  lname );
-            };},
+                var f = function (subtext) {
+                    var gcd = doc.gcd;
+                    doc.indent(subtext, indents[loc]);
+                    frags[loc] = subtext;
+                    gcd.emit("location filled:" +  lname );
+                };
+                f._label = "location filled;;" + lname;
+                return f;
+            },
         'stitch emit' : function (name, frags, gcd) {
-            return function () {
-                gcd.emit("minor ready:" + name, frags.join(""));
-            };},
+                var f = function () {
+                    gcd.emit("minor ready:" + name, frags.join(""));
+                };
+                f._label = "stitch emit;;" + name;
+                return f;
+            },
        'stitch store emit' : function (bname, name, frags, doc) {
-            return function () {
-                var text = frags.join("");
-                doc.store(bname, text);
-                doc.gcd.emit("text ready:"+name, text);
-            };}
+                var f = function () {
+                    var text = frags.join("");
+                    doc.store(bname, text);
+                    doc.gcd.emit("text ready:"+name, text);
+                };
+                f._label = "stitch store emit;;" + name;
+                return f;
+            }
     }
 
 
@@ -1574,6 +1610,7 @@ Here we have some commands and directives that are of common use
 
     {   eval : _"eval",
         sub : _"sub",
+        
     }
 
 ### Eval
@@ -1657,6 +1694,11 @@ This is the function that replaces a part of a string with another.
         }
 
 
+### Readfile
+
+This is the example async function. It takes in a filename and reads it,
+giving the text as the result, 
+
 
 ## Directives
 
@@ -1688,10 +1730,12 @@ us where to begin. The rest of the title will be dealt with later.
         var title = args.remainder;
         var start = doc.colon.escape(
             args.href.slice(1).replace(/-/g, " ").trim().toLowerCase() );
-        gcd.once("text ready:" + file + ":" + start, function (data) {
+        var f = function (data) {
             doc.store(savename, data);
             gcd.emit("file ready:" + savename, data);
-        });
+        };
+        f._label = "save;;";
+        gcd.once("text ready:" + file + ":" + start, f);
 
 
     }
@@ -1871,7 +1915,7 @@ process the inputs.
                 }
             }
 
-            //console.log(gcd.log.logs());
+            //console.log(gcd.log.logs().join('\n'));
         });
     }
 
@@ -1960,15 +2004,18 @@ This takes in the text of a file and compiles it.
 Refactor to have multiple tests. Should be simple. 
 
 Test list
-* first was basic concatenation
-* command piping
++ first was basic concatenation
++ command piping 
++ arguments using compiled blocks
+
+* async 
 * directives
 * command, directive definitions
 * asynchronous commands, directives
 * tests for each of the core commands, directives. 
 * indented code block, code fence, pre, code fence with ignore, directives to
   chage ignorable commmands
-* multiple input, outpu documents
+* multiple input, output documents
 * variables, storing and retrieving, scopes. 
 
 
@@ -2294,7 +2341,7 @@ The requisite npm package file.
         "node": ">0.10"
       },
       "dependencies": {
-        "event-when": "^0.7.0",
+        "event-when": "^0.7.1",
         "marked": "^0.3.2",
         "string.fromcodepoint": "^0.2.1"
       },

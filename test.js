@@ -96,7 +96,7 @@ var testrunner = function (file) {
                 }
             }
     
-            //console.log(gcd.log.logs());
+            //console.log(gcd.log.logs().join('\n'));
         });
     };
 
