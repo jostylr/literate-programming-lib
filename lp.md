@@ -113,6 +113,8 @@ emitter
 
     var apply = _"apply";
 
+    var commands, directives;
+
     var Folder = _"folder constructor";
 
     Folder.prototype.parse = _"marked";
@@ -121,9 +123,12 @@ emitter
 
     Folder.prototype.colon = _"colon";
     
-    Folder.prototype.wrapSync = _"Command wrapper sync";
+    var sync = Folder.prototype.wrapSync = _"Command wrapper sync";
 
-    Folder.prototype.wrapAsync = _"Command wrapper async";
+    var async = Folder.prototype.wrapAsync = _"Command wrapper async";
+
+    commands = _"Commands";
+    directives = _"Directives";
 
 
     var Doc = _"doc constructor";
@@ -147,8 +152,8 @@ added. The internal basic compiling is baked in though it can be overwritten.
 
         var gcd = this.gcd = new EvW();
         this.docs = {};
-        this.commands = _"Commands";
-        this.directives = _"Directives";
+        this.commands = Object.create(commands);
+        this.directives = Object.create(directives);
         
         this.maker = _"maker";
 
@@ -1200,7 +1205,7 @@ but I think that leads to uncertainty. Bad enough not having parentheses.
         gcd.when("text ready:" +aname,
             "arguments ready:"+comname );
         wsreg.lastIndex = ind;
-        wsreg.exec(text)
+        wsreg.exec(text);
         ind = wsreg.lastIndex;
         if (text[ind] === "\u005F") {
             _":deal with substitute text"
@@ -1479,22 +1484,23 @@ We catch any errors and emit an error event. This prevents further processing
 of this block as the text ready event does not further. It just stops
 executing. 
 
-    function (fun) {
+    function (fun, label) {
         var f = function (input, args, name, command) {
             var doc = this;
             var gcd = doc.gcd;
-
+            
             try {
-                var out = fun.apply(doc, input, args);
+                var out = fun.call(doc, input, args);
                 gcd.emit("text ready:" + name, out); 
             } catch (e) {
+                console.log(e);
                 gcd.emit("error:command execution:" + name, 
                     [e, input, args, command]); 
             }
         };
 
-        if (fun.hasOwnProperty("_label") ) {
-            f._label = fun._label;
+        if (label) {
+            f._label = label;
         }
 
         return f;
@@ -1509,7 +1515,7 @@ Here we wrap callback functionated async functions. We assume the function
 call will be of `input, arg1, ..., argn, callback` and the callback will
 receive `err, data` where data is the text to emit. 
 
-    function (fun) {
+    function (fun, label) {
         var f = function (input, args, name, command) {
             
             var doc = this;
@@ -1517,6 +1523,7 @@ receive `err, data` where data is the text to emit.
 
             var callback = function (err, data) {
                 if (err) {
+                    console.log(err);
                     gcd.emit("error:command execution:" + name, 
                         [err, input, args, command]);
                 } else {
@@ -1526,9 +1533,9 @@ receive `err, data` where data is the text to emit.
 
             fun.call(doc, input, args, callback);
         };
-        if (fun.hasOwnProperty("_label") ) {
-            f._label = fun._label;
-        }
+        if (label)  {
+            f._label = label;
+        } 
         
         return f;
     }
@@ -1608,9 +1615,9 @@ them per document or folder making them accessible to manipulations.
 
 Here we have some commands and directives that are of common use
 
-    {   eval : _"eval",
+    {   eval : sync(_"eval", "eval"),
         sub : _"sub",
-        
+        //readfile : sync(_"readfile", "readfile"), 
     }
 
 ### Eval
@@ -1618,8 +1625,15 @@ Here we have some commands and directives that are of common use
 This implements the command `eval`. This evaluates the code as JavaScript. 
 
 
-    function ( input, args, name) {
-        var gcd = this.gcd;
+    function ( input, args, name ) {
+        var doc = this;
+        return eval(input).toString();
+    }
+
+
+[del]()
+
+    var gcd = this.gcd;
 
 
         try {

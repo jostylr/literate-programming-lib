@@ -18,82 +18,14 @@ var apply = function (instance, obj) {
         }
     };
 
+var commands, directives;
+
 var Folder = function (actions) {
     
         var gcd = this.gcd = new EvW();
         this.docs = {};
-        this.commands = {   eval : function ( input, args, name) {
-                var gcd = this.gcd;
-            
-                try {
-                 gcd.emit("text ready:" + name, eval(input)+"" );
-                } catch (e) {
-                    gcd.emit("error:command execution:" +  name, 
-                        [e, input, "eval"]);
-                }
-            },
-                sub : function (str, args, name) {
-                        var gcd = this.gcd;
-                    
-                        var index = 0, m = str.length, al = args.length,
-                            i, j, old, newstr;
-                    
-                        if ( (!args[0]) ) {
-                            gcd.emit("error:sub has insufficient arguments:" + name);
-                        }
-                    
-                        if (al === 2) {
-                            old = args[0];
-                            newstr = args[1] || '';
-                            while ( index < m ) { 
-                                    i = str.indexOf(old, index);
-                                
-                                    if (i === -1) {
-                                        break;
-                                    } else {
-                                        str = str.slice(0,i) + newstr + str.slice(i+old.length);
-                                        index = i+newstr.length;
-                                    }
-                            }
-                        } else {
-                    
-                            for (j = al-1; j >= 0; j -= 1) {
-                                index = 0;
-                                old = args[0] + j;
-                                newstr = args[j] || '';
-                                while (index < m) {
-                                        i = str.indexOf(old, index);
-                                    
-                                        if (i === -1) {
-                                            break;
-                                        } else {
-                                            str = str.slice(0,i) + newstr + str.slice(i+old.length);
-                                            index = i+newstr.length;
-                                        }
-                                }
-                            }
-                        }
-                        
-                    
-                        gcd.emit("text ready:" + name, str);
-                    },
-            };
-        this.directives = { save : function (args) {
-                var doc = this;
-                var gcd = doc.gcd;
-                var file = doc.file;
-                var savename = args.link;
-                var title = args.remainder;
-                var start = doc.colon.escape(
-                    args.href.slice(1).replace(/-/g, " ").trim().toLowerCase() );
-                var f = function (data) {
-                    doc.store(savename, data);
-                    gcd.emit("file ready:" + savename, data);
-                };
-                f._label = "save;;";
-                gcd.once("text ready:" + file + ":" + start, f);
-            
-            }};
+        this.commands = Object.create(commands);
+        this.directives = Object.create(directives);
         
         this.maker = {   'emit text ready' : function (name, gcd) {
                         var f = function (text) {
@@ -411,6 +343,121 @@ Folder.prototype.colon = {   v : "\u2AF6",
         }
     };
 
+var sync = Folder.prototype.wrapSync = function (fun, label) {
+        var f = function (input, args, name, command) {
+            var doc = this;
+            var gcd = doc.gcd;
+            
+            try {
+                var out = fun.call(doc, input, args);
+                gcd.emit("text ready:" + name, out); 
+            } catch (e) {
+                console.log(e);
+                gcd.emit("error:command execution:" + name, 
+                    [e, input, args, command]); 
+            }
+        };
+    
+        if (label) {
+            f._label = label;
+        }
+    
+        return f;
+    };
+
+var async = Folder.prototype.wrapAsync = function (fun, label) {
+        var f = function (input, args, name, command) {
+            
+            var doc = this;
+            var gcd = doc.gc;
+    
+            var callback = function (err, data) {
+                if (err) {
+                    console.log(err);
+                    gcd.emit("error:command execution:" + name, 
+                        [err, input, args, command]);
+                } else {
+                    gcd.emit("text read:" + name, data);
+                }
+            };
+    
+            fun.call(doc, input, args, callback);
+        };
+        if (label)  {
+            f._label = label;
+        } 
+        
+        return f;
+    };
+
+commands = {   eval : sync(function ( input, args, name ) {
+        var doc = this;
+        return eval(input).toString();
+    }, "eval"),
+        sub : function (str, args, name) {
+                var gcd = this.gcd;
+            
+                var index = 0, m = str.length, al = args.length,
+                    i, j, old, newstr;
+            
+                if ( (!args[0]) ) {
+                    gcd.emit("error:sub has insufficient arguments:" + name);
+                }
+            
+                if (al === 2) {
+                    old = args[0];
+                    newstr = args[1] || '';
+                    while ( index < m ) { 
+                            i = str.indexOf(old, index);
+                        
+                            if (i === -1) {
+                                break;
+                            } else {
+                                str = str.slice(0,i) + newstr + str.slice(i+old.length);
+                                index = i+newstr.length;
+                            }
+                    }
+                } else {
+            
+                    for (j = al-1; j >= 0; j -= 1) {
+                        index = 0;
+                        old = args[0] + j;
+                        newstr = args[j] || '';
+                        while (index < m) {
+                                i = str.indexOf(old, index);
+                            
+                                if (i === -1) {
+                                    break;
+                                } else {
+                                    str = str.slice(0,i) + newstr + str.slice(i+old.length);
+                                    index = i+newstr.length;
+                                }
+                        }
+                    }
+                }
+                
+            
+                gcd.emit("text ready:" + name, str);
+            },
+        //readfile : sync(_"readfile", "readfile"), 
+    };
+directives = { save : function (args) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var file = doc.file;
+        var savename = args.link;
+        var title = args.remainder;
+        var start = doc.colon.escape(
+            args.href.slice(1).replace(/-/g, " ").trim().toLowerCase() );
+        var f = function (data) {
+            doc.store(savename, data);
+            gcd.emit("file ready:" + savename, data);
+        };
+        f._label = "save;;";
+        gcd.once("text ready:" + file + ":" + start, f);
+    
+    }};
+
 var Doc = function (file, text, parent, actions) {
         this.parent = parent;
         var gcd = this.gcd = parent.gcd;
@@ -685,7 +732,7 @@ Doc.prototype.pipeParsing = function (text, ind, quote, name) {
                 gcd.when("text ready:" +aname,
                     "arguments ready:"+comname );
                 wsreg.lastIndex = ind;
-                wsreg.exec(text)
+                wsreg.exec(text);
                 ind = wsreg.lastIndex;
                 if (text[ind] === "\u005F") {
                     if (['"', "'", "`"].indexOf(text[ind+1]) !== -1) {
@@ -807,39 +854,9 @@ Doc.prototype.backslash = function (text, ind) {
         }
     };
 
-Doc.prototype.wrapSync = function (fun) {
-        return function (input, args, name, command) {
-            var doc = this;
-            var gcd = doc.gcd;
-    
-            try {
-                var out = fun.apply(doc, [].concat(input, args));
-                gcd.emit("text ready:" + name, out); 
-            } catch (e) {
-                gcd.emit("error:command execution:" + name, 
-                    [e, input, args, command]); 
-            }
-        };
-    };
+Doc.prototype.wrapSync = Folder.prototype.wrapSync;
 
-Doc.prototype.wrapAsync = function (fun) {
-        return function (input, args, name, command) {
-            
-            var doc = this;
-            var gcd = doc.gc;
-    
-            var callback = function (err, data) {
-                if (err) {
-                    gcd.emit("error:command execution:" + name, 
-                        [err, input, args, command]);
-                } else {
-                    gcd.emit("text read:" + name, data);
-                }
-            };
-    
-            fun.apply(doc, [].concat(input, args, callback));
-        };
-    };
+Doc.prototype.wrapAsync = Folder.prototype.wrapAsync;
 
 Doc.prototype.store = function (name, text) {
         var doc = this;
