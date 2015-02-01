@@ -24,6 +24,8 @@ var Folder = function (actions) {
     
         var gcd = this.gcd = new EvW();
         this.docs = {};
+        this.scopes = {};
+    
         
         this.maker = {   'emit text ready' : function (name, gcd) {
                         var f = function (text) {
@@ -39,10 +41,10 @@ var Folder = function (actions) {
                         f._label = "store;;" + name;
                         return f;
                     },
-                'store emit' : function (name, doc) {
+                'store emit' : function (name, doc, fname) {
                         var f = function (text) {
                             doc.store(name, text);
-                            doc.gcd.emit("text ready:" + name, text);
+                            doc.gcd.emit("text ready:" + (fname || name), text);
                         };
                         f._label = "store emit;;" +  name;
                         return f;
@@ -93,7 +95,7 @@ var Folder = function (actions) {
         
         gcd.action("run command", function (data, evObj) {
                 var gcd = evObj.emitter;
-                var doc, input, name, cur, command, min = [Infinity,-1];
+                var doc, input, name, cur, command, min = [Infinity,-1], han;
                 var args = [];
                 
                 var i, j, k, m, n=data.length;
@@ -122,10 +124,21 @@ var Folder = function (actions) {
                 
                 var fun = doc.commands[command];
                 
+                
                 if (fun) {
                     fun.apply(doc, [input, args, name, command]);
                 } else {
-                    gcd.emit("error:no such command:" + name, [command, input, args]);
+                    han = function () {
+                        fun = doc.commands[command];
+                        if (fun) {
+                            fun.apply(doc, [input, args, name, command]);
+                        } else {
+                            gcd.emit("error:commmand defined but not:" + doc.file +
+                                ":" + command);
+                        }
+                    };
+                    han._label = "delayed command:" + command + ":" + name; 
+                    gcd.once("command added:" + doc.file + ":" +  command, han);
                 }
             }
         );
@@ -199,7 +212,7 @@ var Folder = function (actions) {
                         doc.maker.store(fname, doc));
                 } else { //just go
                     gcd.once("minor ready:" + fname, 
-                        doc.maker['store emit'](fname, doc));
+                        doc.maker['store emit'](curname, doc, fname));
                 }
             }
         );
@@ -334,11 +347,26 @@ Folder.prototype.newdoc = function (name, text, actions) {
 
 Folder.prototype.colon = {   v : "\u2AF6",
         escape : function (text) {
-             return text.replace(":",  "\u2AF6");
+             return text.replace(/:/g,  "\u2AF6");
         },
         restore : function (text) {
-            return text.replace( "\u2AF6", ":");
+            return text.replace( /[\u2AF6]/g, ":");
         }
+    };
+
+Folder.prototype.createScope = function (name) {
+        var folder = this;
+        var gcd = folder.gcd;
+        var scopes = folder.scopes;
+        var colon = folder.colon;
+    
+        name = colon.escape(name);
+    
+        if (! scopes.hasOwnProperty(name) ) {
+            scopes[name] = {};
+            gcd.emit("scope created:" + name);
+        }
+        return scopes[name];
     };
 
 var sync = Folder.prototype.wrapSync = function (fun, label) {
@@ -437,9 +465,21 @@ Folder.prototype.commands = {   eval : sync(function ( input, args, name ) {
             
                 gcd.emit("text ready:" + name, str);
             },
-        //readfile : sync(_"readfile", "readfile"), 
+        store: sync(function (input, args) {
+                var doc = this;
+                var gcd = doc.gcd;
+            
+                var vname = doc.colon.escape(args[0])
+            
+                if (vname) {
+                    doc.store(vname, input);
+                    gcd.emit("text ready:" + doc.file + ":" + vname);
+                }
+                return input; 
+            
+            }, "store"),
     };
-Folder.prototype.directives = { save : function (args) {
+Folder.prototype.directives = {   save : function (args) {
         var doc = this;
         var gcd = doc.gcd;
         var file = doc.file;
@@ -454,7 +494,28 @@ Folder.prototype.directives = { save : function (args) {
         f._label = "save;;";
         gcd.once("text ready:" + file + ":" + start, f);
     
-    }};
+    },
+        newscope : function (args) {
+                var doc = this;
+                var gcd = doc.gcd;
+                var file = doc.file;
+                var local = args.remainder;
+                var global = args.link;
+            
+                doc.createLinkedScope(global, local);
+            
+            },
+        store : function (args) {
+                var doc = this;
+                var gcd = doc.gcd;
+                var file = doc.file;
+                var value = args.remainder;
+                var name = doc.colon.escape(args.link);
+            
+                doc.store(name, value);
+            
+            }
+    };
 
 var Doc = function (file, text, parent, actions) {
         this.parent = parent;
@@ -469,7 +530,7 @@ var Doc = function (file, text, parent, actions) {
         this.levels = {};
         this.blocks = {};
         this.scopes = {};
-        this.vars = {};
+        this.vars = parent.createScope(file);
     
         this.commands = Object.create(parent.commands);
         this.directives = Object.create(parent.directives);
@@ -484,21 +545,83 @@ var Doc = function (file, text, parent, actions) {
     
     };
 
-Doc.prototype.find = function (name) {
-    var ind, scope;
+Doc.prototype.retrieve = function (name, cb) {
     var doc = this;
-    var colon = doc.colon;
-    if (  (ind = name.indexOf( colon.v + colon.v) ) !== -1 ) {
-        scope = this.scopes[ name.slice(0,ind) ] ;
-        if (typeof scope === "undefined" ) {
+    var gcd = doc.gcd;
+
+    var scope = doc.getScope(name);
+
+    var varname = scope[1];
+    var file = scope[2];
+    scope = scope[0];
+    var f;
+    if (scope) {
+        if (typeof scope[varname] !== "undefined") {
+            if (typeof cb === "function") {
+                cb(scope[varname]);
+            } else if (typeof cb === "string") {
+                gcd.emit(cb, scope[varname]);
+            } else {
+                gcd.emit("error:unrecognized callback type:" +
+                    doc.file + ":" + name, (typeof cb) );
+            }
+            return ;
+        } else {
+            f = function () {
+                doc.retrieve(name, cb);
+            };
+            f._label = "Retrieving:" + file + ":" + varname;
+            gcd.once("text stored:" + file + ":" + varname, f); 
             return ;
         }
-        name = name.slice(ind + 2);
     } else {
-        scope = this.vars;
+        f = function () {
+            doc.retrieve(name, cb);
+        };
+        f._label = "Retrieving:" + doc.file + ":" + name;
+        gcd.once("scope linked:" + doc.file + ":" + file, f); 
+        return ;
     }
-    return scope[name];
 };
+
+Doc.prototype.getScope = function (name) {
+        var ind, scope, localname, filename, varname;
+        var doc = this;
+        var colon = doc.colon;
+        var folder = doc.parent;
+    
+        if (  (ind = name.indexOf( colon.v + colon.v) ) !== -1 ) {
+            localname = name.slice(0,ind);
+            varname = name.slice(ind+2);
+            filename = doc.scopes[ localname ];
+            if (filename) {
+                scope = folder.scopes[filename];
+                if (scope) {
+                    return [scope, varname, filename]; 
+                } else {
+                    doc.gcd.emit("error:non-existent scope linked:" + doc.file +
+                        ":" + localname, filename);
+                }
+            } else {
+                return [null, varname, localname];
+            }
+        } else {
+            return [doc.vars, name, doc.file];
+        }
+    };
+
+Doc.prototype.createLinkedScope = function (globalname, localname) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var folder = doc.parent;
+    
+        var scope = folder.createScope(globalname);
+        doc.scopes[localname] = globalname;
+        gcd.emit("scope linked:" + doc.file + ":" + localname, globalname);
+    
+        return scope;
+    
+    };
  
 Doc.prototype.indent = function (text, indents) {
         var beg, line;
@@ -663,17 +786,12 @@ Doc.prototype.substituteParsing = function (text, ind, quote, lname ) {
             gcd.emit("failure in parsing:" + lname, ind);
             return ind;
         }
-       
+      
+    
         if (subname === '') {
             gcd.emit("text ready:"  + lname + colon.v + "0", '');
         } else {
-            subtext = doc.find(subname);
-            if (typeof subtext === "undefined") {
-                gcd.once( "text ready:" + file + ":" + subname, 
-                    doc.maker['emit text ready'](lname + colon.v + "0", gcd));
-            } else {
-                gcd.emit("text ready:"  + lname + colon.v + "0", subtext);
-            }
+            subtext = doc.retrieve(subname, "text ready:"  + lname + colon.v + "0" );
         }
     
         return ind;
@@ -863,11 +981,33 @@ Doc.prototype.wrapAsync = Folder.prototype.wrapAsync;
 Doc.prototype.store = function (name, text) {
         var doc = this;
         var gcd = doc.gcd;
-        if (doc.vars.hasOwnProperty(name) ) {
-            gcd.emit("overwriting existing var:" + doc.file + ":" + name, 
-            {old:doc.vars[name], new: text} );
+        var scope = doc.getScope(name);
+       
+        var f;
+        if (! scope[0]) {
+            f = function () {
+                doc.store(name, text);
+            };
+            f._label = "Storing:" + doc.file + ":" + name;
+            gcd.once("scope linked:" + doc.file + ":" + scope[2], f);
+            return;
         }
-        doc.vars[name] = text;
+    
+        name = scope[1];
+        var file = scope[2];
+        scope = scope[0];
+    
+        var old; 
+        if (scope.hasOwnProperty(name) ) {
+            old = scope[name];
+            scope[name] = text;
+            gcd.emit("overwriting existing var:" + file + ":" + name, 
+            {oldtext:old, newtext: text} );
+        } else {
+            scope[name] = text;
+        }
+        
+        gcd.emit("text stored:" + file + ":" + name, text);
     };
  
 module.exports = Folder;

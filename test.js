@@ -108,10 +108,12 @@ var equalizer = function (t, out) {
     };
 
 var testfiles = [ 
-    "first.md", 
+   /* */
+   "first.md", 
     "eval.md",
     "sub.md",
-    "async.md"
+    "async.md",
+    "scope.md"
 ];
 
 var lp = Litpro.prototype;

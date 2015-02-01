@@ -122,6 +122,8 @@ emitter
     Folder.prototype.newdoc = _"Make a new document";
 
     Folder.prototype.colon = _"colon";
+
+    Folder.prototype.createScope = _"Create global scope";
     
     var sync = Folder.prototype.wrapSync = _"Command wrapper sync";
 
@@ -152,6 +154,8 @@ added. The internal basic compiling is baked in though it can be overwritten.
 
         var gcd = this.gcd = new EvW();
         this.docs = {};
+        this.scopes = {};
+
         
         this.maker = _"maker";
 
@@ -220,7 +224,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.levels = {};
         this.blocks = {};
         this.scopes = {};
-        this.vars = {};
+        this.vars = parent.createScope(file);
 
         this.commands = Object.create(parent.commands);
         this.directives = Object.create(parent.directives);
@@ -239,7 +243,11 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
 [prototype]()
 
 
-    Doc.prototype.find = _"variable retrieval";
+    Doc.prototype.retrieve = _"variable retrieval";
+
+    Doc.prototype.getScope = _"get scope";
+
+    Doc.prototype.createLinkedScope = _"create linked scope";
      
     Doc.prototype.indent = _"indent";
 
@@ -411,7 +419,7 @@ problem.
             doc.maker.store(fname, doc));
     } else { //just go
         gcd.once("minor ready:" + fname, 
-            doc.maker['store emit'](fname, doc));
+            doc.maker['store emit'](curname, doc, fname));
     }
 
 
@@ -501,10 +509,10 @@ unescape, we define methods and export them.
 
     {   v : "\u2AF6",
         escape : function (text) {
-             return text.replace(":",  "\u2AF6");
+             return text.replace(/:/g,  "\u2AF6");
         },
         restore : function (text) {
-            return text.replace( "\u2AF6", ":");
+            return text.replace( /[\u2AF6]/g, ":");
         }
     }
 
@@ -682,38 +690,6 @@ the emitter.
             }
 
         }
-    }
-
-
-
-
-## Variable retrieval
-
-This function retrieves the variable either from the local document or from
-other scopes. 
-
-The local variables are in the vars object, easily enough. The scopes refer to
-var containing objects of other documents or artificial scopes (which may or
-may not be global, depending on how it is made). Note that one doc can name the scopes
-potentially different than other docs do. Directives define the scope name
-locally. Also note that scopes, even perfectly valid ones, may not exist 
-
-Returning undefined is good and normal.
-
-    function (name) {
-        var ind, scope;
-        var doc = this;
-        var colon = doc.colon;
-        if (  (ind = name.indexOf( colon.v + colon.v) ) !== -1 ) {
-            scope = this.scopes[ name.slice(0,ind) ] ;
-            if (typeof scope === "undefined" ) {
-                return ;
-            }
-            name = name.slice(ind + 2);
-        } else {
-            scope = this.vars;
-        }
-        return scope[name];
     }
 
 
@@ -989,7 +965,7 @@ The events are scoped by numbers using tripe colon as separator. Note the
 colon itself is the event separator. 
 
 The `.when` supplies the data of the events called in an array in order of the
-emitting. The array is specificaly `[ [ev1, data1], [ev2, data2]]` etc. 
+emitting. The array is specifically `[ [ev1, data1], [ev2, data2]]` etc. 
 
 The numbering of the commands is the input into that command number, not the
 output. So we use subname to get the text from that location and then feed
@@ -1016,22 +992,18 @@ it into command 0. If there are no commands, then command 0 is the done bit.
             gcd.emit("failure in parsing:" + lname, ind);
             return ind;
         }
-       
+      
+
         if (subname === '') {
             gcd.emit("text ready:"  + lname + colon.v + "0", '');
         } else {
-            subtext = doc.find(subname);
-            if (typeof subtext === "undefined") {
-                gcd.once( "text ready:" + file + ":" + subname, 
-                    doc.maker['emit text ready'](lname + colon.v + "0", gcd));
-            } else {
-                gcd.emit("text ready:"  + lname + colon.v + "0", subtext);
-            }
+            subtext = doc.retrieve(subname, "text ready:"  + lname + colon.v + "0" );
         }
 
         return ind;
 
     }
+
 
 [got subname]()
 
@@ -1425,21 +1397,32 @@ pipe input. The second argument is an array containing all the other
 arguments. The third argument is the name to emit when all is done. 
 
     arguments ready --> run command
-    var doc, input, name, cur, command, min = [Infinity,-1];
+    var doc, input, name, cur, command, min = [Infinity,-1], han;
     var args = [];
 
 
     _":extract data"
 
-
     var fun = doc.commands[command];
+
     
 
     if (fun) {
         fun.apply(doc, [input, args, name, command]);
     } else {
-        gcd.emit("error:no such command:" + name, [command, input, args]);
+        han = function () {
+            fun = doc.commands[command];
+            if (fun) {
+                fun.apply(doc, [input, args, name, command]);
+            } else {
+                gcd.emit("error:commmand defined but not:" + doc.file +
+                    ":" + command);
+            }
+        };
+        han._label = "delayed command:" + command + ":" + name; 
+        gcd.once("command added:" + doc.file + ":" +  command, han);
     }
+
 
 [extract data]()
 
@@ -1545,17 +1528,223 @@ receive `err, data` where data is the text to emit.
 
 ### Store
 
-This stores some text under a name.
+This stores some text under a name. If the name has double colons, then it
+will get that scope and put it there.
+
+If the variable already exists in the scope, then after saving it to the new
+location, this fact gets emitted with the old and the new. 
 
     function (name, text) {
         var doc = this;
         var gcd = doc.gcd;
-        if (doc.vars.hasOwnProperty(name) ) {
-            gcd.emit("overwriting existing var:" + doc.file + ":" + name, 
-            {old:doc.vars[name], new: text} );
+        var scope = doc.getScope(name);
+       
+        var f;
+        if (! scope[0]) {
+            _":non-existent"
+            return;
         }
-        doc.vars[name] = text;
+
+        name = scope[1];
+        var file = scope[2];
+        scope = scope[0];
+
+
+        var old; 
+        if (scope.hasOwnProperty(name) ) {
+            old = scope[name];
+            scope[name] = text;
+            gcd.emit("overwriting existing var:" + file + ":" + name, 
+            {oldtext:old, newtext: text} );
+        } else {
+            scope[name] = text;
+        }
+        
+        gcd.emit("text stored:" + file + ":" + name, text);
     }
+
+[non-existent]()
+
+This deals with the situation that the scope is not yet in a state for
+existence. Essentially, it sets up a listener that will store and emit once
+the scope exists. 
+
+Scope is of the form `[null, varname, localname]`
+
+    f = function () {
+        doc.store(name, text);
+    };
+    f._label = "Storing:" + doc.file + ":" + name;
+    gcd.once("scope linked:" + doc.file + ":" + scope[2], f);
+
+
+### Variable retrieval
+
+This function retrieves the variable either from the local document or from
+other scopes. 
+
+The local variables are in the vars object, easily enough. The scopes refer to
+var containing objects of other documents or artificial scopes. Note that one doc 
+can name the scopes
+potentially different than other docs do. Directives define the scope name
+locally. Also note that scopes, even perfectly valid ones, may not exist yet.
+
+If either the scope does not yet exist  or the variable does not exist, then
+we wait for listeners. The second argument is either a callback function or an
+event string to emit. The variable is not returned. 
+
+If the scope does not exist yet, then we wait until it does and call this
+again. 
+
+Returning undefined is good and normal.
+
+    function (name, cb) {
+        var doc = this;
+        var gcd = doc.gcd;
+
+
+        var scope = doc.getScope(name);
+
+
+        var varname = scope[1];
+        var file = scope[2];
+        scope = scope[0];
+        var f;
+        if (scope) {
+            if (typeof scope[varname] !== "undefined") {
+                _":callback handling"
+                return ;
+            } else {
+                _":no var"
+                return ;
+            }
+        } else {
+            _":no scope"
+            return ;
+        }
+    }
+
+[callback handling]()
+
+Here we handle the callbacks. If it is a function, we call it with the
+variable. If it is a string, we assume it is an emit string and emit the
+variable name with it. Anything else is unhandled and is an error. 
+
+
+    if (typeof cb === "function") {
+        cb(scope[varname]);
+    } else if (typeof cb === "string") {
+        gcd.emit(cb, scope[varname]);
+    } else {
+        gcd.emit("error:unrecognized callback type:" +
+            doc.file + ":" + name, (typeof cb) );
+    }
+
+[no scope]()
+
+If there is no scope yet of this kind, then we listen for it to be defined and
+linked. The file var there is poorly named; it is the link name of the scope
+since the actual global scope name is not known. 
+
+    f = function () {
+        doc.retrieve(name, cb);
+    };
+    f._label = "Retrieving:" + doc.file + ":" + name;
+    gcd.once("scope linked:" + doc.file + ":" + file, f); 
+
+[no var]() 
+
+In this bit, we have no variable defined yet. So we need to listen for it. We
+will get triggered
+
+    f = function () {
+        doc.retrieve(name, cb);
+    };
+    f._label = "Retrieving:" + file + ":" + varname;
+    gcd.once("text stored:" + file + ":" + varname, f); 
+
+
+### Get Scope
+
+This is the algorithm for obtaining the scope from a name of the form
+`scopename::varname`. It will return an array of the form `[status, scope, varname, filename]`.
+
+The filename is what the local scope points to. The scope is the actual object
+that the variable names are the keys of and varname is the key that will be in
+the object. Note we say filename as the scopes are probably likely to be other
+docs, but they need not be. one can create global scopes with arbitrary names. 
+
+So when a scope is requested, it may not have been linked to yet or it may not
+exist yet. In fact, if it does not exist, it will not be linked to. So we only
+need to worry about the linking case. 
+
+    function (name) {
+        var ind, scope, localname, filename, varname;
+        var doc = this;
+        var colon = doc.colon;
+        var folder = doc.parent;
+
+        if (  (ind = name.indexOf( colon.v + colon.v) ) !== -1 ) {
+            localname = name.slice(0,ind);
+            varname = name.slice(ind+2);
+            filename = doc.scopes[ localname ];
+            if (filename) {
+                scope = folder.scopes[filename];
+                if (scope) {
+                    return [scope, varname, filename]; 
+                } else {
+                    doc.gcd.emit("error:non-existent scope linked:" + doc.file +
+                        ":" + localname, filename);
+                }
+            } else {
+                return [null, varname, localname];
+            }
+        } else {
+            return [doc.vars, name, doc.file];
+        }
+    }
+
+
+### Create Global Scope
+
+This is the function on the folder that creates a scope. This creates the vars
+object on a doc as well as creates stand alone scopes. If a scope with a name
+already exists, it returns that scope. 
+
+    function (name) {
+        var folder = this;
+        var gcd = folder.gcd;
+        var scopes = folder.scopes;
+        var colon = folder.colon;
+
+        name = colon.escape(name);
+
+        if (! scopes.hasOwnProperty(name) ) {
+            scopes[name] = {};
+            gcd.emit("scope created:" + name);
+        }
+        return scopes[name];
+    }
+
+### Create Linked Scope
+
+This is where we go to create scopes. It both links existing scopes and will
+create new ones. This is different than loading another litpro doc.
+
+    function (globalname, localname) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var folder = doc.parent;
+
+        var scope = folder.createScope(globalname);
+        doc.scopes[localname] = globalname;
+        gcd.emit("scope linked:" + doc.file + ":" + localname, globalname);
+
+        return scope;
+
+    }
+
+
 
 ## Maker
 
@@ -1576,10 +1765,10 @@ them per document or folder making them accessible to manipulations.
                 f._label = "store;;" + name;
                 return f;
             },
-        'store emit' : function (name, doc) {
+        'store emit' : function (name, doc, fname) {
                 var f = function (text) {
                     doc.store(name, text);
-                    doc.gcd.emit("text ready:" + name, text);
+                    doc.gcd.emit("text ready:" + (fname || name), text);
                 };
                 f._label = "store emit;;" +  name;
                 return f;
@@ -1619,7 +1808,7 @@ Here we have some commands and directives that are of common use
 
     {   eval : sync(_"eval", "eval"),
         sub : _"sub",
-        //readfile : sync(_"readfile", "readfile"), 
+        store: sync(_"store command", "store"),
     }
 
 ### Eval
@@ -1709,6 +1898,24 @@ This is the function that replaces a part of a string with another.
             index = i+newstr.length;
         }
 
+### Store Command
+
+This is a thin wrapper of the store function. 
+
+    function (input, args) {
+        var doc = this;
+        var gcd = doc.gcd;
+
+        var vname = doc.colon.escape(args[0])
+
+        if (vname) {
+            doc.store(vname, input);
+            gcd.emit("text ready:" + doc.file + ":" + vname);
+        }
+        return input; 
+
+    }
+
 
 
 
@@ -1719,7 +1926,10 @@ The most basic directive is saving the text.
 For now, just simple saving, but we can implement the pipe parsing a bit later
 for saving as well. 
 
-    { save : _"save"}
+    {   save : _"save",
+        newscope : _"new scope",
+        store : _"dir store"
+    }
 
 
  Directives get a single argument object which gets the link, the href, and
@@ -1752,6 +1962,39 @@ us where to begin. The rest of the title will be dealt with later.
 
     }
 
+
+### New scope
+
+This is a directive that creates a new global scope. The args should give us
+the global name and a local name. In the link, it goes
+`[globalname](# "newscope:localname")` 
+
+    function (args) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var file = doc.file;
+        var local = args.remainder;
+        var global = args.link;
+
+        doc.createLinkedScope(global, local);
+
+    }
+
+### Dir Store
+
+This is the directive for storing some text. 
+    
+
+    function (args) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var file = doc.file;
+        var value = args.remainder;
+        var name = doc.colon.escape(args.link);
+
+        doc.store(name, value);
+
+    }
 
 ### Exclude
 
@@ -1855,10 +2098,12 @@ introduce a syntax of input/output and related names.
     var equalizer = _"equalizer";
 
     var testfiles = [ 
-        "first.md", 
+       /* */
+       "first.md", 
         "eval.md",
         "sub.md",
-        "async.md"
+        "async.md",
+        "scope.md"
     ];
 
     var lp = Litpro.prototype;
@@ -2039,7 +2284,6 @@ using the file structures.
 
 ### Test list
 
-Refactor to have multiple tests. Should be simple. 
 
 Test list
 + first was basic concatenation
@@ -2052,9 +2296,10 @@ Test list
 * asynchronous commands, directives
 * tests for each of the core commands, directives. 
 * indented code block, code fence, pre, code fence with ignore, directives to
-  chage ignorable commmands
+  change ignorable commmands
 * multiple input, output documents
 * variables, storing and retrieving, scopes. 
+
 
 
 
