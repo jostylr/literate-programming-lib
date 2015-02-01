@@ -116,7 +116,8 @@ var testfiles = [
     "scope.md", 
     "switch.md",
     "codeblocks.md",
-    "indents.md"
+    "indents.md",
+    "savepipe.md"
 ];
 
 var lp = Litpro.prototype;

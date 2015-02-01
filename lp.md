@@ -612,10 +612,12 @@ Links may be directives if one of the following things occur:
 
 1. Title contains a colon. If so, then it is emitted as a directive with the
    stuff preceeding the colon being a directive. The data sent is an array
-   with the link text, the stuff after the colon, and the href being sent.
+   with the link text, the stuff after the colon, and the href being sent. No
+   pipe parsing is done at this point.
 2. Title starts with a colon in which case it is a switch directive. The stuff
    after the colon is sent as second in the data array, with the link text as
-   first. The href in this instance is completely ignored.
+   first. The href in this instance is completely ignored. There is some pipe
+   processing that happens.
 3. Title and href are empty. 
 
 Return the text in case it is included in a header; only the link text will be
@@ -646,10 +648,8 @@ in the heading then.
 
 [before pipe]()
 
-This takes the possible part in the middle between the directive's colon and
-the first pipe. Note that this is assuming there are no pipes in the directive
-names, an assumption which I think is a good one. Pipes are to be used for
-piping. Ideally, directives are names. 
+This takes the possible part in the middle between the switch directive's colon and
+the first pipe. 
 
 This will produce  `middle === 'js'` for `: js` or  `: js| jshint` with the
 latter producing `pipes === 'jshint'`.  If there is no extension such as `:`
@@ -1965,30 +1965,71 @@ for saving as well.
 We save it in vars of the document with the name in the link. The href tells
 us where to begin. The rest of the title will be dealt with later. 
 
-!! add in pipes, add in variable checking if stored, other document parsing,
+add in pipes, add in variable checking if stored, other document parsing,
 ... 
 
     function (args) {
+        var ind; 
         var doc = this;
+        var colon = doc.colon;
         var gcd = doc.gcd;
         var file = doc.file;
         var savename = args.link;
         var title = args.remainder;
-        var start = doc.colon.escape(
-            args.href.slice(1).replace(/-/g, " ").trim().toLowerCase() );
-        if (!start) {
-            start = args.cur;
-        }
-        var f = function (data) {
-            doc.store(savename, data);
-            gcd.emit("file ready:" + savename, data);
-            //console.log(data);
-        };
-        f._label = "save;;";
-        gcd.once("text ready:" + file + ":" + start, f);
+        _":deal with start"
+        
+        var emitname = "for save:" + doc.file + ":" + 
+            doc.colon.escape(savename);
 
+        var f = function (data) {
+            // doc.store(savename, data);
+            gcd.emit("file ready:" + savename, data);
+        };
+        f._label = "save;;" + savename;
+        
+        if (title) {
+            title = title + '"';
+            gcd.once("text ready:" + emitname, f);
+            
+            doc.pipeParsing(title, 0, '"', emitname);
+
+        } else {
+           gcd.once("text ready:" + emitname + colon.v + "0", f); 
+        }
+        
+        doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
 
     }
+
+[deal with start]()
+
+This is dealing with where to start, getting the text. It first comes from the
+href, then anything between the first colon and the pipe. 
+
+To get something from another context, one can simply put it after the first
+colon
+
+
+After the `:` and before the first `|`, that text is trimmed and then added to
+the href post `#`. Also, if the name comes out to nothing, then we use the current
+block being parsed.  
+
+
+    var start = args.href.slice(1).replace(/-/g, " ").
+        trim().toLowerCase();
+    ind = title.indexOf("|");
+    if (ind === -1) {
+        start += title.trim();
+    } else {
+        start += title.slice(0,ind).trim();
+        title = title.slice(ind+1);
+    }
+    
+    if (!start) {
+        start = args.cur;
+    }
+
+    start = doc.colon.escape(start);
 
 
 ### New scope
@@ -2134,7 +2175,8 @@ introduce a syntax of input/output and related names.
         "scope.md", 
         "switch.md",
         "codeblocks.md",
-        "indents.md"
+        "indents.md",
+        "savepipe.md"
     ];
 
     var lp = Litpro.prototype;
@@ -2323,17 +2365,17 @@ Test list
 + async 
 + variables, storing and retrieving, scopes. 
 + switch piping
-+ indented code block, code fence, pre, code fence with ignore
++ indented code block, code fence, pre, code fence with ignore, saving with
+  default
++ getting subbed multiline indented blocks correct
++ command piping (save)
 
-* getting subbed multiline indented blocks correct
 * directives
 * command, directive definitions
 * asynchronous commands, directives
 * tests for each of the core commands, directives. 
 * directives to change ignorable languages
 * raw, raw clean
-* command piping (save)
-* save having default
 * heading levels 5 and 6
 * multiple input, output documents
 

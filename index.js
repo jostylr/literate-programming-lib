@@ -489,23 +489,49 @@ Folder.prototype.commands = {   eval : sync(function ( input, args, name ) {
             }, "store"),
     };
 Folder.prototype.directives = {   save : function (args) {
+        var ind; 
         var doc = this;
+        var colon = doc.colon;
         var gcd = doc.gcd;
         var file = doc.file;
         var savename = args.link;
         var title = args.remainder;
-        var start = doc.colon.escape(
-            args.href.slice(1).replace(/-/g, " ").trim().toLowerCase() );
+        var start = args.href.slice(1).replace(/-/g, " ").
+            trim().toLowerCase();
+        ind = title.indexOf("|");
+        if (ind === -1) {
+            start += title.trim();
+        } else {
+            start += title.slice(0,ind).trim();
+            title = title.slice(ind+1);
+        }
+        
         if (!start) {
             start = args.cur;
         }
+        
+        start = doc.colon.escape(start);
+        
+        var emitname = "for save:" + doc.file + ":" + 
+            doc.colon.escape(savename);
+    
         var f = function (data) {
-            doc.store(savename, data);
+            // doc.store(savename, data);
             gcd.emit("file ready:" + savename, data);
-            //console.log(data);
         };
-        f._label = "save;;";
-        gcd.once("text ready:" + file + ":" + start, f);
+        f._label = "save;;" + savename;
+        
+        if (title) {
+            title = title + '"';
+            gcd.once("text ready:" + emitname, f);
+            
+            doc.pipeParsing(title, 0, '"', emitname);
+    
+        } else {
+           gcd.once("text ready:" + emitname + colon.v + "0", f); 
+        }
+        
+        doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
     
     },
         newscope : function (args) {
