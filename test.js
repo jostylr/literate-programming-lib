@@ -114,7 +114,8 @@ var testfiles = [
     "sub.md",
     "async.md",
     "scope.md", 
-    "switch.md"
+    "switch.md",
+    "codeblocks.md"
 ];
 
 var lp = Litpro.prototype;

@@ -124,6 +124,8 @@ emitter
     Folder.prototype.colon = _"colon";
 
     Folder.prototype.createScope = _"Create global scope";
+
+    Folder.prototype.join = "\n";
     
     var sync = Folder.prototype.wrapSync = _"Command wrapper sync";
 
@@ -230,6 +232,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.directives = Object.create(parent.directives);
         this.maker = Object.create(parent.maker);
         this.colon = Object.create(parent.colon); 
+        this.join = parent.join;
     
         if (actions) {
             apply(gcd, actions);
@@ -266,6 +269,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
     Doc.prototype.wrapAsync = Folder.prototype.wrapAsync;
 
     Doc.prototype.store = _"Store";
+
 
 
 
@@ -433,9 +437,15 @@ this.
 If no language is provided, we just call it none. Hopefully there is no
 language called none?! 
 
+We join them by adding doc.join character; this is default a newline. 
+
     code block found --> add code block
     _":heading vars"
-    doc.blocks[doc.curname] +=  data;
+    if (doc.blocks[doc.curname]) {  
+        doc.blocks[doc.curname] +=  doc.join + data;
+    } else {
+        doc.blocks[doc.curname] = data;
+    }
 
 
 [code ignore]()
@@ -628,7 +638,8 @@ in the heading then.
                title.slice(0,ind).trim().toLowerCase() + ":" + file, 
                 { link : text,
                  remainder : title.slice(ind+1),
-                 href:href});
+                 href:href, 
+                 cur: doc.curname});
         }
         return text;
     }
@@ -1954,6 +1965,9 @@ us where to begin. The rest of the title will be dealt with later.
         var title = args.remainder;
         var start = doc.colon.escape(
             args.href.slice(1).replace(/-/g, " ").trim().toLowerCase() );
+        if (!start) {
+            start = args.cur;
+        }
         var f = function (data) {
             doc.store(savename, data);
             gcd.emit("file ready:" + savename, data);
@@ -2106,7 +2120,8 @@ introduce a syntax of input/output and related names.
         "sub.md",
         "async.md",
         "scope.md", 
-        "switch.md"
+        "switch.md",
+        "codeblocks.md"
     ];
 
     var lp = Litpro.prototype;
@@ -2294,14 +2309,14 @@ Test list
 + arguments using compiled blocks
 + async 
 + variables, storing and retrieving, scopes. 
++ switch piping
++ indented code block, code fence, pre, code fence with ignore
 
-* switch piping
 * directives
 * command, directive definitions
 * asynchronous commands, directives
 * tests for each of the core commands, directives. 
-* indented code block, code fence, pre, code fence with ignore, directives to
-  change ignorable languages
+* directives to change ignorable languages
 * raw, raw clean
 * command piping (save)
 * save having default

@@ -225,7 +225,11 @@ var Folder = function (actions) {
                 var gcd = evObj.emitter;
                 var file = evObj.pieces[0];
                 var doc = gcd.parent.docs[file];
-                doc.blocks[doc.curname] +=  data;
+                if (doc.blocks[doc.curname]) {  
+                    doc.blocks[doc.curname] +=  doc.join + data;
+                } else {
+                    doc.blocks[doc.curname] = data;
+                }
             }
         );
         
@@ -321,7 +325,8 @@ Folder.prototype.parse = function (doc) {
                        title.slice(0,ind).trim().toLowerCase() + ":" + file, 
                         { link : text,
                          remainder : title.slice(ind+1),
-                         href:href});
+                         href:href, 
+                         cur: doc.curname});
                 }
                 return text;
             };   
@@ -370,6 +375,8 @@ Folder.prototype.createScope = function (name) {
         }
         return scopes[name];
     };
+
+Folder.prototype.join = "\n";
 
 var sync = Folder.prototype.wrapSync = function (fun, label) {
         var f = function (input, args, name, command) {
@@ -489,6 +496,9 @@ Folder.prototype.directives = {   save : function (args) {
         var title = args.remainder;
         var start = doc.colon.escape(
             args.href.slice(1).replace(/-/g, " ").trim().toLowerCase() );
+        if (!start) {
+            start = args.cur;
+        }
         var f = function (data) {
             doc.store(savename, data);
             gcd.emit("file ready:" + savename, data);
@@ -538,6 +548,7 @@ var Doc = function (file, text, parent, actions) {
         this.directives = Object.create(parent.directives);
         this.maker = Object.create(parent.maker);
         this.colon = Object.create(parent.colon); 
+        this.join = parent.join;
     
         if (actions) {
             apply(gcd, actions);
