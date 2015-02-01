@@ -408,15 +408,17 @@ problem.
 
     var title = data[1];
     var fname = evObj.pieces[0] + ":" + curname;
+    var pipename;
     if (title) { // need piping
         title = title.trim()+'"';
-        doc.pipeParsing(title, 0, '"' , fname);
+        pipename = fname + colon.v + "sp";
+        doc.pipeParsing(title, 0, '"' , pipename);
         
         gcd.once("minor ready:" + fname, 
-            doc.maker['emit text ready']( fname + colon.v + "0", 
+            doc.maker['emit text ready']( pipename + colon.v + "0", 
                 gcd));
-        gcd.once("text ready:" + fname, 
-            doc.maker.store(fname, doc));
+        gcd.once("text ready:" + pipename, 
+            doc.maker.store(curname, doc, fname));
     } else { //just go
         gcd.once("minor ready:" + fname, 
             doc.maker['store emit'](curname, doc, fname));
@@ -1036,7 +1038,7 @@ Directives may be a bit dodgy on this point.
 
     if (subname[0] === ":") {
         colind = lname.indexOf(":");
-        mainblock = lname.slice(colind, lname.indexOf(colon.v, colind));
+        mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
         subname = mainblock+subname;
     }
 
@@ -1758,11 +1760,11 @@ them per document or folder making them accessible to manipulations.
                 f._label = "emit text ready;;" + name;
                 return f;
             },
-        'store' : function (name, doc) {
+        'store' : function (name, doc, fname) {
                 var f = function (text) {
                     doc.store(name, text);
                 };
-                f._label = "store;;" + name;
+                f._label = "store;;" + (fname ||  name);
                 return f;
             },
         'store emit' : function (name, doc, fname) {
@@ -1770,7 +1772,7 @@ them per document or folder making them accessible to manipulations.
                     doc.store(name, text);
                     doc.gcd.emit("text ready:" + (fname || name), text);
                 };
-                f._label = "store emit;;" +  name;
+                f._label = "store emit;;" +  (fname || name);
                 return f;
             },
         'location filled' : function (lname, loc, doc, frags, indents ) {
@@ -2103,7 +2105,8 @@ introduce a syntax of input/output and related names.
         "eval.md",
         "sub.md",
         "async.md",
-        "scope.md"
+        "scope.md", 
+        "switch.md"
     ];
 
     var lp = Litpro.prototype;
@@ -2177,7 +2180,7 @@ process the inputs.
                 }
             }
 
-            //setTimeout( function () {console.log(gcd.log.logs().join('\n'));}, 100);
+            //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
     }
 
@@ -2289,16 +2292,21 @@ Test list
 + first was basic concatenation
 + command piping 
 + arguments using compiled blocks
++ async 
++ variables, storing and retrieving, scopes. 
 
-* async 
+* switch piping
 * directives
 * command, directive definitions
 * asynchronous commands, directives
 * tests for each of the core commands, directives. 
 * indented code block, code fence, pre, code fence with ignore, directives to
-  change ignorable commmands
+  change ignorable languages
+* raw, raw clean
+* command piping (save)
+* save having default
+* heading levels 5 and 6
 * multiple input, output documents
-* variables, storing and retrieving, scopes. 
 
 
 

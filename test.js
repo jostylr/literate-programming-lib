@@ -96,7 +96,7 @@ var testrunner = function (file) {
                 }
             }
     
-            //setTimeout( function () {console.log(gcd.log.logs().join('\n'));}, 100);
+            //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
     };
 
@@ -113,7 +113,8 @@ var testfiles = [
     "eval.md",
     "sub.md",
     "async.md",
-    "scope.md"
+    "scope.md", 
+    "switch.md"
 ];
 
 var lp = Litpro.prototype;

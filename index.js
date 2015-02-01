@@ -34,11 +34,11 @@ var Folder = function (actions) {
                         f._label = "emit text ready;;" + name;
                         return f;
                     },
-                'store' : function (name, doc) {
+                'store' : function (name, doc, fname) {
                         var f = function (text) {
                             doc.store(name, text);
                         };
-                        f._label = "store;;" + name;
+                        f._label = "store;;" + (fname ||  name);
                         return f;
                     },
                 'store emit' : function (name, doc, fname) {
@@ -46,7 +46,7 @@ var Folder = function (actions) {
                             doc.store(name, text);
                             doc.gcd.emit("text ready:" + (fname || name), text);
                         };
-                        f._label = "store emit;;" +  name;
+                        f._label = "store emit;;" +  (fname || name);
                         return f;
                     },
                 'location filled' : function (lname, loc, doc, frags, indents ) {
@@ -201,15 +201,17 @@ var Folder = function (actions) {
                 
                 var title = data[1];
                 var fname = evObj.pieces[0] + ":" + curname;
+                var pipename;
                 if (title) { // need piping
                     title = title.trim()+'"';
-                    doc.pipeParsing(title, 0, '"' , fname);
+                    pipename = fname + colon.v + "sp";
+                    doc.pipeParsing(title, 0, '"' , pipename);
                     
                     gcd.once("minor ready:" + fname, 
-                        doc.maker['emit text ready']( fname + colon.v + "0", 
+                        doc.maker['emit text ready']( pipename + colon.v + "0", 
                             gcd));
-                    gcd.once("text ready:" + fname, 
-                        doc.maker.store(fname, doc));
+                    gcd.once("text ready:" + pipename, 
+                        doc.maker.store(curname, doc, fname));
                 } else { //just go
                     gcd.once("minor ready:" + fname, 
                         doc.maker['store emit'](curname, doc, fname));
@@ -768,7 +770,7 @@ Doc.prototype.substituteParsing = function (text, ind, quote, lname ) {
             subname = match[1].trim().toLowerCase();
             if (subname[0] === ":") {
                 colind = lname.indexOf(":");
-                mainblock = lname.slice(colind, lname.indexOf(colon.v, colind));
+                mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
                 subname = mainblock+subname;
             }
             subname = colon.escape(subname);
