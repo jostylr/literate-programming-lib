@@ -905,7 +905,10 @@ first non-blank character. If the underscore is first, then we have an indent
 for all lines in the end; otherwise we will indent only at the end. 
 
 The if checks if we are already at the beginning of the string; if not, we
-look at the character. first is first non-blank character.
+look at the character. first is first non-blank character. 
+
+Our goal is to line up the later lines with the first non blank character
+(though usually they will have their own indent that they carry with them). 
 
     first = place;
     backcount = place-1;
@@ -920,7 +923,7 @@ look at the character. first is first non-blank character.
             }
             break;
         }
-        if (chr.search(/[S]/) === 0) {
+        if (chr.search(/\S/) === 0) {
             first = backcount;
         }
         backcount -= 1;
@@ -930,25 +933,33 @@ look at the character. first is first non-blank character.
 ### Indent
 
 We need a simple indenting function. It takes a text to indent and a
-two-element array giving the leading indent and the rest. 
+two-element array giving the leading indent and the rest.
 
-    function (text, indents) {
-        var beg, line;
+Note: Dropped the beginning indent since the leading text should just go
+wherever the substitute is located (duh). It is the other lines whose
+indentation needs to be managed. 
+
+    function (text, indent) {
+        var line, ret;
         var i, n;
         
-        n = indents[0];
+        /*
+        var beg;
+        n = indent[0];
         beg = '';
         for (i = 0; i < n; i += 1) {
             beg += ' ';
         }
+        */
         
-        n = indents[1];
+        n = indent[1];
         line = '';
         for (i = 0; i <n; i += 1) {
             line += ' ';
         }
 
-        return beg + text.replace("\n", "\n"+line);
+        ret = text.replace(/\n/g, "\n"+line);
+        return ret;
     }
 
 
@@ -1789,7 +1800,7 @@ them per document or folder making them accessible to manipulations.
         'location filled' : function (lname, loc, doc, frags, indents ) {
                 var f = function (subtext) {
                     var gcd = doc.gcd;
-                    doc.indent(subtext, indents[loc]);
+                    subtext = doc.indent(subtext, indents[loc]);
                     frags[loc] = subtext;
                     gcd.emit("location filled:" +  lname );
                 };
@@ -1919,7 +1930,7 @@ This is a thin wrapper of the store function.
         var doc = this;
         var gcd = doc.gcd;
 
-        var vname = doc.colon.escape(args[0])
+        var vname = doc.colon.escape(args[0]);
 
         if (vname) {
             doc.store(vname, input);
@@ -1971,6 +1982,7 @@ us where to begin. The rest of the title will be dealt with later.
         var f = function (data) {
             doc.store(savename, data);
             gcd.emit("file ready:" + savename, data);
+            //console.log(data);
         };
         f._label = "save;;";
         gcd.once("text ready:" + file + ":" + start, f);
@@ -2121,7 +2133,8 @@ introduce a syntax of input/output and related names.
         "async.md",
         "scope.md", 
         "switch.md",
-        "codeblocks.md"
+        "codeblocks.md",
+        "indents.md"
     ];
 
     var lp = Litpro.prototype;
@@ -2312,6 +2325,7 @@ Test list
 + switch piping
 + indented code block, code fence, pre, code fence with ignore
 
+* getting subbed multiline indented blocks correct
 * directives
 * command, directive definitions
 * asynchronous commands, directives

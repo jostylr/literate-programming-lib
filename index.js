@@ -52,7 +52,7 @@ var Folder = function (actions) {
                 'location filled' : function (lname, loc, doc, frags, indents ) {
                         var f = function (subtext) {
                             var gcd = doc.gcd;
-                            doc.indent(subtext, indents[loc]);
+                            subtext = doc.indent(subtext, indents[loc]);
                             frags[loc] = subtext;
                             gcd.emit("location filled:" +  lname );
                         };
@@ -478,7 +478,7 @@ Folder.prototype.commands = {   eval : sync(function ( input, args, name ) {
                 var doc = this;
                 var gcd = doc.gcd;
             
-                var vname = doc.colon.escape(args[0])
+                var vname = doc.colon.escape(args[0]);
             
                 if (vname) {
                     doc.store(vname, input);
@@ -502,6 +502,7 @@ Folder.prototype.directives = {   save : function (args) {
         var f = function (data) {
             doc.store(savename, data);
             gcd.emit("file ready:" + savename, data);
+            //console.log(data);
         };
         f._label = "save;;";
         gcd.once("text ready:" + file + ":" + start, f);
@@ -636,23 +637,27 @@ Doc.prototype.createLinkedScope = function (globalname, localname) {
     
     };
  
-Doc.prototype.indent = function (text, indents) {
-        var beg, line;
+Doc.prototype.indent = function (text, indent) {
+        var line, ret;
         var i, n;
         
-        n = indents[0];
+        /*
+        var beg;
+        n = indent[0];
         beg = '';
         for (i = 0; i < n; i += 1) {
             beg += ' ';
         }
+        */
         
-        n = indents[1];
+        n = indent[1];
         line = '';
         for (i = 0; i <n; i += 1) {
             line += ' ';
         }
     
-        return beg + text.replace("\n", "\n"+line);
+        ret = text.replace(/\n/g, "\n"+line);
+        return ret;
     };
 
 Doc.prototype.blockCompiling = function (block, file, bname) {
@@ -735,7 +740,7 @@ Doc.prototype.blockCompiling = function (block, file, bname) {
                             }
                             break;
                         }
-                        if (chr.search(/[S]/) === 0) {
+                        if (chr.search(/\S/) === 0) {
                             first = backcount;
                         }
                         backcount -= 1;
