@@ -5,7 +5,7 @@ var fs = require('fs');
 var test = require('tape');
 var Litpro = require('./index.js');
 
-var testdata = {};
+var testdata = {}, log = [];
 
 var testrunner = function (file) {
      
@@ -20,8 +20,10 @@ var testrunner = function (file) {
         td = testdata[name] = {
             start : [],
             in : {},
-            out : {}
+            out : {},
+            log : []
         };
+    
         
          if (pieces.length === 2) {
             // \n---\n  will be assumed and the rest is to be used
@@ -30,7 +32,7 @@ var testrunner = function (file) {
            td.in.in = pieces[0].slice(1);
            td.out.out = pieces[1].slice(1).trim();
         } else {
-            j = pieces.length;
+            m = pieces.length;
             for (j = 0; j < m; j += 1) {
                 piece = pieces[j];
                 newline = piece.indexOf("\n");
@@ -39,9 +41,13 @@ var testrunner = function (file) {
                 } else if (piece.slice(0,4) === "out:") {
                     td.out[piece.slice(4, newline)] = 
                         piece.slice(newline + 1).trim();
-                } else if (piece.slice(0,5) === "start:") {
-                    td.start.push(piece.slice(5, newline));
-                    td.in[piece.slice(5, newline)] = piece.slice(newline + 1);
+                } else if (piece.slice(0,6) === "start:") {
+                    td.start.push(piece.slice(6, newline));
+                    td.in[piece.slice(6, newline)] = piece.slice(newline + 1);
+                } else if (piece.slice(0,4) === "log:" ) {
+                    td.log = piece.slice(newline + 1).split("\n!");
+                    td.log.pop();
+                    td.log[0] = td.log[0].slice(1);
                 }
             }
         }
@@ -74,14 +80,30 @@ var testrunner = function (file) {
               ]
         });
         var gcd = folder.gcd;
+        
+        var log = td.log; 
     
-        gcd.makeLog();
+        //gcd.makeLog();
     
         test(name, function (t) {
             var outs, m, j, out;
+    
+            folder.log = function (text) {
+                if (log.indexOf(text) !== -1) {
+                    t.pass();
+                } else {
+                
+                console.log(text);
+                    t.fail(text);
+                }
+            };
+            
+    
             outs = Object.keys(td.out);
             m  = outs.length;
-            t.plan(m);
+            
+            t.plan(m+log.length);
+            
             for (j = 0; j < m; j += 1) {
                 out = outs[j];
                 gcd.on("file ready:" + out, equalizer(t, td.out[out]) );
@@ -96,7 +118,7 @@ var testrunner = function (file) {
                 }
             }
     
-            //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
+           // setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
     };
 
@@ -117,7 +139,8 @@ var testfiles = [
     "switch.md",
     "codeblocks.md",
     "indents.md",
-    "savepipe.md"
+    "savepipe.md",
+    "log.md"
 ];
 
 var lp = Litpro.prototype;

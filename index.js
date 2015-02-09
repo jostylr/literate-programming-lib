@@ -324,8 +324,8 @@ Folder.prototype.parse = function (doc) {
                     gcd.emit("directive found:" + 
                        title.slice(0,ind).trim().toLowerCase() + ":" + file, 
                         { link : text,
-                         remainder : title.slice(ind+1),
-                         href:href, 
+                         input : title.slice(ind+1),
+                         href: href, 
                          cur: doc.curname});
                 }
                 return text;
@@ -377,6 +377,8 @@ Folder.prototype.createScope = function (name) {
     };
 
 Folder.prototype.join = "\n";
+
+Folder.prototype.log = function (text) { console.log(text); };
 
 var sync = Folder.prototype.wrapSync = function (fun, label) {
         var f = function (input, args, name, command) {
@@ -487,6 +489,15 @@ Folder.prototype.commands = {   eval : sync(function ( input, args, name ) {
                 return input; 
             
             }, "store"),
+        log : sync(function (input, args) {
+                var doc = this;
+                if (args && args.length) {
+                    doc.log(input + "\n~~~\n" + args.join("\n~~~\n"));
+                } else {
+                    doc.log(input);
+                }
+                return input;
+            }, "log")
     };
 Folder.prototype.directives = {   save : function (args) {
         var ind; 
@@ -495,7 +506,7 @@ Folder.prototype.directives = {   save : function (args) {
         var gcd = doc.gcd;
         var file = doc.file;
         var savename = args.link;
-        var title = args.remainder;
+        var title = args.input;
         var start = args.href.slice(1).replace(/-/g, " ").
             trim().toLowerCase();
         ind = title.indexOf("|");
@@ -538,7 +549,7 @@ Folder.prototype.directives = {   save : function (args) {
                 var doc = this;
                 var gcd = doc.gcd;
                 var file = doc.file;
-                var local = args.remainder;
+                var local = args.input;
                 var global = args.link;
             
                 doc.createLinkedScope(global, local);
@@ -548,10 +559,74 @@ Folder.prototype.directives = {   save : function (args) {
                 var doc = this;
                 var gcd = doc.gcd;
                 var file = doc.file;
-                var value = args.remainder;
+                var value = args.input;
                 var name = doc.colon.escape(args.link);
             
                 doc.store(name, value);
+            
+            },
+        log : function (args) {
+                
+                var doc = this;
+                var gcd = doc.gcd;
+            
+                var str = args.link;
+                var i;
+                while ( (i = str.indexOf("\\:") ) !== -1 )  {
+                    str = str.slice(0, i) + doc.colon.v + str.slice(i+2);
+                }
+            
+                str = str || doc.colon.escape(args.cur);
+                    console.log(str);
+            
+                gcd.monitor(str, function (ev, data) {
+                    doc.log("EVENT: " + ev + " DATA: " + data);
+                });
+            
+            },
+        out : function (args) {
+                var ind; 
+                var doc = this;
+                var colon = doc.colon;
+                var gcd = doc.gcd;
+                var file = doc.file;
+                var outname = args.link;
+                var title = args.input;
+                var start = args.href.slice(1).replace(/-/g, " ").
+                    trim().toLowerCase();
+                ind = title.indexOf("|");
+                if (ind === -1) {
+                    start += title.trim();
+                } else {
+                    start += title.slice(0,ind).trim();
+                    title = title.slice(ind+1);
+                }
+                
+                if (!start) {
+                    start = args.cur;
+                }
+                
+                start = doc.colon.escape(start);
+                
+                var emitname = "for out:" + doc.file + ":" + 
+                    doc.colon.escape(outname);
+            
+                var f = function (data) {
+                    doc.log(outname + ":\n" + data + "\n~~~\n");
+                };
+                f._label = "out;;" + outname;
+                
+                if (title) {
+                    title = title + '"';
+                    gcd.once("text ready:" + emitname, f);
+                    
+                    doc.pipeParsing(title, 0, '"', emitname);
+            
+                } else {
+                   gcd.once("text ready:" + emitname + colon.v + "0", f); 
+                }
+                
+                doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
             
             }
     };
@@ -576,6 +651,7 @@ var Doc = function (file, text, parent, actions) {
         this.maker = Object.create(parent.maker);
         this.colon = Object.create(parent.colon); 
         this.join = parent.join;
+        this.log = this.parent.log;
     
         if (actions) {
             apply(gcd, actions);

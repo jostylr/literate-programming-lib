@@ -126,6 +126,8 @@ emitter
     Folder.prototype.createScope = _"Create global scope";
 
     Folder.prototype.join = "\n";
+
+    Folder.prototype.log = function (text) { console.log(text); };
     
     var sync = Folder.prototype.wrapSync = _"Command wrapper sync";
 
@@ -233,6 +235,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.maker = Object.create(parent.maker);
         this.colon = Object.create(parent.colon); 
         this.join = parent.join;
+        this.log = this.parent.log;
     
         if (actions) {
             apply(gcd, actions);
@@ -269,6 +272,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
     Doc.prototype.wrapAsync = Folder.prototype.wrapAsync;
 
     Doc.prototype.store = _"Store";
+    
 
 
 
@@ -639,8 +643,8 @@ in the heading then.
             gcd.emit("directive found:" + 
                title.slice(0,ind).trim().toLowerCase() + ":" + file, 
                 { link : text,
-                 remainder : title.slice(ind+1),
-                 href:href, 
+                 input : title.slice(ind+1),
+                 href: href, 
                  cur: doc.curname});
         }
         return text;
@@ -1833,6 +1837,7 @@ Here we have some commands and directives that are of common use
     {   eval : sync(_"eval", "eval"),
         sub : _"sub",
         store: sync(_"store command", "store"),
+        log : sync(_"cmd log", "log")
     }
 
 ### Eval
@@ -1940,8 +1945,47 @@ This is a thin wrapper of the store function.
 
     }
 
+### Cmd Log
+
+This outputs the input and args to the doc.log function. In particular, it
+joins the args and input with `\n---\n` 
+
+    function (input, args) {
+        var doc = this;
+        if (args && args.length) {
+            doc.log(input + "\n~~~\n" + args.join("\n~~~\n"));
+        } else {
+            doc.log(input);
+        }
+        return input;
+    }
 
 
+### Raw
+
+This takes the raw text between two markers. Typically the markers will be the
+header and an exclude.  This is a stand-alone command, i.e., the input is
+irrelevant. 
+
+    function (input, args) {
+        var doc = this;
+
+        var file = doc.parent.files[args[2]] || doc;
+        
+        if (file) {
+
+        } else {
+            gcd.emit("error:raw:" + doc.file);
+        }
+
+
+    }
+
+
+### RawClean
+
+Same as raw, except it also cleans it up a bit. Namely, it removes things that
+would have been interpreted poorly. 
 
 ## Directives
 
@@ -1952,7 +1996,9 @@ for saving as well.
 
     {   save : _"save",
         newscope : _"new scope",
-        store : _"dir store"
+        store : _"dir store",
+        log : _"dir log",
+        out : _"out"
     }
 
 
@@ -1963,7 +2009,7 @@ for saving as well.
 ### Save
 
 We save it in vars of the document with the name in the link. The href tells
-us where to begin. The rest of the title will be dealt with later. 
+us where to begin. The 
 
 add in pipes, add in variable checking if stored, other document parsing,
 ... 
@@ -1975,7 +2021,7 @@ add in pipes, add in variable checking if stored, other document parsing,
         var gcd = doc.gcd;
         var file = doc.file;
         var savename = args.link;
-        var title = args.remainder;
+        var title = args.input;
         _":deal with start"
         
         var emitname = "for save:" + doc.file + ":" + 
@@ -1986,6 +2032,76 @@ add in pipes, add in variable checking if stored, other document parsing,
             gcd.emit("file ready:" + savename, data);
         };
         f._label = "save;;" + savename;
+        
+        if (title) {
+            title = title + '"';
+            gcd.once("text ready:" + emitname, f);
+            
+            doc.pipeParsing(title, 0, '"', emitname);
+
+        } else {
+           gcd.once("text ready:" + emitname + colon.v + "0", f); 
+        }
+        
+        doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
+
+    }
+
+[deal with start]()
+
+This is dealing with where to start, getting the text. It first comes from the
+href, then anything between the first colon and the pipe. 
+
+To get something from another context, one can simply put it after the first
+colon
+
+
+After the `:` and before the first `|`, that text is trimmed and then added to
+the href post `#`. Also, if the name comes out to nothing, then we use the current
+block being parsed.  
+
+
+    var start = args.href.slice(1).replace(/-/g, " ").
+        trim().toLowerCase();
+    ind = title.indexOf("|");
+    if (ind === -1) {
+        start += title.trim();
+    } else {
+        start += title.slice(0,ind).trim();
+        title = title.slice(ind+1);
+    }
+    
+    if (!start) {
+        start = args.cur;
+    }
+
+    start = doc.colon.escape(start);
+
+### Out
+
+This is the same as save, except it just ouputs it to the console via doc.log. 
+
+Note I copied the save codew which is rather poor form. It would be good to
+abstract this out a bit. Need to just pass along the f and the name of out or
+save, etc. 
+
+    function (args) {
+        var ind; 
+        var doc = this;
+        var colon = doc.colon;
+        var gcd = doc.gcd;
+        var file = doc.file;
+        var outname = args.link;
+        var title = args.input;
+        _":deal with start"
+        
+        var emitname = "for out:" + doc.file + ":" + 
+            doc.colon.escape(outname);
+
+        var f = function (data) {
+            doc.log(outname + ":\n" + data + "\n~~~\n");
+        };
+        f._label = "out;;" + outname;
         
         if (title) {
             title = title + '"';
@@ -2042,7 +2158,7 @@ the global name and a local name. In the link, it goes
         var doc = this;
         var gcd = doc.gcd;
         var file = doc.file;
-        var local = args.remainder;
+        var local = args.input;
         var global = args.link;
 
         doc.createLinkedScope(global, local);
@@ -2058,7 +2174,7 @@ This is the directive for storing some text.
         var doc = this;
         var gcd = doc.gcd;
         var file = doc.file;
-        var value = args.remainder;
+        var value = args.input;
         var name = doc.colon.escape(args.link);
 
         doc.store(name, value);
@@ -2067,7 +2183,66 @@ This is the directive for storing some text.
 
 ### Exclude
 
-This excludes the current section from being compiled.
+This excludes the named (or current) section from being compiled. The form is
+`[name](#whatever "exclude:")` 
+
+
+    function (args) {
+
+        var doc = this;
+        var gcd = doc.gcd;
+        var file = doc.file;
+
+        var name = args.link || args.cur;
+        name = doc.colon.escape(name);
+
+        gcd.on("block needs compiling:" + file + ":" + name,
+            function (data, evObj) {
+                evObj.stop = true;
+            });
+    }
+    
+
+### Dir Log
+
+This is just a taste of what is possible, but this is a fairly simple taste so
+we will implement it here. 
+
+The log directive will take in a string and whenever an event matches that
+string, it will log it and its data to the console. 
+
+Form: `[string](# "log:")`
+
+If the string has `\:` in it, then that will be replaced with the triple
+colon. Regular colons are not escaped.
+
+An alternate form is  `[](# "log:")`  which will instead listen for any
+mention of the current block. Currently not scoped to listen to the file part
+since this would catch other docs using that block name under their own
+nickname for the file. 
+
+
+
+    function (args) {
+        
+        var doc = this;
+        var gcd = doc.gcd;
+
+        var str = args.link;
+        var i;
+        while ( (i = str.indexOf("\\:") ) !== -1 )  {
+            str = str.slice(0, i) + doc.colon.v + str.slice(i+2);
+        }
+
+        str = str || doc.colon.escape(args.cur);
+            console.log(str);
+
+        gcd.monitor(str, function (ev, data) {
+            doc.log("EVENT: " + ev + " DATA: " + data);
+        });
+
+    }
+
  
 ### Load
 
@@ -2076,7 +2251,7 @@ local doc.
 
 All docs that are already loading or loaded will be present in the
 folder.docs object. If not, then we need to load it. We will also need to
-check for the nickname already existing in vars. If it does exist, we emit an
+check for the nickname already existing in scopes. If it does exist, we emit an
 error and do not load the file. 
 
 We use the folder colon escape for the url since that is global to folders
@@ -2089,7 +2264,7 @@ not have been so flexible.
         var gcd = doc.gcd;
         var folder = doc.parent;
         var requester = doc.file;
-        var url = args.remainder.trim() || args.href.trim();
+        var url = args.input.trim() || args.href.trim();
         var urlesc = folder.colon.escape(url);
         var nickname = doc.colon.escap(eargs.link.trim());
         
@@ -2153,6 +2328,8 @@ description` at the top, then three dashed separator line to create a new
 document to parse followed by its result. In more advanced tests, we will
 introduce a syntax of input/output and related names. 
 
+The log array should be cleared between tests. 
+
     /*global require, setTimeout*/
     /*jslint evil:true*/
 
@@ -2160,7 +2337,7 @@ introduce a syntax of input/output and related names.
     var test = require('tape');
     var Litpro = require('./index.js');
 
-    var testdata = {};
+    var testdata = {}, log = [];
 
     var testrunner = _"testrunner";
 
@@ -2176,19 +2353,20 @@ introduce a syntax of input/output and related names.
         "switch.md",
         "codeblocks.md",
         "indents.md",
-        "savepipe.md"
+        "savepipe.md",
+        "log.md"
     ];
 
     var lp = Litpro.prototype;
 
     lp.commands.readfile = lp.wrapAsync(_"test async", "readfile");
 
+
     var i, n = testfiles.length;
 
     for (i =0; i < n; i += 1) {
         testrunner(testfiles[i]);
     }
-
 
 ### testrunner
 
@@ -2212,10 +2390,13 @@ process the inputs.
         td = testdata[name] = {
             start : [],
             in : {},
-            out : {}
+            out : {},
+            log : []
         };
+
         
         _":set up test data"
+
 
         var folder = new Litpro({
             "on" : [
@@ -2228,14 +2409,30 @@ process the inputs.
               ]
         });
         var gcd = folder.gcd;
+        
+        var log = td.log; 
 
-        gcd.makeLog();
+        //gcd.makeLog();
 
         test(name, function (t) {
             var outs, m, j, out;
+
+            folder.log = function (text) {
+                if (log.indexOf(text) !== -1) {
+                    t.pass();
+                } else {
+                
+                console.log(text);
+                    t.fail(text);
+                }
+            };
+            
+
             outs = Object.keys(td.out);
             m  = outs.length;
-            t.plan(m);
+            
+            t.plan(m+log.length);
+            
             for (j = 0; j < m; j += 1) {
                 out = outs[j];
                 gcd.on("file ready:" + out, equalizer(t, td.out[out]) );
@@ -2250,7 +2447,7 @@ process the inputs.
                 }
             }
 
-            //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
+           // setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
     }
 
@@ -2266,6 +2463,11 @@ names are in and out, respectively. So we should save the output to out.
 The start listing are the ones that get specifically processed. The in, which
 includes the starts, are those that can be loaded from within the documents. 
 
+We split the log portion (if present) on `\n!`. We will expect a test for
+each log entry and we will verify by the called log function text being in the
+array. That should cover most cases. 
+
+
      if (pieces.length === 2) {
         // \n---\n  will be assumed and the rest is to be used
         // the first is input, the second is output
@@ -2273,7 +2475,7 @@ includes the starts, are those that can be loaded from within the documents.
        td.in.in = pieces[0].slice(1);
        td.out.out = pieces[1].slice(1).trim();
     } else {
-        j = pieces.length;
+        m = pieces.length;
         for (j = 0; j < m; j += 1) {
             piece = pieces[j];
             newline = piece.indexOf("\n");
@@ -2282,9 +2484,13 @@ includes the starts, are those that can be loaded from within the documents.
             } else if (piece.slice(0,4) === "out:") {
                 td.out[piece.slice(4, newline)] = 
                     piece.slice(newline + 1).trim();
-            } else if (piece.slice(0,5) === "start:") {
-                td.start.push(piece.slice(5, newline));
-                td.in[piece.slice(5, newline)] = piece.slice(newline + 1);
+            } else if (piece.slice(0,6) === "start:") {
+                td.start.push(piece.slice(6, newline));
+                td.in[piece.slice(6, newline)] = piece.slice(newline + 1);
+            } else if (piece.slice(0,4) === "log:" ) {
+                td.log = piece.slice(newline + 1).split("\n!");
+                td.log.pop();
+                td.log[0] = td.log[0].slice(1);
             }
         }
     }
