@@ -1706,6 +1706,7 @@ So when a scope is requested, it may not have been linked to yet or it may not
 exist yet. In fact, if it does not exist, it will not be linked to. So we only
 need to worry about the linking case. 
 
+
     function (name) {
         var ind, scope, localname, filename, varname;
         var doc = this;
@@ -1998,7 +1999,8 @@ for saving as well.
         newscope : _"new scope",
         store : _"dir store",
         log : _"dir log",
-        out : _"out"
+        out : _"out",
+        load: _"load"
     }
 
 
@@ -2235,7 +2237,6 @@ nickname for the file.
         }
 
         str = str || doc.colon.escape(args.cur);
-            console.log(str);
 
         gcd.monitor(str, function (ev, data) {
             doc.log("EVENT: " + ev + " DATA: " + data);
@@ -2259,6 +2260,9 @@ while the nickname is strictly internal and uses the local colon escape.
 Somehow I get the feelng I have made a mess of this escape stuff; it should
 not have been so flexible.
 
+`[local name](url "load:")[
+
+
     function (args) {
         var doc = this;
         var gcd = doc.gcd;
@@ -2266,14 +2270,14 @@ not have been so flexible.
         var requester = doc.file;
         var url = args.input.trim() || args.href.trim();
         var urlesc = folder.colon.escape(url);
-        var nickname = doc.colon.escap(eargs.link.trim());
+        var nickname = doc.colon.escape(args.link.trim());
         
         if (doc.scopes.hasOwnProperty(nickname) ) {
             gcd.emit("error:scope name already exists:" + 
                 doc.colon.escape(nickname) );
         } else {
             doc.scopes[nickname] = urlesc;
-            if (!(folder.docs.hasOwnProperty(urlesc) ) {
+            if (!(folder.docs.hasOwnProperty(urlesc) ) ) {
                 gcd.emit("need document:" + urlesc, url );
             }
         }
@@ -2354,7 +2358,8 @@ The log array should be cleared between tests.
         "codeblocks.md",
         "indents.md",
         "savepipe.md",
-        "log.md"
+        "log.md",
+        "load.md"
     ];
 
     var lp = Litpro.prototype;
@@ -2447,7 +2452,7 @@ process the inputs.
                 }
             }
 
-           // setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
+            //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
     }
 

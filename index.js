@@ -577,7 +577,6 @@ Folder.prototype.directives = {   save : function (args) {
                 }
             
                 str = str || doc.colon.escape(args.cur);
-                    console.log(str);
             
                 gcd.monitor(str, function (ev, data) {
                     doc.log("EVENT: " + ev + " DATA: " + data);
@@ -627,6 +626,26 @@ Folder.prototype.directives = {   save : function (args) {
                 }
                 
                 doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
+            
+            },
+        load: function (args) {
+                var doc = this;
+                var gcd = doc.gcd;
+                var folder = doc.parent;
+                var requester = doc.file;
+                var url = args.input.trim() || args.href.trim();
+                var urlesc = folder.colon.escape(url);
+                var nickname = doc.colon.escape(args.link.trim());
+                
+                if (doc.scopes.hasOwnProperty(nickname) ) {
+                    gcd.emit("error:scope name already exists:" + 
+                        doc.colon.escape(nickname) );
+                } else {
+                    doc.scopes[nickname] = urlesc;
+                    if (!(folder.docs.hasOwnProperty(urlesc) ) ) {
+                        gcd.emit("need document:" + urlesc, url );
+                    }
+                }
             
             }
     };
