@@ -372,7 +372,12 @@ Folder.prototype.createScope = function (name) {
         if (! scopes.hasOwnProperty(name) ) {
             scopes[name] = {};
             gcd.emit("scope created:" + name);
+            gcd.emit("scope exists:" + name);
+        } else if (typeof scopes[name] === "string") {
+            gcd.emit("error:conflict in scope naming:" + name);
+            scopes[name] = {};
         }
+    
         return scopes[name];
     };
 
@@ -547,12 +552,9 @@ Folder.prototype.directives = {   save : function (args) {
     },
         newscope : function (args) {
                 var doc = this;
-                var gcd = doc.gcd;
-                var file = doc.file;
-                var local = args.input;
-                var global = args.link;
+                var scopename = args.link;
             
-                doc.createLinkedScope(global, local);
+                doc.parent.createScope(scopename);
             
             },
         store : function (args) {
@@ -647,6 +649,14 @@ Folder.prototype.directives = {   save : function (args) {
                     }
                 }
             
+            },
+        linkscope : function (args) {
+                var doc = this;
+                var alias = args.link;
+                var scopename = args.input;
+            
+                doc.createLinkedScope(alias, scopename); 
+            
             }
     };
 
@@ -671,6 +681,7 @@ var Doc = function (file, text, parent, actions) {
         this.colon = Object.create(parent.colon); 
         this.join = parent.join;
         this.log = this.parent.log;
+        this.scopes = this.parent.scopes;
     
         if (actions) {
             apply(gcd, actions);
@@ -720,41 +731,63 @@ Doc.prototype.retrieve = function (name, cb) {
 };
 
 Doc.prototype.getScope = function (name) {
-        var ind, scope, localname, filename, varname;
+        var ind, scope, alias, scopename, varname;
         var doc = this;
         var colon = doc.colon;
         var folder = doc.parent;
     
         if (  (ind = name.indexOf( colon.v + colon.v) ) !== -1 ) {
-            localname = name.slice(0,ind);
+            alias = name.slice(0,ind);
             varname = name.slice(ind+2);
-            filename = doc.scopes[ localname ];
-            if (filename) {
-                scope = folder.scopes[filename];
-                if (scope) {
-                    return [scope, varname, filename]; 
-                } else {
-                    doc.gcd.emit("error:non-existent scope linked:" + doc.file +
-                        ":" + localname, filename);
+            scopename = doc.scopes[ alias ];
+            if (typeof scopename === "string") {
+                while ( typeof (scope = folder.scopes[scopename]) === "string") { 
+                    scopename = scope;   
                 }
-            } else {
-                return [null, varname, localname];
+                if (scope) {
+                    return [scope, varname, scopename]; 
+                } else { //this should never happen
+                    doc.gcd.emit("error:non-existent scope linked:" + 
+                        alias, scopename);
+                }
+            } else if (scopename) { //object -- alias is scope's name
+                return [scopename, varname, alias];
+            } else { // not defined yet
+                return [null, varname, alias];
             }
-        } else {
+        } else { //doc's scope is being requested
             return [doc.vars, name, doc.file];
         }
     };
 
-Doc.prototype.createLinkedScope = function (globalname, localname) {
+Doc.prototype.createLinkedScope = function (name, alias) {
         var doc = this;
         var gcd = doc.gcd;
         var folder = doc.parent;
+        var scopes = folder.scopes;
+        var colon = doc.colon;
     
-        var scope = folder.createScope(globalname);
-        doc.scopes[localname] = globalname;
-        gcd.emit("scope linked:" + doc.file + ":" + localname, globalname);
+        name = colon.escape(name);
+        alias = colon.escape(alias);
     
-        return scope;
+        if (scopes.hasOwnProperty(alias) ) {
+            if (scopes[alias] !== name ) {
+                gcd.emit("error:conflict in scope naming:" +
+                     doc.file, [alias, name] );
+            } 
+        } else {
+            if ( scopes.hasOwnProperty(name) ) {
+                folder.scopes[alias] = name;
+                gcd.emit("scope linked:" + doc.file + ":" + alias, name);
+                gcd.emit("scope exists:" + alias);
+            } else {
+                gcd.once("scope exists:" + name, function () {
+                    folder.scopes[alias] = name;
+                    gcd.emit("scope linked:" + doc.file + ":" + alias, name);
+                    gcd.emit("scope exists:" + alias);
+                });
+            }
+        }
     
     };
  
@@ -1121,6 +1154,7 @@ Doc.prototype.store = function (name, text) {
         var doc = this;
         var gcd = doc.gcd;
         var scope = doc.getScope(name);
+    
        
         var f;
         if (! scope[0]) {
@@ -1128,7 +1162,7 @@ Doc.prototype.store = function (name, text) {
                 doc.store(name, text);
             };
             f._label = "Storing:" + doc.file + ":" + name;
-            gcd.once("scope linked:" + doc.file + ":" + scope[2], f);
+            gcd.once("scope exists:" + scope[2], f);
             return;
         }
     

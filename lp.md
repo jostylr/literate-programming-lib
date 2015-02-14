@@ -236,6 +236,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.colon = Object.create(parent.colon); 
         this.join = parent.join;
         this.log = this.parent.log;
+        this.scopes = this.parent.scopes;
     
         if (actions) {
             apply(gcd, actions);
@@ -272,6 +273,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
     Doc.prototype.wrapAsync = Folder.prototype.wrapAsync;
 
     Doc.prototype.store = _"Store";
+
     
 
 
@@ -1554,6 +1556,28 @@ receive `err, data` where data is the text to emit.
     }
 
 
+## Scope
+
+Okay, this is a pretty important part of this whole process. The scope is the
+bit before the double colons. Fundamentally, a new document is put under the
+scope of its path/filename. But it can have other names because using filenames is
+a bit annoying at times. 
+
+The big question is whether these nicknames are local to a single document or
+glboal across all documents being parsed together. At first, I was going to do
+local names, but I think there shall be just one universal set of scope names.
+If you want a local scope, consider prefixes. Multiple global scope names can
+reference the same underlying scope. 
+
+The basic use of scopes is to store and retrieve variables. Given a scope
+name, we look it up in the scopes object. If the key exists, then it will
+point to either the fundamental object or to another key. If an object is
+found, then we either store the variable or, if retrieving, we take it if
+it exists and flag it if it does not exist. 
+
+If a scope name does not exist, then we wait until it does exist and then
+proceed through the chain again.  
+
 ### Store
 
 This stores some text under a name. If the name has double colons, then it
@@ -1566,6 +1590,7 @@ location, this fact gets emitted with the old and the new.
         var doc = this;
         var gcd = doc.gcd;
         var scope = doc.getScope(name);
+
        
         var f;
         if (! scope[0]) {
@@ -1597,13 +1622,13 @@ This deals with the situation that the scope is not yet in a state for
 existence. Essentially, it sets up a listener that will store and emit once
 the scope exists. 
 
-Scope is of the form `[null, varname, localname]`
+Scope is of the form `[null, varname, alias]`
 
     f = function () {
         doc.store(name, text);
     };
     f._label = "Storing:" + doc.file + ":" + name;
-    gcd.once("scope linked:" + doc.file + ":" + scope[2], f);
+    gcd.once("scope exists:" + scope[2], f);
 
 
 ### Variable retrieval
@@ -1695,40 +1720,47 @@ will get triggered
 ### Get Scope
 
 This is the algorithm for obtaining the scope from a name of the form
-`scopename::varname`. It will return an array of the form `[status, scope, varname, filename]`.
+`scopename::varname`. It will return an array of the form `[scope, varname, filename]`.
 
 The filename is what the local scope points to. The scope is the actual object
 that the variable names are the keys of and varname is the key that will be in
 the object. Note we say filename as the scopes are probably likely to be other
-docs, but they need not be. one can create global scopes with arbitrary names. 
+docs, but they need not be. One can create global scopes with arbitrary names. 
 
 So when a scope is requested, it may not have been linked to yet or it may not
 exist yet. In fact, if it does not exist, it will not be linked to. So we only
 need to worry about the linking case. 
 
+The while loop will iterate over possible alias --> alias --> ... --> scope.
+This chain should only happen when all are established. 
+
 
     function (name) {
-        var ind, scope, localname, filename, varname;
+        var ind, scope, alias, scopename, varname;
         var doc = this;
         var colon = doc.colon;
         var folder = doc.parent;
 
         if (  (ind = name.indexOf( colon.v + colon.v) ) !== -1 ) {
-            localname = name.slice(0,ind);
+            alias = name.slice(0,ind);
             varname = name.slice(ind+2);
-            filename = doc.scopes[ localname ];
-            if (filename) {
-                scope = folder.scopes[filename];
-                if (scope) {
-                    return [scope, varname, filename]; 
-                } else {
-                    doc.gcd.emit("error:non-existent scope linked:" + doc.file +
-                        ":" + localname, filename);
+            scopename = doc.scopes[ alias ];
+            if (typeof scopename === "string") {
+                while ( typeof (scope = folder.scopes[scopename]) === "string") { 
+                    scopename = scope;   
                 }
-            } else {
-                return [null, varname, localname];
+                if (scope) {
+                    return [scope, varname, scopename]; 
+                } else { //this should never happen
+                    doc.gcd.emit("error:non-existent scope linked:" + 
+                        alias, scopename);
+                }
+            } else if (scopename) { //object -- alias is scope's name
+                return [scopename, varname, alias];
+            } else { // not defined yet
+                return [null, varname, alias];
             }
-        } else {
+        } else { //doc's scope is being requested
             return [doc.vars, name, doc.file];
         }
     }
@@ -1738,7 +1770,9 @@ need to worry about the linking case.
 
 This is the function on the folder that creates a scope. This creates the vars
 object on a doc as well as creates stand alone scopes. If a scope with a name
-already exists, it returns that scope. 
+already exists, it returns that scope. If the scope is a string, then this is
+a reference and I am considering that an error. An error is emitted and a new
+object is created. 
 
     function (name) {
         var folder = this;
@@ -1751,27 +1785,67 @@ already exists, it returns that scope.
         if (! scopes.hasOwnProperty(name) ) {
             scopes[name] = {};
             gcd.emit("scope created:" + name);
+            gcd.emit("scope exists:" + name);
+        } else if (typeof scopes[name] === "string") {
+            gcd.emit("error:conflict in scope naming:" + name);
+            scopes[name] = {};
         }
+
         return scopes[name];
     }
 
 ### Create Linked Scope
 
-This is where we go to create scopes. It both links existing scopes and will
-create new ones. This is different than loading another litpro doc.
+This is where we go to create scopes. It creates an alias to another scope. It
+does not create a new scope. This is different than loading another litpro doc.
 
-    function (globalname, localname) {
+We check for whether the alias is defined or not. If it is not, then we link
+it to the scope under the name. If that linked scope does not exist, we wait
+to link to it until after it does exist. If two scopes try to link to each
+other, this should result in nothing happening which is better than looping
+repeatedly.    
+
+Anyway, if the alias is defined already, then we check that it is a string
+that corresponds to the name. If not, we issue an error report and do nothing. 
+
+This function returns nothing. 
+
+    function (name, alias) {
         var doc = this;
         var gcd = doc.gcd;
         var folder = doc.parent;
+        var scopes = folder.scopes;
+        var colon = doc.colon;
 
-        var scope = folder.createScope(globalname);
-        doc.scopes[localname] = globalname;
-        gcd.emit("scope linked:" + doc.file + ":" + localname, globalname);
+        name = colon.escape(name);
+        alias = colon.escape(alias);
 
-        return scope;
+        if (scopes.hasOwnProperty(alias) ) {
+            if (scopes[alias] !== name ) {
+                gcd.emit("error:conflict in scope naming:" +
+                     doc.file, [alias, name] );
+            } 
+        } else {
+            if ( scopes.hasOwnProperty(name) ) {
+                _":scope exists"
+            } else {
+                gcd.once("scope exists:" + name, function () {
+                    _":scope exists"
+                });
+            }
+        }
+
 
     }
+
+[scope exists]()
+
+This is how we link the stuff 
+
+    
+    folder.scopes[alias] = name;
+    gcd.emit("scope linked:" + doc.file + ":" + alias, name);
+    gcd.emit("scope exists:" + alias);
 
 
 
@@ -2000,7 +2074,8 @@ for saving as well.
         store : _"dir store",
         log : _"dir log",
         out : _"out",
-        load: _"load"
+        load: _"load",
+        linkscope : _"link scope"
     }
 
 
@@ -2154,18 +2229,32 @@ block being parsed.
 
 This is a directive that creates a new global scope. The args should give us
 the global name and a local name. In the link, it goes
-`[globalname](# "newscope:localname")` 
+`[scopename](# "newscope:")` 
 
     function (args) {
         var doc = this;
-        var gcd = doc.gcd;
-        var file = doc.file;
-        var local = args.input;
-        var global = args.link;
+        var scopename = args.link;
 
-        doc.createLinkedScope(global, local);
+        doc.parent.createScope(scopename);
 
     }
+
+### Link Scope
+
+This is a directive that aliases a scope. This is unlikely to be used too
+much; generally one would use the load for a litpro doc and other scopes
+should just be what one wants. But anyway, it is easy to implement. 
+`[alias](# "linkscope:scopename")`
+
+    function (args) {
+        var doc = this;
+        var alias = args.link;
+        var scopename = args.input;
+
+        doc.createLinkedScope(alias, scopename); 
+
+    }
+
 
 ### Dir Store
 
@@ -2452,8 +2541,9 @@ process the inputs.
                 }
             }
 
-            //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
+           //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
+           //setTimeout( function () {console.log(folder.scopes)}, 100);
     }
 
 

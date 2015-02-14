@@ -118,8 +118,9 @@ var testrunner = function (file) {
                 }
             }
     
-            //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
+           //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
+           //setTimeout( function () {console.log(folder.scopes)}, 100);
     };
 
 var equalizer = function (t, out) {

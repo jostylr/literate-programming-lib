@@ -34,9 +34,8 @@ Nice and simple
 
 # Rickets
 
-    !rickety _"first::sound"
+    !rickety _"first::sound" _"s::cool"
 
-[first](first "load:")
 
 ## Last
 
@@ -49,6 +48,6 @@ This is a great setup
 
 cool
 
-crickety chirp
+crickety chirp cool
 
 crush
