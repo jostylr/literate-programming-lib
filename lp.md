@@ -2686,7 +2686,7 @@ Test list
 ## README
 
 
-literate-programming   
+literate-programming-lib   [![Build Status](https://travis-ci.org/jostylr/literate-programming-lib.png)](https://travis-ci.org/jostylr/literate-programming-lib)
  ====================
 
 Write your code anywhere and in any order with as much explanation as you
@@ -2698,27 +2698,27 @@ technique. It is
 perhaps most in line with [noweb](http://tex.loria.fr/litte/ieee.pdf). 
 
 It uses markdown as the basic document format with the code to be weaved
-together being delimited by each line having 4 spaces as is typical for
-markdown. Note that it requires spaces but not tabs. This allows one to use
-tabs for non lit pro code blocks as well as paragraphs within lists. GitHub
-flavored code fences can also be used to demarcate code blocks. 
-     var text = data.trim().toLowerCase(); 
+together being markdown code blocks.  GitHub flavored code fences can also be used 
+to demarcate code blocks. 
 
-It can handle any programming language, but has some standard commands useful
-for creating HTML, CSS, and JavaScript. 
+It does not care what language(s) your are programming in. 
+
+This is the core library that is used as a module. See ... for the command
+line client and the full version which has a variety of useful standard
+plugins.
 
  ## Installation
 
 This requires [node.js](http://nodejs.org) and [npm](https://npmjs.org/) to be
 installed. Then issue the command:
 
-    npm install -g literate-programming
+    npm install literate-programming-lib
 
  ## Using
 
-From the command line:
+You can use `Folder = require('literate-programming-lib');`.
 
-    literate-programming <file.md>
+
 
 This will process the literate program in `file.md` and produce whatever
 output files are specified in the literate program. 
@@ -3012,12 +3012,9 @@ The requisite npm package file.
         "tape": "^3.0.3"
       },
       "scripts" : { 
-        "test" : "node ./test/test.js"
+        "test" : "node ./test.js"
       },
-      "keywords": ["literate programming"],
-      "bin": {
-        "literate-programming" : "bin/literate-programming.js"
-      }
+      "keywords": ["literate programming"]
     }
 
 
@@ -3048,6 +3045,8 @@ A travis.yml file for continuous test integration!
     language: node_js
     node_js:
       - "0.10"
+      - "iojs"
+      - "0.12"
 
 
 
