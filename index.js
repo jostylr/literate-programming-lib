@@ -639,11 +639,17 @@ Folder.prototype.directives = {   save : function (args) {
                 var urlesc = folder.colon.escape(url);
                 var nickname = doc.colon.escape(args.link.trim());
                 
-                if (doc.scopes.hasOwnProperty(nickname) ) {
-                    gcd.emit("error:scope name already exists:" + 
-                        doc.colon.escape(nickname) );
+                if (nickname) {
+                    if (doc.scopes.hasOwnProperty(nickname) ) {
+                        gcd.emit("error:scope name already exists:" + 
+                            doc.colon.escape(nickname) );
+                    } else {
+                        doc.scopes[nickname] = urlesc;
+                        if (!(folder.docs.hasOwnProperty(urlesc) ) ) {
+                            gcd.emit("need document:" + urlesc, url );
+                        }
+                    }
                 } else {
-                    doc.scopes[nickname] = urlesc;
                     if (!(folder.docs.hasOwnProperty(urlesc) ) ) {
                         gcd.emit("need document:" + urlesc, url );
                     }
