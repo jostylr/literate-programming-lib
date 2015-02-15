@@ -118,7 +118,7 @@ var testrunner = function (file) {
                 }
             }
     
-           //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
+          //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
            //setTimeout( function () {console.log(folder.scopes)}, 100);
     };
@@ -142,7 +142,9 @@ var testfiles = [
     "indents.md",
     "savepipe.md",
     "log.md",
-    "load.md"
+    "load.md",
+    "asynceval.md",
+    "compile.md"
 ];
 
 var lp = Litpro.prototype;

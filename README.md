@@ -247,6 +247,30 @@ page (or many) as well as save the CSS and JS to their own files as per the
 reommendation, lessing the CS, tanspiling ES6, linting, and minifying all as
 desired.
 
+## Built in directives
+
+There are a variety of directives that come built in.
+    
+* Save
+* Out
+* New scope
+* Link Scope
+* Store
+* Exclude
+* Log
+* Load
+
+## Built in commands
+
+* Eval
+* Sub
+* Store
+* Log
+* Raw
+* Raw Clean
+
+
+
 ## LICENSE
 
 [MIT-LICENSE](https://github.com/jostylr/literate-programming/blob/master/LICENSE)

@@ -489,10 +489,8 @@ Folder.prototype.commands = {   eval : sync(function ( input, args, name ) {
             
                 if (vname) {
                     doc.store(vname, input);
-                    gcd.emit("text ready:" + doc.file + ":" + vname);
                 }
                 return input; 
-            
             }, "store"),
         log : sync(function (input, args) {
                 var doc = this;
@@ -502,7 +500,24 @@ Folder.prototype.commands = {   eval : sync(function ( input, args, name ) {
                     doc.log(input);
                 }
                 return input;
-            }, "log")
+            }, "log"),
+        async : async(function (input, args, callback) {
+                var doc = this;
+            
+                eval(input);
+            }, "async"),
+        compile : function (input, args, name) {
+                var doc = this;
+                var gcd = doc.gcd;
+            
+                var stripped = name.slice(name.indexOf(":")+1);
+            
+                gcd.once("minor ready:" + name, function (text) {
+                    gcd.emit("text ready:" + name, text); 
+                });
+            
+                doc.blockCompiling(input, doc.file, stripped);
+            }
     };
 Folder.prototype.directives = {   save : function (args) {
         var ind; 
@@ -1054,6 +1069,7 @@ Doc.prototype.pipeParsing = function (text, ind, quote, name) {
                            argument += result[0];
                            continue;
                         } else {
+                            argument = argument.trim();
                             gcd.emit("text ready:" + aname, argument);
                             break;
                         }

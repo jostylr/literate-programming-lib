@@ -1259,6 +1259,8 @@ without a backslash then we quit the loop and deal it with it elsewhere.
 For the backslash, we look at the next character and see if we have anything
 we can do. 
 
+We trim each arugment as well so we need not worry about spaces in commands. 
+
     match = argreg.exec(text);
     if (match) {
         ind = argreg.lastIndex;
@@ -1270,6 +1272,7 @@ we can do.
            argument += result[0];
            continue;
         } else {
+            argument = argument.trim();
             gcd.emit("text ready:" + aname, argument);
             break;
         }
@@ -1400,160 +1403,6 @@ And a super simple subname is to chunk up to pipes or quotes.
 
     }
 
-
-
-## Action for argument finishing
-
-When arguments are ready, we need to fire the command. This is where we do
-this. 
-
-This has to decode a few different events and their data:
-
-* command parsed:  `[doc, command, name to emit when ready]`. This has what
-   we need to run the command and deal with its return. 
-* text ready: for pipe input, we can recognize it by being the shortest. This is
-  the input that is being piped into a command. 
-* text ready: arguments. These should be all the other ones. We pop off the
-  last colon.v separated number for the argument placement. 
-
-Once all is setup, we execute the command. 
-
-We need to decode the input from the arguments crudely instead of by
-specificity as the text being emitted by subsitution would not otherwise know.
-And this is simple enough. 
-
-Commands are bound to doc by applying the arguments. The first argument is the
-pipe input. The second argument is an array containing all the other
-arguments. The third argument is the name to emit when all is done. 
-
-    arguments ready --> run command
-    var doc, input, name, cur, command, min = [Infinity,-1], han;
-    var args = [];
-
-
-    _":extract data"
-
-    var fun = doc.commands[command];
-
-    
-
-    if (fun) {
-        fun.apply(doc, [input, args, name, command]);
-    } else {
-        han = function () {
-            fun = doc.commands[command];
-            if (fun) {
-                fun.apply(doc, [input, args, name, command]);
-            } else {
-                gcd.emit("error:commmand defined but not:" + doc.file +
-                    ":" + command);
-            }
-        };
-        han._label = "delayed command:" + command + ":" + name; 
-        gcd.once("command added:" + doc.file + ":" +  command, han);
-    }
-
-
-[extract data]()
-
-We first run through, teasing out the command parsed event and its data while
-also finding the minimum length of the text ready events.
-
-This is a bit of arcane code. While seeking the minimum, any bit which is not
-the minimum is an argument. We extract its position by being the last number
-in the string. If something is the minimum, then we extract the previous
-minimum winner and gets its text into the proper place. 
-
-    var i, j, k, m, n=data.length;
-    for (i = 0; i < n; i += 1) {
-        cur = data[i];
-        if (data[i][0].indexOf("command parsed") === 0 ) {
-            doc = gcd.parent.docs[data[i][1][0]];
-            command = data[i][1][1];
-            name = data[i][1][2];
-        } else { // should only be text ready
-            j = i;
-            if ( ( m = data[i][0].length ) < min[0] ) {
-                j = min[1];
-                min = [m, i];
-            }
-            if (j !== -1) {
-                k = data[j][0].match(/([0-9]+)$/);
-                if (k) {
-                    args[k[1]] = data[j][1];
-                }
-            }
-        }
-    }
-
-    input = data[min[1]][1];
-
-
-### Command wrapper sync
-
-This is a utility for wrapping synchronous functions that have signature
-`input, arg1, ... argn --> output`  Basically, we throw the arguments into the
-form of interest and upon output, we emit it. Doc is the context of the sync. 
-
-We catch any errors and emit an error event. This prevents further processing
-of this block as the text ready event does not further. It just stops
-executing. 
-
-    function (fun, label) {
-        var f = function (input, args, name, command) {
-            var doc = this;
-            var gcd = doc.gcd;
-            
-            try {
-                var out = fun.call(doc, input, args);
-                gcd.emit("text ready:" + name, out); 
-            } catch (e) {
-                console.log(e);
-                gcd.emit("error:command execution:" + name, 
-                    [e, input, args, command]); 
-            }
-        };
-
-        if (label) {
-            f._label = label;
-        }
-
-        return f;
-    }
-
-
-
-
-### Command wrapper async
-
-Here we wrap callback functionated async functions. We assume the function
-call will be of `input, arg1, ..., argn, callback` and the callback will
-receive `err, data` where data is the text to emit. 
-
-    function (fun, label) {
-        var f = function (input, args, name, command) {
-            
-            var doc = this;
-            var gcd = doc.gcd;
-
-            var callback = function (err, data) {
-                if (err) {
-                    console.log(err);
-                    gcd.emit("error:command execution:" + name, 
-                        [err, input, args, command]);
-                } else {
-                    gcd.emit("text ready:" + name, data);
-                }
-            };
-
-            fun.call(doc, input, args, callback);
-        };
-        if (label)  {
-            f._label = label;
-        } 
-        
-        return f;
-    }
 
 
 ## Scope
@@ -1905,6 +1754,160 @@ them per document or folder making them accessible to manipulations.
     }
 
 
+## Action for argument finishing
+
+When arguments are ready, we need to fire the command. This is where we do
+this. 
+
+This has to decode a few different events and their data:
+
+* command parsed:  `[doc, command, name to emit when ready]`. This has what
+   we need to run the command and deal with its return. 
+* text ready: for pipe input, we can recognize it by being the shortest. This is
+  the input that is being piped into a command. 
+* text ready: arguments. These should be all the other ones. We pop off the
+  last colon.v separated number for the argument placement. 
+
+Once all is setup, we execute the command. 
+
+We need to decode the input from the arguments crudely instead of by
+specificity as the text being emitted by subsitution would not otherwise know.
+And this is simple enough. 
+
+Commands are bound to doc by applying the arguments. The first argument is the
+pipe input. The second argument is an array containing all the other
+arguments. The third argument is the name to emit when all is done. 
+
+    arguments ready --> run command
+    var doc, input, name, cur, command, min = [Infinity,-1], han;
+    var args = [];
+
+
+    _":extract data"
+
+    var fun = doc.commands[command];
+
+    
+
+    if (fun) {
+        fun.apply(doc, [input, args, name, command]);
+    } else {
+        han = function () {
+            fun = doc.commands[command];
+            if (fun) {
+                fun.apply(doc, [input, args, name, command]);
+            } else {
+                gcd.emit("error:commmand defined but not:" + doc.file +
+                    ":" + command);
+            }
+        };
+        han._label = "delayed command:" + command + ":" + name; 
+        gcd.once("command added:" + doc.file + ":" +  command, han);
+    }
+
+
+[extract data]()
+
+We first run through, teasing out the command parsed event and its data while
+also finding the minimum length of the text ready events.
+
+This is a bit of arcane code. While seeking the minimum, any bit which is not
+the minimum is an argument. We extract its position by being the last number
+in the string. If something is the minimum, then we extract the previous
+minimum winner and gets its text into the proper place. 
+
+    var i, j, k, m, n=data.length;
+    for (i = 0; i < n; i += 1) {
+        cur = data[i];
+        if (data[i][0].indexOf("command parsed") === 0 ) {
+            doc = gcd.parent.docs[data[i][1][0]];
+            command = data[i][1][1];
+            name = data[i][1][2];
+        } else { // should only be text ready
+            j = i;
+            if ( ( m = data[i][0].length ) < min[0] ) {
+                j = min[1];
+                min = [m, i];
+            }
+            if (j !== -1) {
+                k = data[j][0].match(/([0-9]+)$/);
+                if (k) {
+                    args[k[1]] = data[j][1];
+                }
+            }
+        }
+    }
+
+    input = data[min[1]][1];
+
+
+### Command wrapper sync
+
+This is a utility for wrapping synchronous functions that have signature
+`input, args --> output`  Basically, we throw the arguments into the
+form of interest and upon output, we emit it. Doc is the context of the sync. 
+
+We catch any errors and emit an error event. This prevents further processing
+of this block as the text ready event does not further. It just stops
+executing. 
+
+    function (fun, label) {
+        var f = function (input, args, name, command) {
+            var doc = this;
+            var gcd = doc.gcd;
+            
+            try {
+                var out = fun.call(doc, input, args);
+                gcd.emit("text ready:" + name, out); 
+            } catch (e) {
+                console.log(e);
+                gcd.emit("error:command execution:" + name, 
+                    [e, input, args, command]); 
+            }
+        };
+
+        if (label) {
+            f._label = label;
+        }
+
+        return f;
+    }
+
+
+
+
+### Command wrapper async
+
+Here we wrap callback functionated async functions. We assume the function
+call will be of `input, args, callback` and the callback will
+receive `err, data` where data is the text to emit. 
+
+    function (fun, label) {
+        var f = function (input, args, name, command) {
+            
+            var doc = this;
+            var gcd = doc.gcd;
+
+            var callback = function (err, data) {
+                if (err) {
+                    console.log(err);
+                    gcd.emit("error:command execution:" + name, 
+                        [err, input, args, command]);
+                } else {
+                    gcd.emit("text ready:" + name, data);
+                }
+            };
+
+            fun.call(doc, input, args, callback);
+        };
+        if (label)  {
+            f._label = label;
+        } 
+        
+        return f;
+    }
+
+
 ## Commands
 
 Here we have some commands and directives that are of common use
@@ -1912,12 +1915,15 @@ Here we have some commands and directives that are of common use
     {   eval : sync(_"eval", "eval"),
         sub : _"sub",
         store: sync(_"store command", "store"),
-        log : sync(_"cmd log", "log")
+        log : sync(_"cmd log", "log"),
+        async : async(_"async eval", "async"),
+        compile : _"cmd compile"
     }
 
 ### Eval
 
-This implements the command `eval`. This evaluates the code as JavaScript. 
+This implements the command `eval`. This evaluates the code as JavaScript. It
+is formulated to be synchronous eval.
 
 
     function ( input, args, name ) {
@@ -1938,6 +1944,44 @@ This implements the command `eval`. This evaluates the code as JavaScript.
                 [e, input, "eval"]);
         }
     }
+
+### Cmd Compile
+
+This takes in some text and compiles it, returning the compiled text when
+done. A main use case would be multiple processing of a block, say after
+subbing in some values or to wait to do block substitution until after some
+processing.
+
+This is a bit of a hack. So any command will have a colon in it. This triggers
+the block compiling to emit a minor ready event, which we can listen for and
+the simply emit the text ready event. The name also include the file name 
+
+    function (input, args, name) {
+        var doc = this;
+        var gcd = doc.gcd;
+
+        var stripped = name.slice(name.indexOf(":")+1);
+
+        gcd.once("minor ready:" + name, function (text) {
+            gcd.emit("text ready:" + name, text); 
+        });
+
+        doc.blockCompiling(input, doc.file, stripped);
+    }
+
+### Async Eval
+
+This implements the ability to evaluate input asynchronously. This will
+execute input in the context given. So doc, args, callback should all be
+variables available in the code. When done, invoke callback with signature
+`f(err, data)` where data should be string. 
+
+    function (input, args, callback) {
+        var doc = this;
+
+        eval(input);
+    }
+
 
 ### Sub
 
@@ -2004,7 +2048,8 @@ This is the function that replaces a part of a string with another.
 
 ### Store Command
 
-This is a thin wrapper of the store function. 
+This is a thin wrapper of the store function. It returns the input immediately
+even though the storing may not yet be done. 
 
     function (input, args) {
         var doc = this;
@@ -2014,10 +2059,8 @@ This is a thin wrapper of the store function.
 
         if (vname) {
             doc.store(vname, input);
-            gcd.emit("text ready:" + doc.file + ":" + vname);
         }
         return input; 
-
     }
 
 ### Cmd Log
@@ -2454,7 +2497,9 @@ The log array should be cleared between tests.
         "indents.md",
         "savepipe.md",
         "log.md",
-        "load.md"
+        "load.md",
+        "asynceval.md",
+        "compile.md"
     ];
 
     var lp = Litpro.prototype;
@@ -2547,7 +2592,7 @@ process the inputs.
                 }
             }
 
-           //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
+          //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
            //setTimeout( function () {console.log(folder.scopes)}, 100);
     }
@@ -2677,6 +2722,8 @@ Test list
 + getting subbed multiline indented blocks correct
 + command piping (save)
 + multiple input, output documents
++ async eval
++ test backslashing and implement compiling
 
 * directives
 * command, directive definitions
@@ -2959,6 +3006,8 @@ There are a variety of directives that come built in.
  ## Built in commands
 
 * Eval
+* Async (async eval)
+* Compile (manual compiling of block of text)
 * Sub
 * Store
 * Log
