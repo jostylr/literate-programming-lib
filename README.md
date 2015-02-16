@@ -257,7 +257,6 @@ There are a variety of directives that come built in.
 * Link Scope
 * Store
 * Blocks on/off
-* Set Heading
 * Log
 * Load
 * Define

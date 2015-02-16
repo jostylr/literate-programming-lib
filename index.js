@@ -521,7 +521,29 @@ Folder.commands = {   eval : sync(function ( input, args, name ) {
                 });
             
                 doc.blockCompiling(input, doc.file, stripped);
-            }
+            },
+        raw : sync(function (input, args) {
+                var doc = this;
+                var start, end, text;
+            
+                var file = doc.parent.docs[args[2]] || doc;
+                
+                if (file) {
+                    text = file.text;
+                    start = args[0].trim() + "\n";
+                    start = text.indexOf(start)+start.length;
+                    end = "\n" + args[1].trim();
+                    end = text.indexOf(args[1], start);
+                    return text.slice(start, end);
+                } else {
+                    gcd.emit("error:raw:" + doc.file, args);
+                    return '';
+                }
+            
+            }, "raw"),
+        trim : sync(function (input) {
+                return input.trim();
+            }, "trim")
     };
 Folder.directives = {   save : function (args) {
         var ind; 

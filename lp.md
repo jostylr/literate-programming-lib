@@ -1932,7 +1932,9 @@ Here we have some commands and directives that are of common use
         store: sync(_"store command", "store"),
         log : sync(_"cmd log", "log"),
         async : async(_"async eval", "async"),
-        compile : _"cmd compile"
+        compile : _"cmd compile",
+        raw : sync(_"raw", "raw"),
+        trim : sync(_"trim", "trim")
     }
 
 ### Eval
@@ -2104,23 +2106,34 @@ irrelevant.
 
     function (input, args) {
         var doc = this;
+        var start, end, text;
 
-        var file = doc.parent.files[args[2]] || doc;
+        var file = doc.parent.docs[args[2]] || doc;
         
         if (file) {
-
+            text = file.text;
+            start = args[0].trim() + "\n";
+            start = text.indexOf(start)+start.length;
+            end = "\n" + args[1].trim();
+            end = text.indexOf(args[1], start);
+            return text.slice(start, end);
         } else {
-            gcd.emit("error:raw:" + doc.file);
+            gcd.emit("error:raw:" + doc.file, args);
+            return '';
         }
 
 
     }
 
 
-### RawClean
+### Trim
 
-Same as raw, except it also cleans it up a bit. Namely, it removes things that
-would have been interpreted poorly. 
+Bloody spaces and newlines
+
+    function (input) {
+        return input.trim();
+    }
+
 
 ## Directives
 
@@ -2641,7 +2654,8 @@ The log array should be cleared between tests.
         "asynceval.md",
         "compile.md",
         "define.md",
-        "blockoff.md"
+        "blockoff.md",
+        "raw.md"
     ];
 
 
@@ -2867,11 +2881,10 @@ Test list
 + test backslashing and implement compiling
 + command definitions
 + block on/off to exclude blocks 
++ raw
 
-* tests for each of the core commands, directives. 
 * directives to change ignorable languages
-* raw, raw clean
-* heading levels 5 and 6, pop levels for this
+* heading levels 5 and 6
 
 
 
@@ -3138,7 +3151,6 @@ There are a variety of directives that come built in.
 * Link Scope
 * Store
 * Blocks on/off
-* Set Heading
 * Log
 * Load
 * Define
