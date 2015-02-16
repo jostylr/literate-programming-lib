@@ -273,7 +273,14 @@ There are a variety of directives that come built in.
 * Raw
 * Raw Clean
 
+## h5 and h6
 
+So this design treats h5 and h6 headings differently. They become subheadings
+of h1-4 headings. So for example,  if we have `# top` and then `##### doc` and
+`###### something` then the sections would be recorded as `top, top/doc,
+top/doc/something` and we have a path syntax such as `../` which would yield
+`top/doc` if placed in `top/doc/something`. Ideally, this should work as you
+imagine. See `tests/h5.md` for the test examples. 
 
 ## LICENSE
 

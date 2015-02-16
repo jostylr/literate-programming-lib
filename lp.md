@@ -139,6 +139,8 @@ Each doc within a folder shares all the directives and commands.
 
     var async = Folder.prototype.wrapAsync = _"Command wrapper async";
 
+    Folder.prototype.subnameTransform = _"Subname Transform";
+
     Folder.commands = _"Commands";
     Folder.directives = _"Directives";
 
@@ -247,6 +249,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.join = parent.join;
         this.log = this.parent.log;
         this.scopes = this.parent.scopes;
+        this.subnameTransform = this.parent.subnameTransform;
     
         if (actions) {
             apply(gcd, actions);
@@ -1023,7 +1026,7 @@ it into command 0. If there are no commands, then command 0 is the done bit.
         var colon = doc.colon;
         var file = doc.file;
 
-        var match, colind, mainblock, subname, chr, subtext;
+        var match, subname, chr, subtext;
         var subreg = doc.regexs.subname[quote];
 
 
@@ -1056,7 +1059,7 @@ it into command 0. If there are no commands, then command 0 is the done bit.
     ind = subreg.lastIndex;
     chr = match[2];
     subname = match[1].trim().toLowerCase();
-    _":fix colon subname"
+    subname = doc.subnameTransform(subname, lname);
     subname = colon.escape(subname);
     if (chr === "|") {
         ind = doc.pipeParsing(text, ind, quote, lname);
@@ -1069,6 +1072,35 @@ it into command 0. If there are no commands, then command 0 is the done bit.
         return ind;
     }
 
+### Subname Transform
+
+This takes a subname and transforms it based on where it is relative to the
+document. We use a hack to get the mainblock name. This works for lnames of
+the form `file:main\:...` that is, everything between the first colon and
+the first escaped colon will be returned as mainblock.
+
+    function (subname, lname) {
+        var mainblock, colind, first, second;
+        var doc = this;
+        var colon = doc.colon;
+
+        _":fix colon subname"
+
+        _":h5 transform"
+        
+        return subname;
+
+    }
+
+[slicing]() 
+
+This slices the mainblock. It is used repeatedly in the if's to minimize the
+need to do this if it is not going to be used. 
+
+    colind = lname.indexOf(":");
+    mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
+
+
 [fix colon subname]()
 
 A convenient shorthand is to lead with a colon to mean a minor block. We need
@@ -1079,10 +1111,62 @@ then from there to a triple colon should be the major block name on record.
 
 Directives may be a bit dodgy on this point. 
 
+    
     if (subname[0] === ":") {
-        colind = lname.indexOf(":");
-        mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
+        _":slicing"
         subname = mainblock+subname;
+        return subname;
+    } 
+
+
+
+
+[h5 transform]()
+
+Here we want to implement the h5 and h6 path shortcuts of `.` and `..`
+
+We have a hierarchy that can be `a/b/c` and if we are at the `c` level, then
+we want to be able to back up. This function will take in the varname and the
+name of the block being processed and return the transformed varname. For the
+`..` changes, we need to figure out whether to include the "/" or not at the
+end. For the `.`, we need the colon or a slash to avoid recrusion. 
+
+    if (subname.slice(0, 6) === "../../" ) {
+        //in a/b/c asking for a
+        _":slicing"
+        main = mainblock.slice(0, mainblock.indexOf("/")); 
+        if ((subname.length > 6) && (subname[6] !== ":") ) {
+            subname =  main + "/" + subname.slice(6);
+        } else {
+            subname = main + subname.slice(6);
+        }
+    } else if (subname.slice(0,2) === "./" ) {
+        // in a/b asking for a/b/c using ./c
+        _":slicing"
+        if (subname[2] === ":" ) {
+            subname = mainblock + subname.slice(2);
+        } else {
+            subname = mainblock + "/" + subname.slice(2);     
+        }
+    } else if (subname.slice(0,3) === "../") {
+        //either in a/b or in a/b/c and asking for a or a/b, respectively
+        _":slicing"
+        first = mainblock.indexOf("/");
+        second = mainblock.indexOf("/", first+1);
+
+        if (second !== -1) {
+            // a/b/c case
+            main = mainblock.slice(0, second);
+        } else {
+            main = mainblock.slice(0, first);
+        }
+
+        if ((subname.length > 3) && (subname[3] !== ":") ) {
+            subname = main + "/" + subname.slice(3);
+        } else {
+            subname = main + subname.slice(3);
+        }
+
     }
 
 
@@ -1369,6 +1453,8 @@ we move on. No warning emitted.
     }
 
 
+
+
 ### Command Regexs
 
 We have an object that has the different flavors of gobbling regexs that we
@@ -1462,22 +1548,21 @@ location, this fact gets emitted with the old and the new.
             return;
         }
 
-        name = scope[1];
+        var varname = scope[1];
         var file = scope[2];
         scope = scope[0];
 
-
         var old; 
-        if (scope.hasOwnProperty(name) ) {
-            old = scope[name];
-            scope[name] = text;
-            gcd.emit("overwriting existing var:" + file + ":" + name, 
+        if (scope.hasOwnProperty(varname) ) {
+            old = scope[varname];
+            scope[varname] = text;
+            gcd.emit("overwriting existing var:" + file + ":" + varname, 
             {oldtext:old, newtext: text} );
         } else {
-            scope[name] = text;
+            scope[varname] = text;
         }
         
-        gcd.emit("text stored:" + file + ":" + name, text);
+        gcd.emit("text stored:" + file + ":" + varname, text);
     }
 
 [non-existent]()
@@ -2634,7 +2719,8 @@ The log array should be cleared between tests.
         "compile.md",
         "define.md",
         "blockoff.md",
-        "raw.md"
+        "raw.md",
+        "h5.md"
     ];
 
 
@@ -2864,6 +2950,7 @@ Test list
 
 * directives to change ignorable languages
 * heading levels 5 and 6
+* feedback
 
 
 
@@ -3146,7 +3233,14 @@ There are a variety of directives that come built in.
 * Raw
 * Raw Clean
 
+ ## h5 and h6
 
+So this design treats h5 and h6 headings differently. They become subheadings
+of h1-4 headings. So for example,  if we have `# top` and then `##### doc` and
+`###### something` then the sections would be recorded as `top, top/doc,
+top/doc/something` and we have a path syntax such as `../` which would yield
+`top/doc` if placed in `top/doc/something`. Ideally, this should work as you
+imagine. See `tests/h5.md` for the test examples. 
 
  ## LICENSE
 

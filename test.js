@@ -147,7 +147,8 @@ var testfiles = [
     "compile.md",
     "define.md",
     "blockoff.md",
-    "raw.md"
+    "raw.md",
+    "h5.md"
 ];
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {

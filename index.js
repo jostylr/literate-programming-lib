@@ -436,6 +436,63 @@ var async = Folder.prototype.wrapAsync = function (fun, label) {
         return f;
     };
 
+Folder.prototype.subnameTransform = function (subname, lname) {
+        var mainblock, colind, first, second;
+        var doc = this;
+        var colon = doc.colon;
+    
+        if (subname[0] === ":") {
+            colind = lname.indexOf(":");
+            mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
+            subname = mainblock+subname;
+            return subname;
+        }
+    
+        if (subname.slice(0, 6) === "../../" ) {
+            //in a/b/c asking for a
+            colind = lname.indexOf(":");
+            mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
+            main = mainblock.slice(0, mainblock.indexOf("/")); 
+            if ((subname.length > 6) && (subname[6] !== ":") ) {
+                subname =  main + "/" + subname.slice(6);
+            } else {
+                subname = main + subname.slice(6);
+            }
+        } else if (subname.slice(0,2) === "./" ) {
+            // in a/b asking for a/b/c using ./c
+            colind = lname.indexOf(":");
+            mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
+            if (subname[2] === ":" ) {
+                subname = mainblock + subname.slice(2);
+            } else {
+                subname = mainblock + "/" + subname.slice(2);     
+            }
+        } else if (subname.slice(0,3) === "../") {
+            //either in a/b or in a/b/c and asking for a or a/b, respectively
+            colind = lname.indexOf(":");
+            mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
+            first = mainblock.indexOf("/");
+            second = mainblock.indexOf("/", first+1);
+        
+            if (second !== -1) {
+                // a/b/c case
+                main = mainblock.slice(0, second);
+            } else {
+                main = mainblock.slice(0, first);
+            }
+        
+            if ((subname.length > 3) && (subname[3] !== ":") ) {
+                subname = main + "/" + subname.slice(3);
+            } else {
+                subname = main + subname.slice(3);
+            }
+        
+        }
+        
+        return subname;
+    
+    };
+
 Folder.commands = {   eval : sync(function ( input, args, name ) {
         var doc = this;
         return eval(input).toString();
@@ -804,6 +861,7 @@ var Doc = function (file, text, parent, actions) {
         this.join = parent.join;
         this.log = this.parent.log;
         this.scopes = this.parent.scopes;
+        this.subnameTransform = this.parent.subnameTransform;
     
         if (actions) {
             apply(gcd, actions);
@@ -1050,7 +1108,7 @@ Doc.prototype.substituteParsing = function (text, ind, quote, lname ) {
         var colon = doc.colon;
         var file = doc.file;
     
-        var match, colind, mainblock, subname, chr, subtext;
+        var match, subname, chr, subtext;
         var subreg = doc.regexs.subname[quote];
     
         subreg.lastIndex = ind;
@@ -1060,11 +1118,7 @@ Doc.prototype.substituteParsing = function (text, ind, quote, lname ) {
             ind = subreg.lastIndex;
             chr = match[2];
             subname = match[1].trim().toLowerCase();
-            if (subname[0] === ":") {
-                colind = lname.indexOf(":");
-                mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
-                subname = mainblock+subname;
-            }
+            subname = doc.subnameTransform(subname, lname);
             subname = colon.escape(subname);
             if (chr === "|") {
                 ind = doc.pipeParsing(text, ind, quote, lname);
@@ -1289,21 +1343,21 @@ Doc.prototype.store = function (name, text) {
             return;
         }
     
-        name = scope[1];
+        var varname = scope[1];
         var file = scope[2];
         scope = scope[0];
     
         var old; 
-        if (scope.hasOwnProperty(name) ) {
-            old = scope[name];
-            scope[name] = text;
-            gcd.emit("overwriting existing var:" + file + ":" + name, 
+        if (scope.hasOwnProperty(varname) ) {
+            old = scope[varname];
+            scope[varname] = text;
+            gcd.emit("overwriting existing var:" + file + ":" + varname, 
             {oldtext:old, newtext: text} );
         } else {
-            scope[name] = text;
+            scope[varname] = text;
         }
         
-        gcd.emit("text stored:" + file + ":" + name, text);
+        gcd.emit("text stored:" + file + ":" + varname, text);
     };
  
 module.exports = Folder;
