@@ -2236,7 +2236,8 @@ for saving as well.
         linkscope : _"link scope",
         define : _"define directive",
         "block on" : _"block on",
-        "block off" : _"block off"
+        "block off" : _"block off", 
+        "ignore" : _"ignore language"
     }
 
 
@@ -2643,6 +2644,26 @@ being compiled. Extra ons are ignored.
 
     }
 
+### Ignore language
+
+This is to add the languages to ignore when compiling. Not going to code up a
+listen to language one. 
+
+The idea is that if you want pretty formatting from code fences, but don't
+want the code compiled, then we can do that with this. So we could have code
+fenced code with `js` as the compile path and `javascript` as the noncompiled
+example code. 
+
+    function (args) {
+        var lang = args.link;
+
+        var doc = this;
+        var gcd = doc.gcd;
+
+        gcd.on("code block found:" + lang, "ignore code block");
+
+    }
+
 
 ## On action 
 
@@ -2720,7 +2741,8 @@ The log array should be cleared between tests.
         "define.md",
         "blockoff.md",
         "raw.md",
-        "h5.md"
+        "h5.md",
+        "ignore.md"
     ];
 
 
@@ -2947,10 +2969,12 @@ Test list
 + command definitions
 + block on/off to exclude blocks 
 + raw
++ heading levels 5 and 6
++ directives to change ignorable languages
 
-* directives to change ignorable languages
-* heading levels 5 and 6
-* feedback
+* feedback for things that have not been compiled
+* something to run over headings, such as test h5 headings. at least an
+  example. 
 
 
 
@@ -3220,7 +3244,7 @@ There are a variety of directives that come built in.
 * Log
 * Load
 * Define
-
+* Ignore (ignores the language in the link)
 
  ## Built in commands
 

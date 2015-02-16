@@ -834,6 +834,15 @@ Folder.directives = {   save : function (args) {
                 var doc = this;
             
                 doc.blockOff += 1;
+            }, 
+        "ignore" : function (args) {
+                var lang = args.link;
+            
+                var doc = this;
+                var gcd = doc.gcd;
+            
+                gcd.on("code block found:" + lang, "ignore code block");
+            
             }
     };
 

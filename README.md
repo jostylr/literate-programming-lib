@@ -260,7 +260,7 @@ There are a variety of directives that come built in.
 * Log
 * Load
 * Define
-
+* Ignore (ignores the language in the link)
 
 ## Built in commands
 
