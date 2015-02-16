@@ -259,10 +259,13 @@ There are a variety of directives that come built in.
 * Exclude
 * Log
 * Load
+* Define
 
 ## Built in commands
 
 * Eval
+* Async (async eval)
+* Compile (manual compiling of block of text)
 * Sub
 * Store
 * Log

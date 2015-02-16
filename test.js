@@ -144,12 +144,11 @@ var testfiles = [
     "log.md",
     "load.md",
     "asynceval.md",
-    "compile.md"
+    "compile.md",
+    "define.md"
 ];
 
-var lp = Litpro.prototype;
-
-lp.commands.readfile = lp.wrapAsync(function (input, args, cb) {
+Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {
         var f = function () {
             if (args[0] === "stuff") {
                 cb(null, "Hello world. I am cool.");

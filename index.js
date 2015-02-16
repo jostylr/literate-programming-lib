@@ -25,7 +25,9 @@ var Folder = function (actions) {
         var gcd = this.gcd = new EvW();
         this.docs = {};
         this.scopes = {};
-    
+        
+        this.commands = Object.create(Folder.commands);
+        this.directives = Object.create(Folder.directives);
         
         this.maker = {   'emit text ready' : function (name, gcd) {
                         var f = function (text) {
@@ -138,7 +140,7 @@ var Folder = function (actions) {
                         }
                     };
                     han._label = "delayed command:" + command + ":" + name; 
-                    gcd.once("command added:" + doc.file + ":" +  command, han);
+                    gcd.once("command defined:" +  command, han);
                 }
             }
         );
@@ -432,7 +434,7 @@ var async = Folder.prototype.wrapAsync = function (fun, label) {
         return f;
     };
 
-Folder.prototype.commands = {   eval : sync(function ( input, args, name ) {
+Folder.commands = {   eval : sync(function ( input, args, name ) {
         var doc = this;
         return eval(input).toString();
     }, "eval"),
@@ -519,7 +521,7 @@ Folder.prototype.commands = {   eval : sync(function ( input, args, name ) {
                 doc.blockCompiling(input, doc.file, stripped);
             }
     };
-Folder.prototype.directives = {   save : function (args) {
+Folder.directives = {   save : function (args) {
         var ind; 
         var doc = this;
         var colon = doc.colon;
@@ -678,6 +680,65 @@ Folder.prototype.directives = {   save : function (args) {
             
                 doc.createLinkedScope(alias, scopename); 
             
+            },
+        define : function (args) {
+                var ind; 
+                var doc = this;
+                var colon = doc.colon;
+                var gcd = doc.gcd;
+                var file = doc.file;
+                var cmdname = args.link;
+                var title = args.input;
+                var wrapper; 
+              
+                var start = args.href.slice(1).replace(/-/g, " ").
+                    trim().toLowerCase();
+                ind = title.indexOf("|");
+                if (ind === -1) {
+                    wrapper = title.trim();
+                    title = '';
+                } else {
+                    wrapper = title.slice(0,ind).trim();
+                    title = title.slice(ind+1);
+                }
+                
+                if (!start) {
+                    start = args.cur;
+                }
+                
+                start = doc.colon.escape(start);
+               
+                var han = function (block) {
+                    var f; 
+                    
+                    eval("f=" + block);
+            
+                    switch (wrapper) {
+                        case "raw" :  f._label = cmdname;
+                            doc.commands[cmdname] = f;
+                        break;
+                        case "async" : doc.commands[cmdname] = 
+                            doc.wrapAsync(f, cmdname);
+                        break;
+                        default : doc.commands[cmdname] = 
+                            doc.wrapSync(f, cmdname);
+                    }
+            
+                    gcd.emit("command defined:" + cmdname);
+                };
+                han._label = "cmd define;;" + cmdname;
+               
+                if (title) {
+                    title = title + '"';
+                    gcd.once("text ready:" + cmdname, han);
+                    
+                    doc.pipeParsing(title, 0, '"', cmdname);
+            
+                } else {
+                   gcd.once("text ready:" + cmdname + colon.v + "0", han); 
+                }
+                
+                doc.retrieve(start, "text ready:" + cmdname + colon.v + "0");
             }
     };
 
@@ -696,8 +757,8 @@ var Doc = function (file, text, parent, actions) {
         this.scopes = {};
         this.vars = parent.createScope(file);
     
-        this.commands = Object.create(parent.commands);
-        this.directives = Object.create(parent.directives);
+        this.commands = parent.commands;
+        this.directives = parent.directives;
         this.maker = Object.create(parent.maker);
         this.colon = Object.create(parent.colon); 
         this.join = parent.join;

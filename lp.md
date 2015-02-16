@@ -100,7 +100,12 @@ By default, there are no methods for reading or writing out the results. It is
 the responsible of the caller to pass handlers to accomplish that.
 
 At the top of the heirarchy is a group of documents. This includes an event
-emitter 
+emitter.
+
+The Folder constructor creates folder instances that contain all the relevant
+sibling literate program documents. The commands and directives are stored in
+an object on Folder that are then used as prototypes for the folder instances.
+Each doc within a folder shares all the directives and commands. 
 
 
     /*global require, module */
@@ -133,8 +138,8 @@ emitter
 
     var async = Folder.prototype.wrapAsync = _"Command wrapper async";
 
-    Folder.prototype.commands = _"Commands";
-    Folder.prototype.directives = _"Directives";
+    Folder.commands = _"Commands";
+    Folder.directives = _"Directives";
 
 
     var Doc = _"doc constructor";
@@ -159,7 +164,9 @@ added. The internal basic compiling is baked in though it can be overwritten.
         var gcd = this.gcd = new EvW();
         this.docs = {};
         this.scopes = {};
-
+        
+        this.commands = Object.create(Folder.commands);
+        this.directives = Object.create(Folder.directives);
         
         this.maker = _"maker";
 
@@ -230,8 +237,8 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.scopes = {};
         this.vars = parent.createScope(file);
 
-        this.commands = Object.create(parent.commands);
-        this.directives = Object.create(parent.directives);
+        this.commands = parent.commands;
+        this.directives = parent.directives;
         this.maker = Object.create(parent.maker);
         this.colon = Object.create(parent.colon); 
         this.join = parent.join;
@@ -1802,7 +1809,7 @@ arguments. The third argument is the name to emit when all is done.
             }
         };
         han._label = "delayed command:" + command + ":" + name; 
-        gcd.once("command added:" + doc.file + ":" +  command, han);
+        gcd.once("command defined:" +  command, han);
     }
 
 
@@ -1988,11 +1995,13 @@ variables available in the code. When done, invoke callback with signature
 This is the sub command which allows us to do substitutions. It takes in the
 feeder text and replaces any occurrence of the given symbol with the
 arguments. In particular, the template is `input --> * , a, b, c` will
-replace in the input of `*1` with `a`, `*2` with `b`, etc., 
+replace in the input of `*1` with `a`, `*2` with `b`, etc., But if there are
+only two arguments, then it becomes a replacement of the first argument with
+the scecond argument, globally. 
 
-We will do the replacement using indeOf and splicing due to potentiald
+We will do the replacement using indexOf and splicing due to potential
 conflicts with .replace (the $ replacements and the lack of global aspect if
-given a string).
+given a string). 
 
 
     function (str, args, name) {
@@ -2118,7 +2127,8 @@ for saving as well.
         log : _"dir log",
         out : _"out",
         load: _"load",
-        linkscope : _"link scope"
+        linkscope : _"link scope",
+        define : _"define directive"
     }
 
 
@@ -2425,6 +2435,100 @@ This loads the url if needed. The file is loaded exactly once.
         gcd.emit("need document:" + urlesc, url );
     }
 
+### Define directive
+
+This is where we can implement commands in a litpro doc. 
+
+The syntax is `[name](#whatever "define: async/sync/raw |cmd ... ")` where the name
+is the name of the command. Whatever is the section. If the section is not
+defined, then the current one is used. Between the colon and the pipes is
+async/sync/raw option to whether it gets wrapped in the convenience async sync
+or just simply taken as is. The default is sync cause that's the easiest to
+understand. 
+
+Commands that are not know when asked for are waited for. 
+
+The code block should return a function that expects `input, args, name` as an
+input. 
+
+
+    function (args) {
+        var ind; 
+        var doc = this;
+        var colon = doc.colon;
+        var gcd = doc.gcd;
+        var file = doc.file;
+        var cmdname = args.link;
+        var title = args.input;
+        var wrapper; 
+      
+        _":deal with start"
+       
+        var han = function (block) {
+            var f; 
+            
+            eval("f=" + block);
+
+            switch (wrapper) {
+                case "raw" :  f._label = cmdname;
+                    doc.commands[cmdname] = f;
+                break;
+                case "async" : doc.commands[cmdname] = 
+                    doc.wrapAsync(f, cmdname);
+                break;
+                default : doc.commands[cmdname] = 
+                    doc.wrapSync(f, cmdname);
+            }
+
+            gcd.emit("command defined:" + cmdname);
+        };
+        han._label = "cmd define;;" + cmdname;
+       
+        if (title) {
+            title = title + '"';
+            gcd.once("text ready:" + cmdname, han);
+            
+            doc.pipeParsing(title, 0, '"', cmdname);
+
+        } else {
+           gcd.once("text ready:" + cmdname + colon.v + "0", han); 
+        }
+        
+        doc.retrieve(start, "text ready:" + cmdname + colon.v + "0");
+    }
+
+[deal with start]()
+
+This is dealing with where to start, getting the text as well as the pre-pipe
+wrapping command. 
+
+
+After the `:` and before the first `|`, that text is trimmed and then checked
+for an option.
+
+Also, if the name comes out to nothing, then we use the current
+block being parsed.  
+
+
+    var start = args.href.slice(1).replace(/-/g, " ").
+        trim().toLowerCase();
+    ind = title.indexOf("|");
+    if (ind === -1) {
+        wrapper = title.trim();
+        title = '';
+    } else {
+        wrapper = title.slice(0,ind).trim();
+        title = title.slice(ind+1);
+    }
+    
+    if (!start) {
+        start = args.cur;
+    }
+
+
+    start = doc.colon.escape(start);
+
+
 
 
 ## On action 
@@ -2499,12 +2603,12 @@ The log array should be cleared between tests.
         "log.md",
         "load.md",
         "asynceval.md",
-        "compile.md"
+        "compile.md",
+        "define.md"
     ];
 
-    var lp = Litpro.prototype;
 
-    lp.commands.readfile = lp.wrapAsync(_"test async", "readfile");
+    Litpro.commands.readfile = Litpro.prototype.wrapAsync(_"test async", "readfile");
 
 
     var i, n = testfiles.length;
@@ -2724,10 +2828,8 @@ Test list
 + multiple input, output documents
 + async eval
 + test backslashing and implement compiling
++ command definitions
 
-* directives
-* command, directive definitions
-* asynchronous commands, directives
 * tests for each of the core commands, directives. 
 * directives to change ignorable languages
 * raw, raw clean
@@ -3002,6 +3104,7 @@ There are a variety of directives that come built in.
 * Exclude
 * Log
 * Load
+* Define
 
  ## Built in commands
 
