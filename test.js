@@ -145,7 +145,8 @@ var testfiles = [
     "load.md",
     "asynceval.md",
     "compile.md",
-    "define.md"
+    "define.md",
+    "blockoff.md"
 ];
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {

@@ -256,10 +256,12 @@ There are a variety of directives that come built in.
 * New scope
 * Link Scope
 * Store
-* Exclude
+* Blocks on/off
+* Set Heading
 * Log
 * Load
 * Define
+
 
 ## Built in commands
 

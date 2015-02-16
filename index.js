@@ -5,6 +5,7 @@ var EvW = require('event-when');
 var marked = require('marked');
 require('string.fromcodepoint');
    
+var noop = function () {};
 
 var apply = function (instance, obj) {
         var meth, i, n;
@@ -227,6 +228,7 @@ var Folder = function (actions) {
                 var gcd = evObj.emitter;
                 var file = evObj.pieces[0];
                 var doc = gcd.parent.docs[file];
+                if (doc.blockOff > 0) { return;}
                 if (doc.blocks[doc.curname]) {  
                     doc.blocks[doc.curname] +=  doc.join + data;
                 } else {
@@ -739,6 +741,20 @@ Folder.directives = {   save : function (args) {
                 }
                 
                 doc.retrieve(start, "text ready:" + cmdname + colon.v + "0");
+            },
+        "block on" : function () {
+                var doc = this; 
+                var gcd = doc.gcd;
+            
+                if (doc.blockOff > 0) {
+                    doc.blockOff -= 1;
+                }
+            
+            },
+        "block off" : function () {
+                var doc = this;
+            
+                doc.blockOff += 1;
             }
     };
 
@@ -751,6 +767,8 @@ var Doc = function (file, text, parent, actions) {
         parent.docs[file] = this;
     
         this.text = text;
+    
+        this.blockOff = 0;
         
         this.levels = {};
         this.blocks = {};

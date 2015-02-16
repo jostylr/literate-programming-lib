@@ -115,6 +115,7 @@ Each doc within a folder shares all the directives and commands.
     var marked = require('marked');
     require('string.fromcodepoint');
    
+    var noop = function () {};
 
     var apply = _"apply";
 
@@ -231,6 +232,8 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         parent.docs[file] = this;
 
         this.text = text;
+
+        this.blockOff = 0;
         
         this.levels = {};
         this.blocks = {};
@@ -450,10 +453,15 @@ this.
 If no language is provided, we just call it none. Hopefully there is no
 language called none?! 
 
-We join them by adding doc.join character; this is default a newline. 
+We join them by adding doc.join character; this is default a newline.
+
+Note: doc.blockOff allows us to stop compiling the blocks. This is a hack. I
+tried to manipulate the action, but somehow that did not work. Anyway, this
+will be scoped to the doc so that's good. 
 
     code block found --> add code block
     _":heading vars"
+    if (doc.blockOff > 0) { return;}
     if (doc.blocks[doc.curname]) {  
         doc.blocks[doc.curname] +=  doc.join + data;
     } else {
@@ -2128,7 +2136,9 @@ for saving as well.
         out : _"out",
         load: _"load",
         linkscope : _"link scope",
-        define : _"define directive"
+        define : _"define directive",
+        "block on" : _"block on",
+        "block off" : _"block off"
     }
 
 
@@ -2528,7 +2538,33 @@ block being parsed.
 
     start = doc.colon.escape(start);
 
+### Block off
 
+This is a directive that turns off the code blocks being registered.
+Directives and headings are still active.
+
+    function () {
+        var doc = this;
+
+        doc.blockOff += 1;
+    }
+
+
+### Block on 
+
+This turns block concatenation back on. Note that the number of on's must be
+the same as those off's. That is two offs will require two ons before code is
+being compiled. Extra ons are ignored. 
+
+    function () {
+        var doc = this; 
+        var gcd = doc.gcd;
+
+        if (doc.blockOff > 0) {
+            doc.blockOff -= 1;
+        }
+
+    }
 
 
 ## On action 
@@ -2604,7 +2640,8 @@ The log array should be cleared between tests.
         "load.md",
         "asynceval.md",
         "compile.md",
-        "define.md"
+        "define.md",
+        "blockoff.md"
     ];
 
 
@@ -2829,13 +2866,12 @@ Test list
 + async eval
 + test backslashing and implement compiling
 + command definitions
++ block on/off to exclude blocks 
 
 * tests for each of the core commands, directives. 
 * directives to change ignorable languages
 * raw, raw clean
 * heading levels 5 and 6, pop levels for this
-* exclude directive for making sure a block is not compiled, maybe until
-  inclue is put
 
 
 
@@ -3101,10 +3137,12 @@ There are a variety of directives that come built in.
 * New scope
 * Link Scope
 * Store
-* Exclude
+* Blocks on/off
+* Set Heading
 * Log
 * Load
 * Define
+
 
  ## Built in commands
 
