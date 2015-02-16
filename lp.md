@@ -2346,27 +2346,6 @@ This is the directive for storing some text.
 
     }
 
-### Exclude
-
-This excludes the named (or current) section from being compiled. The form is
-`[name](#whatever "exclude:")` 
-
-
-    function (args) {
-
-        var doc = this;
-        var gcd = doc.gcd;
-        var file = doc.file;
-
-        var name = args.link || args.cur;
-        name = doc.colon.escape(name);
-
-        gcd.on("block needs compiling:" + file + ":" + name,
-            function (data, evObj) {
-                evObj.stop = true;
-            });
-    }
-    
 
 ### Dir Log
 
