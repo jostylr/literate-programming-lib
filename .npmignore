@@ -1,5 +1,6 @@
 archive
-test
+tests
+test.js
 travis.yml
 examples
 ghpages

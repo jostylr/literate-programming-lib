@@ -1,28 +1,28 @@
 {
   "name": "literate-programming-lib",
-  "description": "A literate programming compile script. Write your program in markdown.",
-  "version": "0.9.0",
-  "homepage": "https://github.com/jostylr/literate-programming",
+  "description": "A literate programming compiler. Write your program in markdown. This is the core library and does not know about files!",
+  "version": "1.0.0",
+  "homepage": "https://github.com/jostylr/literate-programming-lib",
   "author": {
     "name": "James Taylor",
     "email": "jostylr@gmail.com"
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/jostylr/literate-programming.git"
+    "url": "git://github.com/jostylr/literate-programming-lib.git"
   },
   "bugs": {
-    "url": "https://github.com/jostylr/literate-programming/issues"
+    "url": "https://github.com/jostylr/literate-programming-lib/issues"
   },
   "licenses": [
     {
       "type": "MIT",
-      "url": "https://github.com/jostylr/literate-programming/blob/master/LICENSE-MIT"
+      "url": "https://github.com/jostylr/literate-programming-lib/blob/master/LICENSE-MIT"
     }
   ],
-  "main": "lib/literate-programming.js",
+  "main": "index.js",
   "engines": {
-    "node": ">0.10"
+    "node": ">=0.10"
   },
   "dependencies": {
     "event-when": "^0.7.1",

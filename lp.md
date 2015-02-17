@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:0.9.0")
+# [literate-programming-lib](# "version:1.0.0")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -21,7 +21,7 @@ after a fashion, as it weaves.
 * [README.md](#readme "save:| clean raw") The standard README.
 * [package.json](#npm-package "save: json  | jshint") The requisite package file for a npm project. 
 * [TODO.md](#todo "save: | clean raw") A list of growing and shrinking items todo.
-* [LICENSE](#license-mit "save: | clean raw") The MIT license as I think that is the standard in the node community. 
+* [LICENSE-MIT](#license-mit "save: | clean raw") The MIT license as I think that is the standard in the node community. 
 * [.npmignore](#npmignore "save: ")
 * [.gitignore](#gitignore "save: ")
 * [.travis.yml](#travis "save: ")
@@ -3475,29 +3475,29 @@ The requisite npm package file.
 
     {
       "name": "DOCNAME",
-      "description": "A literate programming compile script. Write your program in markdown.",
+      "description": "A literate programming compiler. Write your program in markdown. This is the core library and does not know about files!",
       "version": "DOCVERSION",
-      "homepage": "https://github.com/jostylr/literate-programming",
+      "homepage": "https://github.com/jostylr/literate-programming-lib",
       "author": {
         "name": "James Taylor",
         "email": "jostylr@gmail.com"
       },
       "repository": {
         "type": "git",
-        "url": "git://github.com/jostylr/literate-programming.git"
+        "url": "git://github.com/jostylr/literate-programming-lib.git"
       },
       "bugs": {
-        "url": "https://github.com/jostylr/literate-programming/issues"
+        "url": "https://github.com/jostylr/literate-programming-lib/issues"
       },
       "licenses": [
         {
           "type": "MIT",
-          "url": "https://github.com/jostylr/literate-programming/blob/master/LICENSE-MIT"
+          "url": "https://github.com/jostylr/literate-programming-lib/blob/master/LICENSE-MIT"
         }
       ],
-      "main": "lib/literate-programming.js",
+      "main": "index.js",
       "engines": {
-        "node": ">0.10"
+        "node": ">=0.10"
       },
       "dependencies": {
         "event-when": "^0.7.1",
@@ -3523,7 +3523,8 @@ The requisite npm package file.
 
 
     archive
-    test
+    tests
+    test.js
     travis.yml
     examples
     ghpages
@@ -3550,7 +3551,7 @@ A travis.yml file for continuous test integration!
 
 
 The MIT License (MIT)
-Copyright (c) 2014 James Taylor
+Copyright (c) 2015 James Taylor
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -3562,13 +3563,13 @@ furnished to do so, subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+The software is provided "as is", without warranty of any kind, express or
+implied, including but not limited to the warranties of merchantability,
+fitness for a particular purpose and noninfringement. In no event shall the
+authors or copyright holders be liable for any claim, damages or other
+liability, whether in an action of contract, tort or otherwise, arising from,
+out of or in connection with the software or the use or other dealings in the
+software.
 
 
 ## Change Log
