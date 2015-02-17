@@ -547,9 +547,17 @@ Folder.prototype.reportwaits = function () {
         return arr; 
     };
 
-Folder.commands = {   eval : sync(function ( input, args, name ) {
+Folder.commands = {   eval : sync(function ( input, args ) {
         var doc = this;
-        return eval(input).toString();
+    
+        input += "\n" + args.join("\n");
+    
+        try {
+            return eval(input).toString();
+        } catch (e) {
+            doc.gcd.emit("error:command:eval:", [e, input]);
+            return e.name + ":" + e.message +"\n" + input;
+        }
     }, "eval"),
         sub : function (str, args, name) {
                 var gcd = this.gcd;
@@ -619,7 +627,14 @@ Folder.commands = {   eval : sync(function ( input, args, name ) {
         async : async(function (input, args, callback) {
                 var doc = this;
             
-                eval(input);
+                input += "\n" + args.join("\n");
+            
+                try {
+                    eval(input);
+                } catch (e) {
+                    doc.gcd.emit("error:command:async:", [e, input]);
+                    callback(null, e.name + ":" + e.message +"\n" + input);
+                }
             }, "async"),
         compile : function (input, args, name) {
                 var doc = this;
@@ -858,7 +873,14 @@ Folder.directives = {   save : function (args) {
                 var han = function (block) {
                     var f; 
                     
-                    eval("f=" + block);
+                    try {
+                        block = "f="+block;
+                        eval("f=" + block);
+                    } catch (e) {
+                        doc.gcd.emit("error:define:"+cmdname, [e, block]);
+                        doc.log(e.name + ":" + e.message +"\n" + block);
+                        return;
+                    }
             
                     switch (wrapper) {
                         case "raw" :  f._label = cmdname;
@@ -912,7 +934,17 @@ Folder.directives = {   save : function (args) {
             },
         eval : function (args) {
                 var doc = this;
-                eval(doc.blocks[args.cur]);
+            
+                var block = doc.blocks[args.cur];
+            
+                try {
+                    eval(block);
+                } catch (e) {
+                    doc.gcd.emit("error:dir eval:", [e, block]);
+                    doc.log(e.name + ":" + e.message +"\n" + block);
+                    return;
+                }
+                
             }
     };
 

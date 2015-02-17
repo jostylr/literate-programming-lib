@@ -2108,25 +2108,23 @@ Here we have some commands and directives that are of common use
 This implements the command `eval`. This evaluates the code as JavaScript. It
 is formulated to be synchronous eval.
 
+Extra arguments are concatenated together and eval'd, in order with input
+first. 
 
-    function ( input, args, name ) {
+
+    function ( input, args ) {
         var doc = this;
-        return eval(input).toString();
-    }
 
-
-[del]()
-
-    var gcd = this.gcd;
-
+        input += "\n" + args.join("\n");
 
         try {
-         gcd.emit("text ready:" + name, eval(input)+"" );
+            return eval(input).toString();
         } catch (e) {
-            gcd.emit("error:command execution:" +  name, 
-                [e, input, "eval"]);
+            doc.gcd.emit("error:command:eval:", [e, input]);
+            return e.name + ":" + e.message +"\n" + input;
         }
     }
+
 
 ### Cmd Compile
 
@@ -2159,10 +2157,20 @@ execute input in the context given. So doc, args, callback should all be
 variables available in the code. When done, invoke callback with signature
 `f(err, data)` where data should be string. 
 
+Note the catch here will not catch errors from the async stuff, but will catch
+some mistakes.
+
     function (input, args, callback) {
         var doc = this;
 
-        eval(input);
+        input += "\n" + args.join("\n");
+
+        try {
+            eval(input);
+        } catch (e) {
+            doc.gcd.emit("error:command:async:", [e, input]);
+            callback(null, e.name + ":" + e.message +"\n" + input);
+        }
     }
 
 
@@ -2649,7 +2657,14 @@ input.
         var han = function (block) {
             var f; 
             
-            eval("f=" + block);
+            try {
+                block = "f="+block;
+                eval("f=" + block);
+            } catch (e) {
+                doc.gcd.emit("error:define:"+cmdname, [e, block]);
+                doc.log(e.name + ":" + e.message +"\n" + block);
+                return;
+            }
 
             switch (wrapper) {
                 case "raw" :  f._label = cmdname;
@@ -2725,7 +2740,17 @@ marked parsing stage.
 
     function (args) {
         var doc = this;
-        eval(doc.blocks[args.cur]);
+
+        var block = doc.blocks[args.cur];
+
+        try {
+            eval(block);
+        } catch (e) {
+            doc.gcd.emit("error:dir eval:", [e, block]);
+            doc.log(e.name + ":" + e.message +"\n" + block);
+            return;
+        }
+        
     }
 
 
@@ -2857,7 +2882,8 @@ The log array should be cleared between tests.
         "h5.md",
         "ignore.md",
         "direval.md",
-        "reports.md"
+        "reports.md",
+        "erroreval.md"
     ];
 
 
@@ -3007,7 +3033,7 @@ output file name.
 
     function (t, out) {
         return function (text) {
-           // console.log(text + "\n---\n" + out);
+            //console.log(text + "\n---\n" + out);
             t.equals(text, out);
         };
     }
@@ -3088,11 +3114,11 @@ Test list
 + heading levels 5 and 6
 + directives to change ignorable languages
 + eval as directive
++ feedback for things that have not been compiled
++ error catching for evals? 
 
-* feedback for things that have not been compiled
 * something to run over headings, such as test h5 headings. at least an
   example. 
-* error catching for evals? 
 
 
 
