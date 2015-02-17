@@ -843,6 +843,10 @@ Folder.directives = {   save : function (args) {
             
                 gcd.on("code block found:" + lang, "ignore code block");
             
+            },
+        eval : function (args) {
+                var doc = this;
+                eval(doc.blocks[args.cur]);
             }
     };
 

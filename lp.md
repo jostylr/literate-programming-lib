@@ -2237,7 +2237,8 @@ for saving as well.
         define : _"define directive",
         "block on" : _"block on",
         "block off" : _"block off", 
-        "ignore" : _"ignore language"
+        "ignore" : _"ignore language",
+        eval : _"dir eval"
     }
 
 
@@ -2616,6 +2617,25 @@ block being parsed.
 
     start = doc.colon.escape(start);
 
+
+### dir eval
+
+Run any code you like. Now. 
+
+The syntax is `[name](# "eval:)`  This will evaluate the code in the current
+block. That's it. Nothing fancy. This gives immediate access to evaling. If
+you need somthing involving other blocks, use the command eval and pipe in
+input. It has access to doc due to scope of eval. This leads to whatever one
+might need access to but keep in mind that it is being evaled during the
+marked parsing stage. 
+
+
+    function (args) {
+        var doc = this;
+        eval(doc.blocks[args.cur]);
+    }
+
+
 ### Block off
 
 This is a directive that turns off the code blocks being registered.
@@ -2742,7 +2762,8 @@ The log array should be cleared between tests.
         "blockoff.md",
         "raw.md",
         "h5.md",
-        "ignore.md"
+        "ignore.md",
+        "direval.md"
     ];
 
 
