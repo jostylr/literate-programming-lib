@@ -120,19 +120,19 @@ var testrunner = function (file) {
     
           //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
-           //setTimeout( function () {console.log(folder.scopes)}, 100);
+          // setTimeout( function () {console.log(folder.scopes)}, 100);
     
     };
 
 var equalizer = function (t, out) {
         return function (text) {
-            //console.log(text + "\n---\n" + out);
+           // console.log(text + "\n---\n" + out);
             t.equals(text, out);
         };
     };
 
 var testfiles = [ 
-   /* */
+   /* */ 
    "first.md", 
     "eval.md",
     "sub.md",
@@ -151,7 +151,8 @@ var testfiles = [
     "raw.md",
     "h5.md",
     "ignore.md",
-    "direval.md"
+    "direval.md",
+    "reports.md"
 ];
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {

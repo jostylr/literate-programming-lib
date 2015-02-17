@@ -5,7 +5,6 @@ var EvW = require('event-when');
 var marked = require('marked');
 require('string.fromcodepoint');
    
-var noop = function () {};
 
 var apply = function (instance, obj) {
         var meth, i, n;
@@ -19,8 +18,6 @@ var apply = function (instance, obj) {
         }
     };
 
-var commands, directives;
-
 var Folder = function (actions) {
     
         var gcd = this.gcd = new EvW();
@@ -29,51 +26,77 @@ var Folder = function (actions) {
         
         this.commands = Object.create(Folder.commands);
         this.directives = Object.create(Folder.directives);
+        this.reports = {};
         
-        this.maker = {   'emit text ready' : function (name, gcd) {
+        this.maker = {   'emit text ready' : function (doc, name) {
+                        var gcd = doc.gcd;
+            
+                        var evt =  "text ready:" + name;
+                        gcd.emit("waiting for:text:"  + name, evt);
                         var f = function (text) {
-                            gcd.emit( "text ready:" + name, text);
+                            gcd.emit(evt, text);
                         };
                         f._label = "emit text ready;;" + name;
                         return f;
                     },
-                'store' : function (name, doc, fname) {
+                'store' : function (doc, name, fname) {
+                        var gcd = doc.gcd;
+                        
                         var f = function (text) {
                             doc.store(name, text);
                         };
                         f._label = "store;;" + (fname ||  name);
                         return f;
                     },
-                'store emit' : function (name, doc, fname) {
+                'store emit' : function (doc, name, fname) {
+                        fname = fname || name;
+                        var gcd = doc.gcd;
+            
+                        var evt = "text ready:" + fname;
+                        gcd.emit("waiting for:text:"  + fname, evt);
                         var f = function (text) {
                             doc.store(name, text);
-                            doc.gcd.emit("text ready:" + (fname || name), text);
+                            gcd.emit(evt, text);
                         };
-                        f._label = "store emit;;" +  (fname || name);
+                        f._label = "store emit;;" +  fname;
                         return f;
                     },
-                'location filled' : function (lname, loc, doc, frags, indents ) {
+                'location filled' : function (doc, lname, loc, frags, indents ) {
+                        var gcd = doc.gcd;
+            
+                        var evt = "location filled:" + lname;
+                        gcd.emit("waiting for:location:"  + lname, evt);
+            
                         var f = function (subtext) {
-                            var gcd = doc.gcd;
                             subtext = doc.indent(subtext, indents[loc]);
                             frags[loc] = subtext;
-                            gcd.emit("location filled:" +  lname );
+                            gcd.emit(evt);
                         };
                         f._label = "location filled;;" + lname;
                         return f;
                     },
-                'stitch emit' : function (name, frags, gcd) {
+                'stitch emit' : function (doc, name, frags) {
+                        var gcd = doc.gcd;
+            
+                        var evt = "minor ready:" + name;
+                        gcd.emit("waiting for:minor:" + name, evt);
+            
                         var f = function () {
-                            gcd.emit("minor ready:" + name, frags.join(""));
+                            gcd.emit(evt, frags.join(""));
                         };
                         f._label = "stitch emit;;" + name;
                         return f;
                     },
-               'stitch store emit' : function (bname, name, frags, doc) {
+               'stitch store emit' : function (doc, bname, name, frags) {
+                        var gcd = doc.gcd;
+            
+                        var evt = "text ready:" + name;
+                        gcd.emit("waiting for:text:"  + name, evt);
+            
                         var f = function () {
                             var text = frags.join("");
                             doc.store(bname, text);
-                            doc.gcd.emit("text ready:"+name, text);
+                            gcd.emit(evt, text);
                         };
                         f._label = "stitch store emit;;" + name;
                         return f;
@@ -131,6 +154,8 @@ var Folder = function (actions) {
                 if (fun) {
                     fun.apply(doc, [input, args, name, command]);
                 } else {
+                    gcd.emit("waiting for:command:" + command, 
+                        "command defined:" + command);
                     han = function () {
                         fun = doc.commands[command];
                         if (fun) {
@@ -211,13 +236,12 @@ var Folder = function (actions) {
                     doc.pipeParsing(title, 0, '"' , pipename);
                     
                     gcd.once("minor ready:" + fname, 
-                        doc.maker['emit text ready']( pipename + colon.v + "0", 
-                            gcd));
+                        doc.maker['emit text ready'](doc, pipename + colon.v + "0" ));
                     gcd.once("text ready:" + pipename, 
-                        doc.maker.store(curname, doc, fname));
+                        doc.maker.store(doc, curname, fname));
                 } else { //just go
                     gcd.once("minor ready:" + fname, 
-                        doc.maker['store emit'](curname, doc, fname));
+                        doc.maker['store emit'](doc, curname, fname));
                 }
             }
         );
@@ -270,6 +294,23 @@ var Folder = function (actions) {
                 for (name in blocks) {
                     gcd.emit("block needs compiling:" + file + ":" + name); 
                 }
+            }
+        );
+        
+        gcd.on("waiting for", "wait reporting");
+        
+        gcd.action("wait reporting", function (data, evObj) {
+                var gcd = evObj.emitter;
+                 
+                var reports = gcd.parent.reports; 
+                
+                var evt = data;
+                var msg = evObj.pieces.slice(0,-1).reverse().join(":");
+                
+                reports[msg] = evt;
+                gcd.once(evt, function () {
+                    delete reports[msg];
+                });
             }
         );
     
@@ -437,7 +478,7 @@ var async = Folder.prototype.wrapAsync = function (fun, label) {
     };
 
 Folder.prototype.subnameTransform = function (subname, lname) {
-        var mainblock, colind, first, second;
+        var mainblock, colind, first, second, main;
         var doc = this;
         var colon = doc.colon;
     
@@ -491,6 +532,19 @@ Folder.prototype.subnameTransform = function (subname, lname) {
         
         return subname;
     
+    };
+
+Folder.prototype.reportwaits = function () {
+        var report = this.reports;
+        var arr, msg;
+    
+        arr = [];
+        
+        for (msg in report) {
+            arr.push("NEED:" + report[msg] + " TODO: " + msg);
+        }
+    
+        return arr; 
     };
 
 Folder.commands = {   eval : sync(function ( input, args, name ) {
@@ -582,6 +636,7 @@ Folder.commands = {   eval : sync(function ( input, args, name ) {
         raw : sync(function (input, args) {
                 var doc = this;
                 var start, end, text;
+                var gcd = doc.gcd;
             
                 var file = doc.parent.docs[args[2]] || doc;
                 
@@ -608,7 +663,7 @@ Folder.directives = {   save : function (args) {
         var colon = doc.colon;
         var gcd = doc.gcd;
         var file = doc.file;
-        var savename = args.link;
+        var savename = doc.colon.escape(args.link);
         var title = args.input;
         var start = args.href.slice(1).replace(/-/g, " ").
             trim().toLowerCase();
@@ -626,8 +681,10 @@ Folder.directives = {   save : function (args) {
         
         start = doc.colon.escape(start);
         
-        var emitname = "for save:" + doc.file + ":" + 
-            doc.colon.escape(savename);
+        var emitname = "for save:" + doc.file + ":" + savename; 
+    
+       gcd.emit("waiting for:saving file:" + savename + ":from:" + doc.file, 
+            "file ready:" + savename);
     
         var f = function (data) {
             // doc.store(savename, data);
@@ -707,10 +764,15 @@ Folder.directives = {   save : function (args) {
                 
                 start = doc.colon.escape(start);
                 
+            
                 var emitname = "for out:" + doc.file + ":" + 
                     doc.colon.escape(outname);
             
+                gcd.emit("waiting for:dumping out:" + outname, 
+                    emitname);
+            
                 var f = function (data) {
+                    gcd.emit(emitname, data);
                     doc.log(outname + ":\n" + data + "\n~~~\n");
                 };
                 f._label = "out;;" + outname;
@@ -744,11 +806,15 @@ Folder.directives = {   save : function (args) {
                     } else {
                         doc.scopes[nickname] = urlesc;
                         if (!(folder.docs.hasOwnProperty(urlesc) ) ) {
+                            gcd.emit("waiting for:loading for:" + doc.file, 
+                                "need document:" + urlesc);
                             gcd.emit("need document:" + urlesc, url );
                         }
                     }
                 } else {
                     if (!(folder.docs.hasOwnProperty(urlesc) ) ) {
+                        gcd.emit("waiting for:loading for:" + doc.file, 
+                            "need document:" + urlesc);
                         gcd.emit("need document:" + urlesc, url );
                     }
                 }
@@ -875,6 +941,7 @@ var Doc = function (file, text, parent, actions) {
         this.log = this.parent.log;
         this.scopes = this.parent.scopes;
         this.subnameTransform = this.parent.subnameTransform;
+        this.reports = {};
     
         if (actions) {
             apply(gcd, actions);
@@ -906,6 +973,8 @@ Doc.prototype.retrieve = function (name, cb) {
             }
             return ;
         } else {
+            gcd.emit("waiting for:retrieval:" + doc.file, 
+                "text stored:" + file + ":" + varname);
             f = function () {
                 doc.retrieve(name, cb);
             };
@@ -914,11 +983,13 @@ Doc.prototype.retrieve = function (name, cb) {
             return ;
         }
     } else {
+        gcd.emit("waiting for:retrieval:" + doc.file + ":" + name,
+            "scope exists:" + file);
         f = function () {
             doc.retrieve(name, cb);
         };
         f._label = "Retrieving:" + doc.file + ":" + name;
-        gcd.once("scope linked:" + doc.file + ":" + file, f); 
+        gcd.once("scope exists:" + doc.file + ":" + file, f); 
         return ;
     }
 };
@@ -1069,7 +1140,7 @@ Doc.prototype.blockCompiling = function (block, file, bname) {
                 }
                 lname = name + colon.v + loc;
                 gcd.once("text ready:" + lname, 
-                    doc.maker['location filled'](lname, loc, doc, frags, indents));
+                    doc.maker['location filled'](doc, lname, loc, frags, indents));
                 gcd.when("location filled:" + lname, 
                     "ready to stitch:" + name
                 );
@@ -1105,10 +1176,10 @@ Doc.prototype.blockCompiling = function (block, file, bname) {
         }
         if (bname.indexOf(colon.v) !== -1) {
             gcd.once("ready to stitch:" + name, 
-                doc.maker['stitch emit'](name, frags, gcd));
+                doc.maker['stitch emit'](doc, name, frags));
         } else {
             gcd.once("ready to stitch:"+name,
-                doc.maker['stitch store emit'](bname, name, frags, doc));
+                doc.maker['stitch store emit'](doc, bname, name, frags));
         }
     
         gcd.emit("block substitute parsing done:"+name);
@@ -1138,7 +1209,7 @@ Doc.prototype.substituteParsing = function (text, ind, quote, lname ) {
             } else if (chr === quote) { 
                 //index already points at after quote so do not increment
                 gcd.once("text ready:" + lname + colon.v + "0",
-                    doc.maker['emit text ready'](lname, gcd));
+                    doc.maker['emit text ready'](doc, lname));
             } else {
                 gcd.emit("failure in parsing:" + lname, ind);
                 return ind;
@@ -1194,7 +1265,7 @@ Doc.prototype.pipeParsing = function (text, ind, quote, name) {
                     "arguments ready:"  + comname );
                 if (chr === quote) {
                     gcd.once("text ready:" + nextname, 
-                        doc.maker['emit text ready'](name, gcd));
+                        doc.maker['emit text ready'](doc, name));
                     gcd.emit("command parsed:" + comname, [doc.file, command, nextname]);
                     break;
                 } else if (chr === "|") {
@@ -1255,7 +1326,7 @@ Doc.prototype.pipeParsing = function (text, ind, quote, name) {
                     break;
                 } else if (chr === quote) {
                     gcd.once("text ready:" + nextname, 
-                        doc.maker['emit text ready'](name, gcd));
+                        doc.maker['emit text ready'](doc, name));
                     gcd.emit("command parsed:" + comname, [doc.file, command, nextname]);
                     return ind;
                 } else {
@@ -1348,6 +1419,8 @@ Doc.prototype.store = function (name, text) {
        
         var f;
         if (! scope[0]) {
+            gcd.emit("waiting for:storing:" + doc.file + ":" + name,
+                "scope exists:" + scope[2]);
             f = function () {
                 doc.store(name, text);
             };

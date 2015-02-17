@@ -115,11 +115,9 @@ Each doc within a folder shares all the directives and commands.
     var marked = require('marked');
     require('string.fromcodepoint');
    
-    var noop = function () {};
 
     var apply = _"apply";
 
-    var commands, directives;
 
     var Folder = _"folder constructor";
 
@@ -140,6 +138,9 @@ Each doc within a folder shares all the directives and commands.
     var async = Folder.prototype.wrapAsync = _"Command wrapper async";
 
     Folder.prototype.subnameTransform = _"Subname Transform";
+
+
+    Folder.prototype.reportwaits = _"reporting on waiting";
 
     Folder.commands = _"Commands";
     Folder.directives = _"Directives";
@@ -170,6 +171,7 @@ added. The internal basic compiling is baked in though it can be overwritten.
         
         this.commands = Object.create(Folder.commands);
         this.directives = Object.create(Folder.directives);
+        this.reports = {};
         
         this.maker = _"maker";
 
@@ -211,6 +213,8 @@ closure's sake and ease. Perhaps it will get revised.
     _"Parsing events:directive | oa"
 
     _"Ready to start compiling blocks |oa"
+    
+    _"what is waiting| oa"
 
 
 ## Doc constructor
@@ -250,6 +254,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.log = this.parent.log;
         this.scopes = this.parent.scopes;
         this.subnameTransform = this.parent.subnameTransform;
+        this.reports = {};
     
         if (actions) {
             apply(gcd, actions);
@@ -438,13 +443,12 @@ problem.
         doc.pipeParsing(title, 0, '"' , pipename);
         
         gcd.once("minor ready:" + fname, 
-            doc.maker['emit text ready']( pipename + colon.v + "0", 
-                gcd));
+            doc.maker['emit text ready'](doc, pipename + colon.v + "0" ));
         gcd.once("text ready:" + pipename, 
-            doc.maker.store(curname, doc, fname));
+            doc.maker.store(doc, curname, fname));
     } else { //just go
         gcd.once("minor ready:" + fname, 
-            doc.maker['store emit'](curname, doc, fname));
+            doc.maker['store emit'](doc, curname, fname));
     }
 
 
@@ -528,7 +532,51 @@ variable name.
 * filename:blockname;loc;comnum;argnum(;comnum;argnum...)
 
 
+## What is waiting
 
+This is where we define the waiting function. It takes in a message to report
+for whatever is interested in checking (maybe the end of a process or in a web
+page, a user clicking on a report -- difficult since the compilation phase
+never officially ends). It also takes in an event to listen for to remove it
+from the 
+
+`waiting for:type:file:name, evt` although not necessarily (command
+definitions seem to create something different).
+
+NEEDs some more work on making these messages informative. 
+
+    waiting for --> wait reporting
+     
+    var reports = gcd.parent.reports; 
+
+    var evt = data;
+    var msg = evObj.pieces.slice(0,-1).reverse().join(":");
+
+
+    reports[msg] = evt;
+    gcd.once(evt, function () {
+        delete reports[msg];
+    });
+
+
+
+### Reporting on waiting
+
+This is a folder level function that goes through and reports on everything,
+returning an array of waiting arguments. 
+
+    function () {
+        var report = this.reports;
+        var arr, msg;
+
+        arr = [];
+        
+        for (msg in report) {
+            arr.push("NEED:" + report[msg] + " TODO: " + msg);
+        }
+
+        return arr; 
+    }
 
 ## colon
 
@@ -896,7 +944,7 @@ split off.
     }
     lname = name + colon.v + loc;
     gcd.once("text ready:" + lname, 
-        doc.maker['location filled'](lname, loc, doc, frags, indents));
+        doc.maker['location filled'](doc, lname, loc, frags, indents));
     gcd.when("location filled:" + lname, 
         "ready to stitch:" + name
     );
@@ -915,10 +963,10 @@ then we need to run the commands if applicable after the stitching.
 
     if (bname.indexOf(colon.v) !== -1) {
         gcd.once("ready to stitch:" + name, 
-            doc.maker['stitch emit'](name, frags, gcd));
+            doc.maker['stitch emit'](doc, name, frags));
     } else {
         gcd.once("ready to stitch:"+name,
-            doc.maker['stitch store emit'](bname, name, frags, doc));
+            doc.maker['stitch store emit'](doc, bname, name, frags));
     }
 
 
@@ -1066,7 +1114,7 @@ it into command 0. If there are no commands, then command 0 is the done bit.
     } else if (chr === quote) { 
         //index already points at after quote so do not increment
         gcd.once("text ready:" + lname + colon.v + "0",
-            doc.maker['emit text ready'](lname, gcd));
+            doc.maker['emit text ready'](doc, lname));
     } else {
         gcd.emit("failure in parsing:" + lname, ind);
         return ind;
@@ -1080,7 +1128,7 @@ the form `file:main\:...` that is, everything between the first colon and
 the first escaped colon will be returned as mainblock.
 
     function (subname, lname) {
-        var mainblock, colind, first, second;
+        var mainblock, colind, first, second, main;
         var doc = this;
         var colon = doc.colon;
 
@@ -1268,7 +1316,7 @@ At that point, we emit the text ready for the previous level.
 
 
     gcd.once("text ready:" + nextname, 
-        doc.maker['emit text ready'](name, gcd));
+        doc.maker['emit text ready'](doc, name));
     _":com parse"
 
 [com parse]()
@@ -1573,6 +1621,8 @@ the scope exists.
 
 Scope is of the form `[null, varname, alias]`
 
+    gcd.emit("waiting for:storing:" + doc.file + ":" + name,
+        "scope exists:" + scope[2]);
     f = function () {
         doc.store(name, text);
     };
@@ -1648,17 +1698,21 @@ If there is no scope yet of this kind, then we listen for it to be defined and
 linked. The file var there is poorly named; it is the link name of the scope
 since the actual global scope name is not known. 
 
+    gcd.emit("waiting for:retrieval:" + doc.file + ":" + name,
+        "scope exists:" + file);
     f = function () {
         doc.retrieve(name, cb);
     };
     f._label = "Retrieving:" + doc.file + ":" + name;
-    gcd.once("scope linked:" + doc.file + ":" + file, f); 
+    gcd.once("scope exists:" + doc.file + ":" + file, f); 
 
 [no var]() 
 
 In this bit, we have no variable defined yet. So we need to listen for it. We
 will get triggered
 
+    gcd.emit("waiting for:retrieval:" + doc.file, 
+        "text stored:" + file + ":" + varname);
     f = function () {
         doc.retrieve(name, cb);
     };
@@ -1803,50 +1857,75 @@ This is how we link the stuff
 This is an object that makes the handlers for various once's. We can overwrite
 them per document or folder making them accessible to manipulations. 
 
-    {   'emit text ready' : function (name, gcd) {
+    {   'emit text ready' : function (doc, name) {
+                var gcd = doc.gcd;
+
+                var evt =  "text ready:" + name;
+                gcd.emit("waiting for:text:"  + name, evt);
                 var f = function (text) {
-                    gcd.emit( "text ready:" + name, text);
+                    gcd.emit(evt, text);
                 };
                 f._label = "emit text ready;;" + name;
                 return f;
             },
-        'store' : function (name, doc, fname) {
+        'store' : function (doc, name, fname) {
+                var gcd = doc.gcd;
+                
                 var f = function (text) {
                     doc.store(name, text);
                 };
                 f._label = "store;;" + (fname ||  name);
                 return f;
             },
-        'store emit' : function (name, doc, fname) {
+        'store emit' : function (doc, name, fname) {
+                fname = fname || name;
+                var gcd = doc.gcd;
+
+                var evt = "text ready:" + fname;
+                gcd.emit("waiting for:text:"  + fname, evt);
                 var f = function (text) {
                     doc.store(name, text);
-                    doc.gcd.emit("text ready:" + (fname || name), text);
+                    gcd.emit(evt, text);
                 };
-                f._label = "store emit;;" +  (fname || name);
+                f._label = "store emit;;" +  fname;
                 return f;
             },
-        'location filled' : function (lname, loc, doc, frags, indents ) {
+        'location filled' : function (doc, lname, loc, frags, indents ) {
+                var gcd = doc.gcd;
+
+                var evt = "location filled:" + lname;
+                gcd.emit("waiting for:location:"  + lname, evt);
+
                 var f = function (subtext) {
-                    var gcd = doc.gcd;
                     subtext = doc.indent(subtext, indents[loc]);
                     frags[loc] = subtext;
-                    gcd.emit("location filled:" +  lname );
+                    gcd.emit(evt);
                 };
                 f._label = "location filled;;" + lname;
                 return f;
             },
-        'stitch emit' : function (name, frags, gcd) {
+        'stitch emit' : function (doc, name, frags) {
+                var gcd = doc.gcd;
+
+                var evt = "minor ready:" + name;
+                gcd.emit("waiting for:minor:" + name, evt);
+
                 var f = function () {
-                    gcd.emit("minor ready:" + name, frags.join(""));
+                    gcd.emit(evt, frags.join(""));
                 };
                 f._label = "stitch emit;;" + name;
                 return f;
             },
-       'stitch store emit' : function (bname, name, frags, doc) {
+       'stitch store emit' : function (doc, bname, name, frags) {
+                var gcd = doc.gcd;
+
+                var evt = "text ready:" + name;
+                gcd.emit("waiting for:text:"  + name, evt);
+
                 var f = function () {
                     var text = frags.join("");
                     doc.store(bname, text);
-                    doc.gcd.emit("text ready:"+name, text);
+                    gcd.emit(evt, text);
                 };
                 f._label = "stitch store emit;;" + name;
                 return f;
@@ -1892,6 +1971,8 @@ arguments. The third argument is the name to emit when all is done.
     if (fun) {
         fun.apply(doc, [input, args, name, command]);
     } else {
+        gcd.emit("waiting for:command:" + command, 
+            "command defined:" + command);
         han = function () {
             fun = doc.commands[command];
             if (fun) {
@@ -2192,6 +2273,7 @@ irrelevant.
     function (input, args) {
         var doc = this;
         var start, end, text;
+        var gcd = doc.gcd;
 
         var file = doc.parent.docs[args[2]] || doc;
         
@@ -2258,12 +2340,14 @@ us where to begin. The
         var colon = doc.colon;
         var gcd = doc.gcd;
         var file = doc.file;
-        var savename = args.link;
+        var savename = doc.colon.escape(args.link);
         var title = args.input;
         _":deal with start"
         
-        var emitname = "for save:" + doc.file + ":" + 
-            doc.colon.escape(savename);
+        var emitname = "for save:" + doc.file + ":" + savename; 
+
+       gcd.emit("waiting for:saving file:" + savename + ":from:" + doc.file, 
+            "file ready:" + savename);
 
         var f = function (data) {
             // doc.store(savename, data);
@@ -2291,7 +2375,7 @@ This is dealing with where to start, getting the text. It first comes from the
 href, then anything between the first colon and the pipe. 
 
 To get something from another context, one can simply put it after the first
-colon
+colon.
 
 
 After the `:` and before the first `|`, that text is trimmed and then added to
@@ -2333,10 +2417,17 @@ save, etc.
         var title = args.input;
         _":deal with start"
         
+
         var emitname = "for out:" + doc.file + ":" + 
             doc.colon.escape(outname);
 
+        gcd.emit("waiting for:dumping out:" + outname, 
+            emitname);
+
+
+
         var f = function (data) {
+            gcd.emit(emitname, data);
             doc.log(outname + ":\n" + data + "\n~~~\n");
         };
         f._label = "out;;" + outname;
@@ -2521,6 +2612,8 @@ not have been so flexible.
 This loads the url if needed. The file is loaded exactly once.
 
     if (!(folder.docs.hasOwnProperty(urlesc) ) ) {
+        gcd.emit("waiting for:loading for:" + doc.file, 
+            "need document:" + urlesc);
         gcd.emit("need document:" + urlesc, url );
     }
 
@@ -2744,7 +2837,7 @@ The log array should be cleared between tests.
     var equalizer = _"equalizer";
 
     var testfiles = [ 
-       /* */
+       /* */ 
        "first.md", 
         "eval.md",
         "sub.md",
@@ -2763,7 +2856,8 @@ The log array should be cleared between tests.
         "raw.md",
         "h5.md",
         "ignore.md",
-        "direval.md"
+        "direval.md",
+        "reports.md"
     ];
 
 
@@ -2857,7 +2951,8 @@ process the inputs.
 
           //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
-           //setTimeout( function () {console.log(folder.scopes)}, 100);
+          // setTimeout( function () {console.log(folder.scopes)}, 100);
+
     }
 
 
@@ -2912,7 +3007,7 @@ output file name.
 
     function (t, out) {
         return function (text) {
-            //console.log(text + "\n---\n" + out);
+           // console.log(text + "\n---\n" + out);
             t.equals(text, out);
         };
     }
@@ -2992,11 +3087,12 @@ Test list
 + raw
 + heading levels 5 and 6
 + directives to change ignorable languages
++ eval as directive
 
 * feedback for things that have not been compiled
 * something to run over headings, such as test h5 headings. at least an
   example. 
-
+* error catching for evals? 
 
 
 
