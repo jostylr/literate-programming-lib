@@ -3117,8 +3117,14 @@ Test list
 + feedback for things that have not been compiled
 + error catching for evals? 
 
-* something to run over headings, such as test h5 headings. at least an
-  example. 
+- something to run over headings, such as test h5 headings. at least an
+  example.  Decided not to do this. Maybe a litpro-tape module for
+  implementing a test directive. I am not sure what a doc helper might do. I
+  think the basic idea is simply that it is a convenience to have common
+  headings without interfering and that we have a little bit of help against
+  name changes in the path syntax without that path syntax going nuts beyond
+  reason. I like the independent sections not depending on it, but doc and
+  test are a different matter. 
 
 
 
