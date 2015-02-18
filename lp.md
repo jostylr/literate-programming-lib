@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.0.1")
+# [literate-programming-lib](# "version:1.0.2")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -1698,8 +1698,8 @@ If there is no scope yet of this kind, then we listen for it to be defined and
 linked. The file var there is poorly named; it is the link name of the scope
 since the actual global scope name is not known. 
 
-    gcd.emit("waiting for:retrieval:" + cb, 
-        "scope exists:" + name);
+    gcd.emit("waiting for:retrieval:" + cb+ ":need:" + name, 
+        "scope exists:" + file);
     f = function () {
         doc.retrieve(name, cb);
     };

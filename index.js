@@ -1015,8 +1015,8 @@ Doc.prototype.retrieve = function (name, cb) {
             return ;
         }
     } else {
-        gcd.emit("waiting for:retrieval:" + cb, 
-            "scope exists:" + name);
+        gcd.emit("waiting for:retrieval:" + cb+ ":need:" + name, 
+            "scope exists:" + file);
         f = function () {
             doc.retrieve(name, cb);
         };
