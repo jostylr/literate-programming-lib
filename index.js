@@ -1015,13 +1015,13 @@ Doc.prototype.retrieve = function (name, cb) {
             return ;
         }
     } else {
-        gcd.emit("waiting for:retrieval:" + doc.file + ":" + name,
-            "scope exists:" + file);
+        gcd.emit("waiting for:retrieval:" + cb, 
+            "scope exists:" + name);
         f = function () {
             doc.retrieve(name, cb);
         };
         f._label = "Retrieving:" + doc.file + ":" + name;
-        gcd.once("scope exists:" + doc.file + ":" + file, f); 
+        gcd.once("scope exists:" + file, f);
         return ;
     }
 };

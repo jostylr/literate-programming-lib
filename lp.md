@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.0.0")
+# [literate-programming-lib](# "version:1.0.1")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -1698,13 +1698,15 @@ If there is no scope yet of this kind, then we listen for it to be defined and
 linked. The file var there is poorly named; it is the link name of the scope
 since the actual global scope name is not known. 
 
-    gcd.emit("waiting for:retrieval:" + doc.file + ":" + name,
-        "scope exists:" + file);
+    gcd.emit("waiting for:retrieval:" + cb, 
+        "scope exists:" + name);
     f = function () {
         doc.retrieve(name, cb);
     };
     f._label = "Retrieving:" + doc.file + ":" + name;
-    gcd.once("scope exists:" + doc.file + ":" + file, f); 
+    gcd.once("scope exists:" + file, f);
+
+
 
 [no var]() 
 
@@ -2883,7 +2885,8 @@ The log array should be cleared between tests.
         "ignore.md",
         "direval.md",
         "reports.md",
-        "erroreval.md"
+        "erroreval.md",
+        "scopeexists.md"
     ];
 
 
@@ -3033,7 +3036,9 @@ output file name.
 
     function (t, out) {
         return function (text) {
-            //console.log(text + "\n---\n" + out);
+            if (text !== out) {
+                console.log(text + "\n---\n" + out);
+            }
             t.equals(text, out);
         };
     }
@@ -3179,7 +3184,7 @@ variable gcd is the event emitter (dispatcher if you will).
     
     var fs = require('fs');
     var LitPro = require('literate-programming-lib');
-    var folder = new Litpro();
+    var folder = new LitPro();
     var gcd = folder.gcd;
     var colon = folder.colon;
    
@@ -3574,3 +3579,5 @@ software.
 
 ## Change Log
 
+1.0.1 Fixed store exists problem which was listening for the wrong event; this
+was in variable retrieval.

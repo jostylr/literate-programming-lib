@@ -72,7 +72,7 @@ NEED:location filled:in:hopeless⫶6 TODO: location:in:hopeless⫶6
 NEED:text ready:in:hopeless⫶6 TODO: text:in:hopeless⫶6
 NEED:location filled:in:hopeless⫶8 TODO: location:in:hopeless⫶8
 NEED:text ready:in:hopeless⫶8 TODO: text:in:hopeless⫶8
-NEED:scope exists:just TODO: retrieval:in:just⫶⫶kidding
+NEED:scope exists:just⫶⫶kidding TODO: retrieval:text ready:in:hopeless⫶8⫶0
 NEED:text ready:in:hopeless TODO: text:in:hopeless
 NEED:location filled:in:hey now⫶0 TODO: location:in:hey now⫶0
 NEED:text ready:in:hey now⫶0 TODO: text:in:hey now⫶0

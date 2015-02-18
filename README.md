@@ -46,7 +46,7 @@ variable gcd is the event emitter (dispatcher if you will).
     
     var fs = require('fs');
     var LitPro = require('literate-programming-lib');
-    var folder = new Litpro();
+    var folder = new LitPro();
     var gcd = folder.gcd;
     var colon = folder.colon;
    

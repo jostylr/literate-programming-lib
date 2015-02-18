@@ -126,7 +126,9 @@ var testrunner = function (file) {
 
 var equalizer = function (t, out) {
         return function (text) {
-            //console.log(text + "\n---\n" + out);
+            if (text !== out) {
+                console.log(text + "\n---\n" + out);
+            }
             t.equals(text, out);
         };
     };
@@ -153,7 +155,8 @@ var testfiles = [
     "ignore.md",
     "direval.md",
     "reports.md",
-    "erroreval.md"
+    "erroreval.md",
+    "scopeexists.md"
 ];
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {
