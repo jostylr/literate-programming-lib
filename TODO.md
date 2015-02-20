@@ -1,3 +1,8 @@
+For the waiting, I think it should be possible to get the actual snippet it
+pertains to. It would also be good to detect recursive cycles and report them,
+e.g., a section that points to itself. 
+
+
 Biggest thing is to report dead-ends. That is, variables (blocks) that are
 requested but never delivered. 
 

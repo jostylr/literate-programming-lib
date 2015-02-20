@@ -390,7 +390,8 @@ Folder.prototype.newdoc = function (name, text, actions) {
         try {
             parent.parse(doc);
         } catch (e) {
-            console.log(doc);       
+            doc.log("Markdown parsing error. Last heading seen: " + 
+                doc.curname);       
         }
     
         return doc;
@@ -875,7 +876,7 @@ Folder.directives = {   save : function (args) {
                     
                     try {
                         block = "f="+block;
-                        eval("f=" + block);
+                        eval( block);
                     } catch (e) {
                         doc.gcd.emit("error:define:"+cmdname, [e, block]);
                         doc.log(e.name + ":" + e.message +"\n" + block);

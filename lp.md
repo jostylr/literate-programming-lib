@@ -612,7 +612,8 @@ This takes in a file name, text, and possibly some more event/handler actions.
         try {
             parent.parse(doc);
         } catch (e) {
-            console.log(doc);       
+            doc.log("Markdown parsing error. Last heading seen: " + 
+                doc.curname);       
         }
 
         return doc;
@@ -2661,7 +2662,7 @@ input.
             
             try {
                 block = "f="+block;
-                eval("f=" + block);
+                eval( block);
             } catch (e) {
                 doc.gcd.emit("error:define:"+cmdname, [e, block]);
                 doc.log(e.name + ":" + e.message +"\n" + block);
@@ -2886,7 +2887,8 @@ The log array should be cleared between tests.
         "direval.md",
         "reports.md",
         "erroreval.md",
-        "scopeexists.md"
+        "scopeexists.md",
+        "failure.md"
     ];
 
 
@@ -3427,6 +3429,12 @@ imagine. See `tests/h5.md` for the test examples.
 
 
 ## TODO
+
+
+For the waiting, I think it should be possible to get the actual snippet it
+pertains to. It would also be good to detect recursive cycles and report them,
+e.g., a section that points to itself. 
+
 
 Biggest thing is to report dead-ends. That is, variables (blocks) that are
 requested but never delivered. 

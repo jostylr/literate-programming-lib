@@ -156,7 +156,8 @@ var testfiles = [
     "direval.md",
     "reports.md",
     "erroreval.md",
-    "scopeexists.md"
+    "scopeexists.md",
+    "failure.md"
 ];
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {
