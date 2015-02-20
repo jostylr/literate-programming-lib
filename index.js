@@ -561,10 +561,11 @@ Folder.commands = {   eval : sync(function ( input, args ) {
         }
     }, "eval"),
         sub : function (str, args, name) {
+                var doc = this;
                 var gcd = this.gcd;
             
                 var index = 0, m = str.length, al = args.length,
-                    i, j, old, newstr;
+                    i, j, old, newstr, indented;
             
                 if ( (!args[0]) ) {
                     gcd.emit("error:sub has insufficient arguments:" + name);
@@ -579,8 +580,9 @@ Folder.commands = {   eval : sync(function ( input, args ) {
                             if (i === -1) {
                                 break;
                             } else {
-                                str = str.slice(0,i) + newstr + str.slice(i+old.length);
-                                index = i+newstr.length;
+                                indented = doc.indent(newstr, doc.getIndent(str, i))
+                                str = str.slice(0,i) + indented + str.slice(i+old.length);
+                                index = i + indented.length;
                             }
                     }
                 } else {
@@ -595,8 +597,9 @@ Folder.commands = {   eval : sync(function ( input, args ) {
                                 if (i === -1) {
                                     break;
                                 } else {
-                                    str = str.slice(0,i) + newstr + str.slice(i+old.length);
-                                    index = i+newstr.length;
+                                    indented = doc.indent(newstr, doc.getIndent(str, i))
+                                    str = str.slice(0,i) + indented + str.slice(i+old.length);
+                                    index = i + indented.length;
                                 }
                         }
                     }
@@ -1092,16 +1095,7 @@ Doc.prototype.indent = function (text, indent) {
         var line, ret;
         var i, n;
         
-        /*
-        var beg;
-        n = indent[0];
-        beg = '';
-        for (i = 0; i < n; i += 1) {
-            beg += ' ';
-        }
-        */
-        
-        n = indent[1];
+        n = indent;
         line = '';
         for (i = 0; i <n; i += 1) {
             line += ' ';
@@ -1109,6 +1103,24 @@ Doc.prototype.indent = function (text, indent) {
     
         ret = text.replace(/\n/g, "\n"+line);
         return ret;
+    };
+
+Doc.prototype.getIndent = function ( block, place ) {
+        var first, backcount, indent;
+        first = place;
+        backcount = place-1;
+        indent = 0;
+        while (true) {
+            if ( (backcount < 0) || ( (chr = block[backcount]) === "\n" ) ) {
+                indent = first - ( backcount + 1 ); 
+                break;
+            }
+            if (chr.search(/\S/) === 0) {
+                first = backcount;
+            }
+            backcount -= 1;
+        }
+        return indent;
     };
 
 Doc.prototype.blockCompiling = function (block, file, bname) {
@@ -1178,27 +1190,9 @@ Doc.prototype.blockCompiling = function (block, file, bname) {
                     "ready to stitch:" + name
                 );
                 if (place > 0) {
-                    first = place;
-                    backcount = place-1;
-                    indent = [0,0];
-                    while (true) {
-                        if ( (backcount < 0) || ( (chr = block[backcount]) === "\n" ) ) {
-                            indent = first - ( backcount + 1 ); 
-                            if (first === place) { // indent both
-                                indent = [indent, indent];
-                            } else {
-                                indent = [0, indent];
-                            }
-                            break;
-                        }
-                        if (chr.search(/\S/) === 0) {
-                            first = backcount;
-                        }
-                        backcount -= 1;
-                    }
-                    indents[loc] = indent;
+                    indents[loc] = doc.getIndent(block, place);
                 } else {
-                   indents[loc] = [0,0];
+                   indents[loc] = 0;
                 }
                 loc += 1;
             

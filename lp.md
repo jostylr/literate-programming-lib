@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.0.2")
+# [literate-programming-lib](# "version:1.0.3")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -275,6 +275,8 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
     Doc.prototype.createLinkedScope = _"create linked scope";
      
     Doc.prototype.indent = _"indent";
+
+    Doc.prototype.getIndent = _"Figure out indent";
 
     Doc.prototype.blockCompiling = _"block compiling";
     
@@ -950,9 +952,9 @@ split off.
         "ready to stitch:" + name
     );
     if (place > 0) {
-        _":figure out indent"
+        indents[loc] = doc.getIndent(block, place);
     } else {
-       indents[loc] = [0,0];
+       indents[loc] = 0;
     }
     loc += 1;
 
@@ -971,7 +973,7 @@ then we need to run the commands if applicable after the stitching.
     }
 
 
-[figure out indent]()
+## Figure out indent
 
 What is the indent? We need to find out where the first new line is and the
 first non-blank character. If the underscore is first, then we have an indent
@@ -983,25 +985,24 @@ look at the character. first is first non-blank character.
 Our goal is to line up the later lines with the first non blank character
 (though usually they will have their own indent that they carry with them). 
 
-    first = place;
-    backcount = place-1;
-    indent = [0,0];
-    while (true) {
-        if ( (backcount < 0) || ( (chr = block[backcount]) === "\n" ) ) {
-            indent = first - ( backcount + 1 ); 
-            if (first === place) { // indent both
-                indent = [indent, indent];
-            } else {
-                indent = [0, indent];
+
+    function ( block, place ) {
+        var first, backcount, indent;
+        first = place;
+        backcount = place-1;
+        indent = 0;
+        while (true) {
+            if ( (backcount < 0) || ( (chr = block[backcount]) === "\n" ) ) {
+                indent = first - ( backcount + 1 ); 
+                break;
             }
-            break;
+            if (chr.search(/\S/) === 0) {
+                first = backcount;
+            }
+            backcount -= 1;
         }
-        if (chr.search(/\S/) === 0) {
-            first = backcount;
-        }
-        backcount -= 1;
+        return indent;
     }
-    indents[loc] = indent;
 
 ### Indent
 
@@ -1016,16 +1017,7 @@ indentation needs to be managed.
         var line, ret;
         var i, n;
         
-        /*
-        var beg;
-        n = indent[0];
-        beg = '';
-        for (i = 0; i < n; i += 1) {
-            beg += ' ';
-        }
-        */
-        
-        n = indent[1];
+        n = indent;
         line = '';
         for (i = 0; i <n; i += 1) {
             line += ' ';
@@ -2190,12 +2182,16 @@ We will do the replacement using indexOf and splicing due to potential
 conflicts with .replace (the $ replacements and the lack of global aspect if
 given a string). 
 
+This will indent the subsequent lines so it is appropriate to use with blocks
+of code. 
+
 
     function (str, args, name) {
+        var doc = this;
         var gcd = this.gcd;
 
         var index = 0, m = str.length, al = args.length,
-            i, j, old, newstr;
+            i, j, old, newstr, indented;
 
 
         if ( (!args[0]) ) {
@@ -2238,8 +2234,9 @@ This is the function that replaces a part of a string with another.
         if (i === -1) {
             break;
         } else {
-            str = str.slice(0,i) + newstr + str.slice(i+old.length);
-            index = i+newstr.length;
+            indented = doc.indent(newstr, doc.getIndent(str, i))
+            str = str.slice(0,i) + indented + str.slice(i+old.length);
+            index = i + indented.length;
         }
 
 ### Store Command
@@ -2888,7 +2885,8 @@ The log array should be cleared between tests.
         "reports.md",
         "erroreval.md",
         "scopeexists.md",
-        "failure.md"
+        "failure.md",
+        "subindent.md"
     ];
 
 
@@ -3431,6 +3429,9 @@ imagine. See `tests/h5.md` for the test examples.
 ## TODO
 
 
+Investigate quotes in titles. It looks like marked might escape single quotes
+though backticks work. 
+
 For the waiting, I think it should be possible to get the actual snippet it
 pertains to. It would also be good to detect recursive cycles and report them,
 e.g., a section that points to itself. 
@@ -3586,6 +3587,8 @@ software.
 
 
 ## Change Log
+1.0.3 marked errors now reported slightly better and sub now does proper
+indenting.  
 
 1.0.1 Fixed store exists problem which was listening for the wrong event; this
 was in variable retrieval.

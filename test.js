@@ -157,7 +157,8 @@ var testfiles = [
     "reports.md",
     "erroreval.md",
     "scopeexists.md",
-    "failure.md"
+    "failure.md",
+    "subindent.md"
 ];
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {
