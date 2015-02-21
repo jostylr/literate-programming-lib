@@ -5,10 +5,12 @@ For the waiting, I think it should be possible to get the actual snippet it
 pertains to. It would also be good to detect recursive cycles and report them,
 e.g., a section that points to itself. 
 
-
 Biggest thing is to report dead-ends. That is, variables (blocks) that are
 requested but never delivered. 
 
+Check out other markdown parsers; marked has insecurity reported though given
+this use case, I doubt it matters (running untrusted lit docs is a security
+issue regardless).  
 
 Create and test ways to report problems (blocks not being compiled, things not
 being saved, etc.) This is both direct error reporting as well as logging, but

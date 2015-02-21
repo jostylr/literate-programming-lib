@@ -132,6 +132,8 @@ Each doc within a folder shares all the directives and commands.
     Folder.prototype.join = "\n";
 
     Folder.prototype.log = function (text) { console.log(text); };
+
+    Folder.prototype.indicator = "\u2AF6\u2AF6\u2AF6";
     
     var sync = Folder.prototype.wrapSync = _"Command wrapper sync";
 
@@ -255,6 +257,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.scopes = this.parent.scopes;
         this.subnameTransform = this.parent.subnameTransform;
         this.reports = {};
+        this.indicator = this.parent.indicator;
     
         if (actions) {
             apply(gcd, actions);
@@ -287,6 +290,8 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
     Doc.prototype.regexs = _"Command regexs";
 
     Doc.prototype.backslash = _"Backslash";
+
+    Doc.prototype.whitespaceEscape = _"whitespace escape";
 
     Doc.prototype.wrapSync = Folder.prototype.wrapSync;
 
@@ -701,6 +706,9 @@ in the heading then.
     function (href, title, text) {
         var ind;
         var pipes, middle;
+        if (title) {
+            title = title.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+        }   
         if ((!href) && (!title)) {
             gcd.emit("switch found:"+file, [text, ""]);
         } else if (title[0] === ":") {
@@ -1354,7 +1362,6 @@ but I think that leads to uncertainty. Bad enough not having parentheses.
         }
         // no substitute, just an argument. 
         argument = '';
-        argreg.lastIndex = ind;
         while (ind < n) {
             _":get full argument"
         }
@@ -1399,18 +1406,20 @@ we can do.
 
 We trim each arugment as well so we need not worry about spaces in commands. 
 
+    argreg.lastIndex = ind;
     match = argreg.exec(text);
     if (match) {
         ind = argreg.lastIndex;
         argument += match[1];
         chr = match[2];
         if (chr === "\\") {
-           result = doc.backslash(text, ind+1);
+           result = doc.backslash(text, ind, doc.indicator );
            ind = result[1];
            argument += result[0];
            continue;
         } else {
             argument = argument.trim();
+            argument = doc.whitespaceEscape(argument, doc.indicator);
             gcd.emit("text ready:" + aname, argument);
             break;
         }
@@ -1438,15 +1447,15 @@ It takes in a text and an index to examine. This default function escapes
 backslashes, underscores, pipes, quotes and
 
 * u leads to unicode sucking up. This uses fromCodePoint
-* \n will be converted to a space
 * n converted to a new line. 
+* a whitespace will be preserved. 
 
 If none of those are present a backslash is returned. 
 
 We return an object with the post end index in ind and the string to replace
 as chr.
 
-    function (text, ind) {
+    function (text, ind, indicator) {
         var chr, match, num;
         var uni = /[0-9A-F]+/g; 
     
@@ -1458,9 +1467,11 @@ as chr.
         case "'" : return ["'", ind+1];
         case "`" : return ["`", ind+1];
         case '"' : return ['"', ind+1];
-        case "n" : return ["\n", ind+1];
-        case "\n" : return [" ", ind+1];
+        case "n" : return [indicator + "n" + indicator, ind+1];
+        case " " : return [indicator + " " + indicator, ind+1];
+        //case "\n" : return [" ", ind+1];
         case "`" : return ["|", ind+1];
+        case "," : return [",", ind+1];
         case "u" :  _":unicode"
         break;
         default : return ["\\", ind];
@@ -1491,6 +1502,27 @@ we move on. No warning emitted.
         return ["\\", ind];
     }
 
+
+### Whitespace Escape
+
+This escapes whitespace. It looks for indicator something indicator and
+inserts. 
+
+    function (text, indicator) {
+        var n = indicator.length, start, end, rep;
+        while ( (start = text.indexOf(indicator) ) !== -1 ) {
+            end = text.indexOf(indicator, start + n);
+            rep = text.slice(start+n, end);
+            if (rep === "n") {
+                rep = "\n";
+            }
+            text = text.slice(0, start) + rep + text.slice(end+n);
+        }
+        return text;
+
+    }
+
+    
 
 
 
@@ -2092,7 +2124,8 @@ Here we have some commands and directives that are of common use
         async : async(_"async eval", "async"),
         compile : _"cmd compile",
         raw : sync(_"raw", "raw"),
-        trim : sync(_"trim", "trim")
+        trim : sync(_"trim", "trim"),
+        cat : sync(_"cat", "cat")
     }
 
 ### Eval
@@ -2303,6 +2336,21 @@ Bloody spaces and newlines
 
     function (input) {
         return input.trim();
+    }
+
+### Cat
+
+Concatenating text together and returning it. If there is only one argument,
+then it just concatenates as is. If there are more than one argument, then the
+first argument, which could be empty, is the join separator. 
+
+    function (input, args) {
+        var sep = '';
+        if (args.length > 1) {
+            sep = args[0];
+            args = args.slice(1);
+        }
+        return (input ? input + sep : '') + args.join(sep) ;
     }
 
 
@@ -2851,7 +2899,7 @@ The log array should be cleared between tests.
     var equalizer = _"equalizer";
 
     var testfiles = [ 
-       /* */ 
+       /**/  
        "first.md", 
         "eval.md",
         "sub.md",
@@ -2875,7 +2923,8 @@ The log array should be cleared between tests.
         "erroreval.md",
         "scopeexists.md",
         "failure.md",
-        "subindent.md"
+        "subindent.md",
+        "linkquotes.md"
     ];
 
 
@@ -3425,10 +3474,12 @@ For the waiting, I think it should be possible to get the actual snippet it
 pertains to. It would also be good to detect recursive cycles and report them,
 e.g., a section that points to itself. 
 
-
 Biggest thing is to report dead-ends. That is, variables (blocks) that are
 requested but never delivered. 
 
+Check out other markdown parsers; marked has insecurity reported though given
+this use case, I doubt it matters (running untrusted lit docs is a security
+issue regardless).  
 
 Create and test ways to report problems (blocks not being compiled, things not
 being saved, etc.) This is both direct error reporting as well as logging, but

@@ -348,6 +348,9 @@ Folder.prototype.parse = function (doc) {
         renderer.link = function (href, title, text) {
                 var ind;
                 var pipes, middle;
+                if (title) {
+                    title = title.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+                }   
                 if ((!href) && (!title)) {
                     gcd.emit("switch found:"+file, [text, ""]);
                 } else if (title[0] === ":") {
@@ -429,6 +432,8 @@ Folder.prototype.createScope = function (name) {
 Folder.prototype.join = "\n";
 
 Folder.prototype.log = function (text) { console.log(text); };
+
+Folder.prototype.indicator = "\u2AF6\u2AF6\u2AF6";
 
 var sync = Folder.prototype.wrapSync = function (fun, label) {
         var f = function (input, args, name, command) {
@@ -672,7 +677,15 @@ Folder.commands = {   eval : sync(function ( input, args ) {
             }, "raw"),
         trim : sync(function (input) {
                 return input.trim();
-            }, "trim")
+            }, "trim"),
+        cat : sync(function (input, args) {
+                var sep = '';
+                if (args.length > 1) {
+                    sep = args[0];
+                    args = args.slice(1);
+                }
+                return (input ? input + sep : '') + args.join(sep) ;
+            }, "cat")
     };
 Folder.directives = {   save : function (args) {
         var ind; 
@@ -969,6 +982,7 @@ var Doc = function (file, text, parent, actions) {
         this.scopes = this.parent.scopes;
         this.subnameTransform = this.parent.subnameTransform;
         this.reports = {};
+        this.indicator = this.parent.indicator;
     
         if (actions) {
             apply(gcd, actions);
@@ -1311,20 +1325,21 @@ Doc.prototype.pipeParsing = function (text, ind, quote, name) {
                 }
                 // no substitute, just an argument. 
                 argument = '';
-                argreg.lastIndex = ind;
                 while (ind < n) {
+                    argreg.lastIndex = ind;
                     match = argreg.exec(text);
                     if (match) {
                         ind = argreg.lastIndex;
                         argument += match[1];
                         chr = match[2];
                         if (chr === "\\") {
-                           result = doc.backslash(text, ind+1);
+                           result = doc.backslash(text, ind, doc.indicator );
                            ind = result[1];
                            argument += result[0];
                            continue;
                         } else {
                             argument = argument.trim();
+                            argument = doc.whitespaceEscape(argument, doc.indicator);
                             gcd.emit("text ready:" + aname, argument);
                             break;
                         }
@@ -1389,7 +1404,7 @@ Doc.prototype.regexs = {
     
     };
 
-Doc.prototype.backslash = function (text, ind) {
+Doc.prototype.backslash = function (text, ind, indicator) {
         var chr, match, num;
         var uni = /[0-9A-F]+/g; 
     
@@ -1401,9 +1416,11 @@ Doc.prototype.backslash = function (text, ind) {
         case "'" : return ["'", ind+1];
         case "`" : return ["`", ind+1];
         case '"' : return ['"', ind+1];
-        case "n" : return ["\n", ind+1];
-        case "\n" : return [" ", ind+1];
+        case "n" : return [indicator + "n" + indicator, ind+1];
+        case " " : return [indicator + " " + indicator, ind+1];
+        //case "\n" : return [" ", ind+1];
         case "`" : return ["|", ind+1];
+        case "," : return [",", ind+1];
         case "u" :  uni.lastIndex = ind;
             match = uni.exec(text);
             if (match) {
@@ -1421,6 +1438,20 @@ Doc.prototype.backslash = function (text, ind) {
         default : return ["\\", ind];
     
         }
+    };
+
+Doc.prototype.whitespaceEscape = function (text, indicator) {
+        var n = indicator.length, start, end, rep;
+        while ( (start = text.indexOf(indicator) ) !== -1 ) {
+            end = text.indexOf(indicator, start + n);
+            rep = text.slice(start+n, end);
+            if (rep === "n") {
+                rep = "\n";
+            }
+            text = text.slice(0, start) + rep + text.slice(end+n);
+        }
+        return text;
+    
     };
 
 Doc.prototype.wrapSync = Folder.prototype.wrapSync;

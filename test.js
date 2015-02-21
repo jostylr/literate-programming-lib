@@ -134,7 +134,7 @@ var equalizer = function (t, out) {
     };
 
 var testfiles = [ 
-   /* */ 
+   /**/  
    "first.md", 
     "eval.md",
     "sub.md",
@@ -158,7 +158,8 @@ var testfiles = [
     "erroreval.md",
     "scopeexists.md",
     "failure.md",
-    "subindent.md"
+    "subindent.md",
+    "linkquotes.md"
 ];
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {
