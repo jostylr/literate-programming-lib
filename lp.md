@@ -831,8 +831,7 @@ We create a stitch handler for the closures here.
         var gcd = doc.gcd;
         var colon = doc.colon;
         
-        var found, quote, place, qfrag, lname, 
-            backcount, indent, first, chr, slashcount;
+        var found, quote, place, qfrag, lname, slashcount;
         var name = file + ":" + bname;
         var ind = 0;
         var loc = 0; // location in fragment array 
@@ -987,7 +986,7 @@ Our goal is to line up the later lines with the first non blank character
 
 
     function ( block, place ) {
-        var first, backcount, indent;
+        var first, backcount, indent, chr;
         first = place;
         backcount = place-1;
         indent = 0;
@@ -1065,7 +1064,6 @@ it into command 0. If there are no commands, then command 0 is the done bit.
         var doc = this;
         var gcd = doc.gcd;
         var colon = doc.colon;
-        var file = doc.file;
 
         var match, subname, chr, subtext;
         var subreg = doc.regexs.subname[quote];
@@ -1864,7 +1862,6 @@ them per document or folder making them accessible to manipulations.
                 return f;
             },
         'store' : function (doc, name, fname) {
-                var gcd = doc.gcd;
                 
                 var f = function (text) {
                     doc.store(name, text);
@@ -2234,7 +2231,7 @@ This is the function that replaces a part of a string with another.
         if (i === -1) {
             break;
         } else {
-            indented = doc.indent(newstr, doc.getIndent(str, i))
+            indented = doc.indent(newstr, doc.getIndent(str, i));
             str = str.slice(0,i) + indented + str.slice(i+old.length);
             index = i + indented.length;
         }
@@ -2246,7 +2243,6 @@ even though the storing may not yet be done.
 
     function (input, args) {
         var doc = this;
-        var gcd = doc.gcd;
 
         var vname = doc.colon.escape(args[0]);
 
@@ -2347,7 +2343,6 @@ us where to begin. The
         var doc = this;
         var colon = doc.colon;
         var gcd = doc.gcd;
-        var file = doc.file;
         var savename = doc.colon.escape(args.link);
         var title = args.input;
         _":deal with start"
@@ -2420,7 +2415,6 @@ save, etc.
         var doc = this;
         var colon = doc.colon;
         var gcd = doc.gcd;
-        var file = doc.file;
         var outname = args.link;
         var title = args.input;
         _":deal with start"
@@ -2523,8 +2517,6 @@ This is the directive for storing some text.
 
     function (args) {
         var doc = this;
-        var gcd = doc.gcd;
-        var file = doc.file;
         var value = args.input;
         var name = doc.colon.escape(args.link);
 
@@ -2595,7 +2587,6 @@ not have been so flexible.
         var doc = this;
         var gcd = doc.gcd;
         var folder = doc.parent;
-        var requester = doc.file;
         var url = args.input.trim() || args.href.trim();
         var urlesc = folder.colon.escape(url);
         var nickname = doc.colon.escape(args.link.trim());
@@ -2647,7 +2638,6 @@ input.
         var doc = this;
         var colon = doc.colon;
         var gcd = doc.gcd;
-        var file = doc.file;
         var cmdname = args.link;
         var title = args.input;
         var wrapper; 
@@ -2774,7 +2764,6 @@ being compiled. Extra ons are ignored.
 
     function () {
         var doc = this; 
-        var gcd = doc.gcd;
 
         if (doc.blockOff > 0) {
             doc.blockOff -= 1;
@@ -2848,14 +2837,14 @@ introduce a syntax of input/output and related names.
 
 The log array should be cleared between tests. 
 
-    /*global require, setTimeout*/
+    /*global require, setTimeout, console*/
     /*jslint evil:true*/
 
     var fs = require('fs');
     var test = require('tape');
     var Litpro = require('./index.js');
 
-    var testdata = {}, log = [];
+    var testdata = {};
 
     var testrunner = _"testrunner";
 
@@ -3515,7 +3504,7 @@ The requisite npm package file.
       },
       "dependencies": {
         "event-when": "^0.7.1",
-        "marked": "^0.3.2",
+        "marked": "^0.3.3",
         "string.fromcodepoint": "^0.2.1"
       },
       "devDependencies" : {

@@ -1,11 +1,11 @@
-/*global require, setTimeout*/
+/*global require, setTimeout, console*/
 /*jslint evil:true*/
 
 var fs = require('fs');
 var test = require('tape');
 var Litpro = require('./index.js');
 
-var testdata = {}, log = [];
+var testdata = {};
 
 var testrunner = function (file) {
      

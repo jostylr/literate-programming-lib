@@ -40,7 +40,6 @@ var Folder = function (actions) {
                         return f;
                     },
                 'store' : function (doc, name, fname) {
-                        var gcd = doc.gcd;
                         
                         var f = function (text) {
                             doc.store(name, text);
@@ -580,7 +579,7 @@ Folder.commands = {   eval : sync(function ( input, args ) {
                             if (i === -1) {
                                 break;
                             } else {
-                                indented = doc.indent(newstr, doc.getIndent(str, i))
+                                indented = doc.indent(newstr, doc.getIndent(str, i));
                                 str = str.slice(0,i) + indented + str.slice(i+old.length);
                                 index = i + indented.length;
                             }
@@ -597,7 +596,7 @@ Folder.commands = {   eval : sync(function ( input, args ) {
                                 if (i === -1) {
                                     break;
                                 } else {
-                                    indented = doc.indent(newstr, doc.getIndent(str, i))
+                                    indented = doc.indent(newstr, doc.getIndent(str, i));
                                     str = str.slice(0,i) + indented + str.slice(i+old.length);
                                     index = i + indented.length;
                                 }
@@ -610,7 +609,6 @@ Folder.commands = {   eval : sync(function ( input, args ) {
             },
         store: sync(function (input, args) {
                 var doc = this;
-                var gcd = doc.gcd;
             
                 var vname = doc.colon.escape(args[0]);
             
@@ -681,7 +679,6 @@ Folder.directives = {   save : function (args) {
         var doc = this;
         var colon = doc.colon;
         var gcd = doc.gcd;
-        var file = doc.file;
         var savename = doc.colon.escape(args.link);
         var title = args.input;
         var start = args.href.slice(1).replace(/-/g, " ").
@@ -733,8 +730,6 @@ Folder.directives = {   save : function (args) {
             },
         store : function (args) {
                 var doc = this;
-                var gcd = doc.gcd;
-                var file = doc.file;
                 var value = args.input;
                 var name = doc.colon.escape(args.link);
             
@@ -764,7 +759,6 @@ Folder.directives = {   save : function (args) {
                 var doc = this;
                 var colon = doc.colon;
                 var gcd = doc.gcd;
-                var file = doc.file;
                 var outname = args.link;
                 var title = args.input;
                 var start = args.href.slice(1).replace(/-/g, " ").
@@ -813,7 +807,6 @@ Folder.directives = {   save : function (args) {
                 var doc = this;
                 var gcd = doc.gcd;
                 var folder = doc.parent;
-                var requester = doc.file;
                 var url = args.input.trim() || args.href.trim();
                 var urlesc = folder.colon.escape(url);
                 var nickname = doc.colon.escape(args.link.trim());
@@ -852,7 +845,6 @@ Folder.directives = {   save : function (args) {
                 var doc = this;
                 var colon = doc.colon;
                 var gcd = doc.gcd;
-                var file = doc.file;
                 var cmdname = args.link;
                 var title = args.input;
                 var wrapper; 
@@ -915,7 +907,6 @@ Folder.directives = {   save : function (args) {
             },
         "block on" : function () {
                 var doc = this; 
-                var gcd = doc.gcd;
             
                 if (doc.blockOff > 0) {
                     doc.blockOff -= 1;
@@ -1106,7 +1097,7 @@ Doc.prototype.indent = function (text, indent) {
     };
 
 Doc.prototype.getIndent = function ( block, place ) {
-        var first, backcount, indent;
+        var first, backcount, indent, chr;
         first = place;
         backcount = place-1;
         indent = 0;
@@ -1128,8 +1119,7 @@ Doc.prototype.blockCompiling = function (block, file, bname) {
         var gcd = doc.gcd;
         var colon = doc.colon;
         
-        var found, quote, place, qfrag, lname, 
-            backcount, indent, first, chr, slashcount;
+        var found, quote, place, qfrag, lname, slashcount;
         var name = file + ":" + bname;
         var ind = 0;
         var loc = 0; // location in fragment array 
@@ -1217,7 +1207,6 @@ Doc.prototype.substituteParsing = function (text, ind, quote, lname ) {
         var doc = this;
         var gcd = doc.gcd;
         var colon = doc.colon;
-        var file = doc.file;
     
         var match, subname, chr, subtext;
         var subreg = doc.regexs.subname[quote];
