@@ -2,7 +2,7 @@
 /*jslint evil:true*/
 
 var EvW = require('event-when');
-var marked = require('marked');
+var commonmark = require('commonmark');
 require('string.fromcodepoint');
    
 
@@ -321,7 +321,6 @@ var Folder = function (actions) {
     };
 
 Folder.prototype.parse = function (doc) {
-    
         var gcd = doc.gcd;
         var file = doc.file;
     
@@ -330,58 +329,92 @@ Folder.prototype.parse = function (doc) {
         gcd.on("parsing done:"+file, function () {
             doc.parsed = true;
         });
-        
-        var renderer = new marked.Renderer(); 
     
-        renderer.heading = function (text, level) {
-                gcd.emit("heading found:"+level+":"+file,text);
-                return text;
-            };
-        renderer.code = function (code, lang) {
+        
+        var reader = new commonmark.Parser();
+        var parsed = reader.parse(doc.text); 
+    
+        var walker = parsed.walker();
+        var event, node, entering, htext = false, ltext = false, lang, code;
+        var ind, pipes, middle, title, href; //for links
+    
+        while ((event = walker.next())) {
+            node = event.node;
+            entering = event.entering;
+    
+            switch (node.type) {
+            case "Text" : 
+                if (htext) {
+                    htext.push(node.literal);
+                }
+                if (ltext) {
+                    ltext.push(node.literal);
+                }
+            break;
+            case "Link" : 
+                if (entering) {
+                    ltext = [];
+                } else {
+                    href = node.destination;
+                    title = node.title;
+                    ltext = ltext.join('');
+                    
+                    if (title) {
+                        title = title.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+                    }   
+                    if ((!href) && (!title)) {
+                        gcd.emit("switch found:"+file, [ltext, ""]);
+                    } else if (title[0] === ":") {
+                        ind = 0;
+                        pipes = title.indexOf("|");
+                        if (pipes === -1) {
+                            middle = title.slice(ind+1).trim(); 
+                            pipes = '';
+                        } else {
+                            middle = title.slice(ind+1, pipes).trim();
+                            pipes = title.slice(pipes+1).trim();
+                        }
+                        if (middle) {
+                            ltext += "." + middle.toLowerCase();    
+                        }
+                        gcd.emit("switch found:" + file, [ltext,pipes]);
+                    } else if ( (ind = title.indexOf(":")) !== -1) {
+                        gcd.emit("directive found:" + 
+                           title.slice(0,ind).trim().toLowerCase() + ":" + file, 
+                            { link : ltext,
+                             input : title.slice(ind+1),
+                             href: href, 
+                             cur: doc.curname});
+                    }
+                    ltext = false;
+                }
+            break;
+            case "CodeBlock" :
+                lang = node.info;
+                code = node.literal || '';
+                if (code[code.length -1] === "\n") {
+                    code = code.slice(0,-1);
+                }
                 if (lang) {
-                    gcd.emit("code block found:"+lang+":"+file,code);
+                    gcd.emit("code block found:"+lang+":"+file, code);
                 } else {
                     gcd.emit("code block found:"+ file, code);
                 }
-                return code;
-            };
-        renderer.link = function (href, title, text) {
-                var ind;
-                var pipes, middle;
-                if (title) {
-                    title = title.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
-                }   
-                if ((!href) && (!title)) {
-                    gcd.emit("switch found:"+file, [text, ""]);
-                } else if (title[0] === ":") {
-                    ind = 0;
-                    pipes = title.indexOf("|");
-                    if (pipes === -1) {
-                        middle = title.slice(ind+1).trim(); 
-                        pipes = '';
-                    } else {
-                        middle = title.slice(ind+1, pipes).trim();
-                        pipes = title.slice(pipes+1).trim();
-                    }
-                    if (middle) {
-                        text += "." + middle.toLowerCase();    
-                    }
-                    gcd.emit("switch found:" + file, [text,pipes]);
-                } else if ( (ind = title.indexOf(":")) !== -1) {
-                    gcd.emit("directive found:" + 
-                       title.slice(0,ind).trim().toLowerCase() + ":" + file, 
-                        { link : text,
-                         input : title.slice(ind+1),
-                         href: href, 
-                         cur: doc.curname});
+            break;
+            case "Header" :
+                if (entering) {
+                    htext = [];
+                } else {
+                    gcd.emit("heading found:"+node.level+":"+file, htext.join(""));
+                    htext = false;
                 }
-                return text;
-            };   
-        
-        marked(doc.text, {renderer:renderer});
+            break;
+            }
+    
+           // console.log(node.type, node.literal || '', node.destination|| '', node.title|| '', node.info|| '', node.level|| '', node.sourcepos, event.entering);
+        }
     
         gcd.emit("marked done:" + file);
-    
     };
 
 Folder.prototype.newdoc = function (name, text, actions) {

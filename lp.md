@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.0.3")
+# [literate-programming-lib](# "version:1.0.4")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -112,7 +112,7 @@ Each doc within a folder shares all the directives and commands.
     /*jslint evil:true*/
 
     var EvW = require('event-when');
-    var marked = require('marked');
+    var commonmark = require('commonmark');
     require('string.fromcodepoint');
    
 
@@ -121,7 +121,10 @@ Each doc within a folder shares all the directives and commands.
 
     var Folder = _"folder constructor";
 
-    Folder.prototype.parse = _"marked";
+    Folder.prototype.parse = _"commonmark";
+
+
+Folder.prototype.parse = _"marked";
 
     Folder.prototype.newdoc = _"Make a new document";
 
@@ -627,49 +630,95 @@ This takes in a file name, text, and possibly some more event/handler actions.
 
     }
 
-## marked
 
-Here we model the flow of parsing of the text. We use the parser marked but
-have overwrite its output. Or rather, we output events.
+[junk]() 
 
-We wrap it all in a function using a closure for the file and gcd variables
-for emitting purposes. 
 
-We have a .when for being done with parsing. Any kind of async in the
-rendering (directives!) can be waited for with a `.when(..., "parsing
-done:"+file);`
+
+##  commonmark
+
+Here we implement the markdown parser. We use commonmark and it generates an
+AST which we can then do whatever we like with it. Our purposes are purely
+informational and we extract headers, links, and code blocks. 
 
     function (doc) {
-
         var gcd = doc.gcd;
         var file = doc.file;
-    
+
         gcd.when("marked done:"+file, "parsing done:"+file);
 
         gcd.on("parsing done:"+file, function () {
             doc.parsed = true;
         });
-        
-        var renderer = new marked.Renderer(); 
 
-        renderer.heading = _":heading";
-        renderer.code = _":code";
-        renderer.link = _":link";   
         
-        marked(doc.text, {renderer:renderer});
+        var reader = new commonmark.Parser();
+        var parsed = reader.parse(doc.text); 
+
+        var walker = parsed.walker();
+        var event, node, entering, htext = false, ltext = false, lang, code;
+        var ind, pipes, middle, title, href; //for links
+
+        while ((event = walker.next())) {
+            node = event.node;
+            entering = event.entering;
+
+            _":walk the tree"
+
+           // console.log(node.type, node.literal || '', node.destination|| '', node.title|| '', node.info|| '', node.level|| '', node.sourcepos, event.entering);
+        }
 
         gcd.emit("marked done:" + file);
+    }
 
 
+[walk the tree]() 
+
+So we examine the nodes and decide when to do something of interest. The nodes
+of interest are of type Header, Link, Text, and CodeBlock. CodeBlock is easy
+as the literal is all we need. Both Header and Link require us to descend and
+string together the text. 
+
+
+    switch (node.type) {
+    case "Text" : 
+        _":text"
+    break;
+    case "Link" : 
+        _":link"
+    break;
+    case "CodeBlock" :
+        _":code"
+    break;
+    case "Header" :
+        _":heading"
+    break;
+    }
+    
+
+[text] () 
+
+This simply adds the text to an array if the array is there. We have header
+text and link text. Since links may be in headers, we have two separate text
+trackers. 
+
+    if (htext) {
+        htext.push(node.literal);
+    }
+    if (ltext) {
+        ltext.push(node.literal);
     }
 
 [heading]()
 
-Headings create blocks. We emit an event to say we found one.
+Headings create blocks. We emit an event to say we found one. We collect the
+text as we go with the text and then join them when ready. 
 
-    function (text, level) {
-        gcd.emit("heading found:"+level+":"+file,text);
-        return text;
+    if (entering) {
+        htext = [];
+    } else {
+        gcd.emit("heading found:"+node.level+":"+file, htext.join(""));
+        htext = false;
     }
     
 [code]()
@@ -677,13 +726,15 @@ Headings create blocks. We emit an event to say we found one.
 We emit found code blocks with optional language. These should be stored and
 concatenated as need be. 
 
-    function (code, lang) {
-        if (lang) {
-            gcd.emit("code block found:"+lang+":"+file,code);
-        } else {
-            gcd.emit("code block found:"+ file, code);
-        }
-        return code;
+    lang = node.info;
+    code = node.literal || '';
+    if (code[code.length -1] === "\n") {
+        code = code.slice(0,-1);
+    }
+    if (lang) {
+        gcd.emit("code block found:"+lang+":"+file, code);
+    } else {
+        gcd.emit("code block found:"+ file, code);
     }
 
 [link]() 
@@ -703,30 +754,34 @@ Links may be directives if one of the following things occur:
 Return the text in case it is included in a header; only the link text will be
 in the heading then. 
 
-    function (href, title, text) {
-        var ind;
-        var pipes, middle;
+    if (entering) {
+        ltext = [];
+    } else {
+        href = node.destination;
+        title = node.title;
+        ltext = ltext.join('');
+        
         if (title) {
             title = title.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
         }   
         if ((!href) && (!title)) {
-            gcd.emit("switch found:"+file, [text, ""]);
+            gcd.emit("switch found:"+file, [ltext, ""]);
         } else if (title[0] === ":") {
             ind = 0;
             _":before pipe"
             if (middle) {
-                text += "." + middle.toLowerCase();    
+                ltext += "." + middle.toLowerCase();    
             }
-            gcd.emit("switch found:" + file, [text,pipes]);
+            gcd.emit("switch found:" + file, [ltext,pipes]);
         } else if ( (ind = title.indexOf(":")) !== -1) {
             gcd.emit("directive found:" + 
                title.slice(0,ind).trim().toLowerCase() + ":" + file, 
-                { link : text,
+                { link : ltext,
                  input : title.slice(ind+1),
                  href: href, 
                  cur: doc.curname});
         }
-        return text;
+        ltext = false;
     }
 
 [before pipe]()
@@ -752,12 +807,14 @@ pipe parsings, one that got stripped by the title matching of links.
     }
 
 
+
+
 ## Ready to start compiling blocks
 
 We will compile each block once the parsing is done. 
 
-To exclude a block from the compiling phase, use the directive `exclude block`
-at the end of the heading block. 
+To exclude a block from the compiling phase, use the directives block off and
+later block on to turn the block back on. 
 
     parsing done --> list blocks to compile
     var file = evObj.pieces[0];
@@ -895,7 +952,11 @@ decide if there are any and how many. If there are, then we need to cut a
 fragment off pre slashes. Next, we figure out if the underscore is escaped and
 replace any backslashes that have been escaped. With one slash, we continue
 the loop ignoring all that has been.  We subtract 2 from ind since we already
-incremented for smooth continuity. 
+incremented for smooth continuity.
+
+Note that with commonmark, `\_` will be reported as `_` to the lit pro doc.
+That is in commonmark, backslash underscore translates to underscore. So to
+actually escape the underscore, we need to use two backslashes: `\\_`.  
 
      place = ind-2;
      slashcount = 0;
@@ -2899,7 +2960,7 @@ The log array should be cleared between tests.
     var equalizer = _"equalizer";
 
     var testfiles = [ 
-       /**/  
+       /*i*/
        "first.md", 
         "eval.md",
         "sub.md",
@@ -2908,7 +2969,7 @@ The log array should be cleared between tests.
         "switch.md",
         "codeblocks.md",
         "indents.md",
-        "savepipe.md",
+        "savepipe.md",  
         "log.md",
         "load.md",
         "asynceval.md",
@@ -2922,7 +2983,6 @@ The log array should be cleared between tests.
         "reports.md",
         "erroreval.md",
         "scopeexists.md",
-        "failure.md",
         "subindent.md",
         "linkquotes.md"
     ];
@@ -3018,7 +3078,7 @@ process the inputs.
 
           //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
-          // setTimeout( function () {console.log(folder.scopes)}, 100);
+           //setTimeout( function () {console.log(folder.scopes)}, 100);
 
     }
 
@@ -3467,9 +3527,6 @@ imagine. See `tests/h5.md` for the test examples.
 ## TODO
 
 
-Investigate quotes in titles. It looks like marked might escape single quotes
-though backticks work. 
-
 For the waiting, I think it should be possible to get the actual snippet it
 pertains to. It would also be good to detect recursive cycles and report them,
 e.g., a section that points to itself. 
@@ -3555,11 +3612,11 @@ The requisite npm package file.
       },
       "dependencies": {
         "event-when": "^0.7.1",
-        "marked": "^0.3.3",
+        "commonmark": "^0.17.1",
         "string.fromcodepoint": "^0.2.1"
       },
       "devDependencies" : {
-        "tape": "^3.0.3"
+        "tape": "^3.5.0"
       },
       "scripts" : { 
         "test" : "node ./test.js"
@@ -3576,17 +3633,12 @@ The requisite npm package file.
 ## npmignore
 
 
-    archive
     tests
     test.js
     travis.yml
-    examples
     ghpages
-    fixed_examples
-    temp
     node_modules
     *.md
-    mon.sh
 
 
 ## Travis

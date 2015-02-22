@@ -120,7 +120,7 @@ var testrunner = function (file) {
     
           //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
-          // setTimeout( function () {console.log(folder.scopes)}, 100);
+           //setTimeout( function () {console.log(folder.scopes)}, 100);
     
     };
 
@@ -134,7 +134,7 @@ var equalizer = function (t, out) {
     };
 
 var testfiles = [ 
-   /**/  
+   /*i*/
    "first.md", 
     "eval.md",
     "sub.md",
@@ -143,7 +143,7 @@ var testfiles = [
     "switch.md",
     "codeblocks.md",
     "indents.md",
-    "savepipe.md",
+    "savepipe.md",  
     "log.md",
     "load.md",
     "asynceval.md",
@@ -157,7 +157,6 @@ var testfiles = [
     "reports.md",
     "erroreval.md",
     "scopeexists.md",
-    "failure.md",
     "subindent.md",
     "linkquotes.md"
 ];

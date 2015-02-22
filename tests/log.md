@@ -19,7 +19,7 @@ Just some stuff
     great sound
     _":cool|log dude, to"
 
-[hi:start\:1\:0](# "log:")
+[hi:start\\:1\\:0](# "log:")
 
 [cool]()
 
