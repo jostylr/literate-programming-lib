@@ -6,9 +6,9 @@ We want to have multiple files accessing each other's stuff.
 
 [s](second "load:")
 
-[t](# "load:third")
+[t](third "load:abc")
 
-[out](# "save:")
+[out](# "save:utf-16")
 
 
     This is a great setup
@@ -18,6 +18,7 @@ We want to have multiple files accessing each other's stuff.
     _"t::rickets | sub !, c"
 
     _"t::last:sound"
+
 
 ## Sound
 

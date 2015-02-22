@@ -796,19 +796,26 @@ Folder.commands = {   eval : sync(function ( input, args ) {
             }, "cat")
     };
 Folder.directives = {   save : function (args) {
-        var ind; 
         var doc = this;
         var colon = doc.colon;
         var gcd = doc.gcd;
         var savename = doc.colon.escape(args.link);
         var title = args.input;
-        var start = args.href.slice(1).replace(/-/g, " ").
-            trim().toLowerCase();
+    
+        var options, start, ind;
+        if ( args.href[0] === "#") {
+            start = args.href.slice(1).replace(/-/g, " ");
+        } else {
+            start = args.href;
+        }
+        start = start.trim().toLowerCase();
+        
         ind = title.indexOf("|");
         if (ind === -1) {
-            start += title.trim();
+            options = title.trim();
+            title = "";
         } else {
-            start += title.slice(0,ind).trim();
+            options = title.slice(0,ind).trim();
             title = title.slice(ind+1);
         }
         
@@ -817,29 +824,32 @@ Folder.directives = {   save : function (args) {
         }
         
         start = doc.colon.escape(start);
-        
-        var emitname = "for save:" + doc.file + ":" + savename; 
     
-       gcd.emit("waiting for:saving file:" + savename + ":from:" + doc.file, 
-            ["file ready:" + savename, "save", savename, doc.file, start]);
+        var emitname = "for save:" + doc.file + ":" + savename;
     
-        var f = function (data) {
-            // doc.store(savename, data);
-            gcd.emit("file ready:" + savename, data);
-        };
-        f._label = "save;;" + savename;
+        gcd.scope(savename, options);
         
-        if (title) {
-            title = title + '"';
-            gcd.once("text ready:" + emitname, f);
-            
-            doc.pipeParsing(title, 0, '"', emitname);
     
-        } else {
-           gcd.once("text ready:" + emitname + colon.v + "0", f); 
-        }
+        gcd.emit("waiting for:saving file:" + savename + ":from:" + doc.file, 
+             ["file ready:" + savename, "save", savename, doc.file, start]);
+    
+         var f = function (data) {
+             // doc.store(savename, data);
+             gcd.emit("file ready:" + savename, data);
+         };
+         f._label = "save;;" + savename;
         
-        doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
+          if (title) {
+              title = title + '"';
+              gcd.once("text ready:" + emitname, f);
+             
+              doc.pipeParsing(title, 0, '"', emitname);
+         
+          } else {
+             gcd.once("text ready:" + emitname + colon.v + "0", f); 
+          }
+          
+          doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
     
     },
         newscope : function (args) {
@@ -876,19 +886,26 @@ Folder.directives = {   save : function (args) {
             
             },
         out : function (args) {
-                var ind; 
                 var doc = this;
                 var colon = doc.colon;
                 var gcd = doc.gcd;
                 var outname = args.link;
                 var title = args.input;
-                var start = args.href.slice(1).replace(/-/g, " ").
-                    trim().toLowerCase();
+                
+                var options, start, ind;
+                if ( args.href[0] === "#") {
+                    start = args.href.slice(1).replace(/-/g, " ");
+                } else {
+                    start = args.href;
+                }
+                start = start.trim().toLowerCase();
+                
                 ind = title.indexOf("|");
                 if (ind === -1) {
-                    start += title.trim();
+                    options = title.trim();
+                    title = "";
                 } else {
-                    start += title.slice(0,ind).trim();
+                    options = title.slice(0,ind).trim();
                     title = title.slice(ind+1);
                 }
                 
@@ -898,9 +915,10 @@ Folder.directives = {   save : function (args) {
                 
                 start = doc.colon.escape(start);
                 
-            
                 var emitname = "for out:" + doc.file + ":" + 
                     doc.colon.escape(outname);
+            
+                gcd.scope(outname, options);
             
                 gcd.emit("waiting for:dumping out:" + outname, 
                     [emitname, outname, doc.file, start]  );
@@ -911,27 +929,30 @@ Folder.directives = {   save : function (args) {
                 };
                 f._label = "out;;" + outname;
                 
-                if (title) {
-                    title = title + '"';
-                    gcd.once("text ready:" + emitname, f);
+                 if (title) {
+                     title = title + '"';
+                     gcd.once("text ready:" + emitname, f);
                     
-                    doc.pipeParsing(title, 0, '"', emitname);
-            
-                } else {
-                   gcd.once("text ready:" + emitname + colon.v + "0", f); 
-                }
+                     doc.pipeParsing(title, 0, '"', emitname);
                 
-                doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
+                 } else {
+                    gcd.once("text ready:" + emitname + colon.v + "0", f); 
+                 }
+                 
+                 doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
             
             },
         load: function (args) {
                 var doc = this;
                 var gcd = doc.gcd;
                 var folder = doc.parent;
-                var url = args.input.trim() || args.href.trim();
+                var url = args.href.trim();
+                var options = args.input;
                 var urlesc = folder.colon.escape(url);
                 var nickname = doc.colon.escape(args.link.trim());
                 
+                gcd.scope(urlesc, options);
+            
                 if (nickname) {
                     if (doc.scopes.hasOwnProperty(nickname) ) {
                         gcd.emit("error:scope name already exists:" + 

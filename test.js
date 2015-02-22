@@ -118,6 +118,10 @@ var testrunner = function (file) {
                 }
             }
     
+          /*setTimeout( function () {
+            console.log(folder.reportwaits().join("\n"));
+          }); */
+    
           //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
           // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
@@ -125,7 +129,8 @@ var testrunner = function (file) {
     };
 
 var equalizer = function (t, out) {
-        return function (text) {
+        return function (text, evObj) {
+            var gcd = evObj.emitter;
             if (text !== out) {
                 console.log(text + "\n---\n" + out);
             }

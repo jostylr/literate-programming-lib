@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.1.0")
+# [literate-programming-lib](# "version:1.2.0")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -2535,42 +2535,50 @@ for saving as well.
 ### Save
 
 We save it in vars of the document with the name in the link. The href tells
-us where to begin. The 
+us where to begin. The title gives us options before the first pipe while
+after the pipe, we get commands to act on the sections. 
 
 
     function (args) {
-        var ind; 
         var doc = this;
         var colon = doc.colon;
         var gcd = doc.gcd;
         var savename = doc.colon.escape(args.link);
         var title = args.input;
+
         _":deal with start"
-        
-        var emitname = "for save:" + doc.file + ":" + savename; 
 
-       gcd.emit("waiting for:saving file:" + savename + ":from:" + doc.file, 
-            ["file ready:" + savename, "save", savename, doc.file, start]);
+        var emitname = "for save:" + doc.file + ":" + savename;
 
-        var f = function (data) {
-            // doc.store(savename, data);
-            gcd.emit("file ready:" + savename, data);
-        };
-        f._label = "save;;" + savename;
+        gcd.scope(savename, options);
         
-        if (title) {
-            title = title + '"';
-            gcd.once("text ready:" + emitname, f);
-            
-            doc.pipeParsing(title, 0, '"', emitname);
 
-        } else {
-           gcd.once("text ready:" + emitname + colon.v + "0", f); 
-        }
+        gcd.emit("waiting for:saving file:" + savename + ":from:" + doc.file, 
+             ["file ready:" + savename, "save", savename, doc.file, start]);
+
+         var f = function (data) {
+             // doc.store(savename, data);
+             gcd.emit("file ready:" + savename, data);
+         };
+         f._label = "save;;" + savename;
         
-        doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
+         _":process"
 
     }
+
+[process]() 
+
+     if (title) {
+         title = title + '"';
+         gcd.once("text ready:" + emitname, f);
+        
+         doc.pipeParsing(title, 0, '"', emitname);
+
+     } else {
+        gcd.once("text ready:" + emitname + colon.v + "0", f); 
+     }
+     
+     doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
 
 [deal with start]()
 
@@ -2586,13 +2594,20 @@ the href post `#`. Also, if the name comes out to nothing, then we use the curre
 block being parsed.  
 
 
-    var start = args.href.slice(1).replace(/-/g, " ").
-        trim().toLowerCase();
+    var options, start, ind;
+    if ( args.href[0] === "#") {
+        start = args.href.slice(1).replace(/-/g, " ");
+    } else {
+        start = args.href;
+    }
+    start = start.trim().toLowerCase();
+
     ind = title.indexOf("|");
     if (ind === -1) {
-        start += title.trim();
+        options = title.trim();
+        title = "";
     } else {
-        start += title.slice(0,ind).trim();
+        options = title.slice(0,ind).trim();
         title = title.slice(ind+1);
     }
     
@@ -2624,22 +2639,21 @@ abstract this out a bit. Need to just pass along the f and the name of out or
 save, etc. 
 
     function (args) {
-        var ind; 
         var doc = this;
         var colon = doc.colon;
         var gcd = doc.gcd;
         var outname = args.link;
         var title = args.input;
-        _":deal with start"
         
-
+        _"save:deal with start"
+        
         var emitname = "for out:" + doc.file + ":" + 
             doc.colon.escape(outname);
 
+        gcd.scope(outname, options);
+
         gcd.emit("waiting for:dumping out:" + outname, 
             [emitname, outname, doc.file, start]  );
-
-
 
         var f = function (data) {
             gcd.emit(emitname, data);
@@ -2647,49 +2661,10 @@ save, etc.
         };
         f._label = "out;;" + outname;
         
-        if (title) {
-            title = title + '"';
-            gcd.once("text ready:" + emitname, f);
-            
-            doc.pipeParsing(title, 0, '"', emitname);
-
-        } else {
-           gcd.once("text ready:" + emitname + colon.v + "0", f); 
-        }
-        
-        doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
+        _"save:process"
 
     }
 
-[deal with start]()
-
-This is dealing with where to start, getting the text. It first comes from the
-href, then anything between the first colon and the pipe. 
-
-To get something from another context, one can simply put it after the first
-colon
-
-
-After the `:` and before the first `|`, that text is trimmed and then added to
-the href post `#`. Also, if the name comes out to nothing, then we use the current
-block being parsed.  
-
-
-    var start = args.href.slice(1).replace(/-/g, " ").
-        trim().toLowerCase();
-    ind = title.indexOf("|");
-    if (ind === -1) {
-        start += title.trim();
-    } else {
-        start += title.slice(0,ind).trim();
-        title = title.slice(ind+1);
-    }
-    
-    if (!start) {
-        start = args.cur;
-    }
-
-    start = doc.colon.escape(start);
 
 [reporter]() 
 
@@ -2807,17 +2782,20 @@ while the nickname is strictly internal and uses the local colon escape.
 Somehow I get the feelng I have made a mess of this escape stuff; it should
 not have been so flexible.
 
-`[alias](url "load:")`
+`[alias](url "load:options")`
 
 
     function (args) {
         var doc = this;
         var gcd = doc.gcd;
         var folder = doc.parent;
-        var url = args.input.trim() || args.href.trim();
+        var url = args.href.trim();
+        var options = args.input;
         var urlesc = folder.colon.escape(url);
         var nickname = doc.colon.escape(args.link.trim());
         
+        gcd.scope(urlesc, options);
+
         if (nickname) {
             if (doc.scopes.hasOwnProperty(nickname) ) {
                 gcd.emit("error:scope name already exists:" + 
@@ -3212,6 +3190,10 @@ process the inputs.
                 }
             }
 
+          /*setTimeout( function () {
+            console.log(folder.reportwaits().join("\n"));
+          }); */
+
           //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
           // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
@@ -3269,7 +3251,8 @@ This is just a little function constructor to close around the handler for the
 output file name. 
 
     function (t, out) {
-        return function (text) {
+        return function (text, evObj) {
+            var gcd = evObj.emitter;
             if (text !== out) {
                 console.log(text + "\n---\n" + out);
             }
