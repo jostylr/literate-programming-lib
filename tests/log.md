@@ -40,7 +40,7 @@ COOL
 !EVENT: ready to stitch:hi:start⫶cool DATA: 
 !EVENT: text ready:hi:start⫶1⫶0⫶0 DATA: dude
 !EVENT: text ready:hi:start⫶1⫶0⫶1 DATA: to
-!EVENT: waiting for:minor:hi:start⫶cool DATA: minor ready:hi:start⫶cool
+!EVENT: waiting for:minor:hi:start⫶cool DATA: minor ready:hi:start⫶cool,minor,hi:start⫶cool
 !EVENT: minor ready:hi:start⫶cool DATA: COOL
 !EVENT: text stored:hi:start⫶cool DATA: COOL
 !EVENT: text ready:hi:start⫶cool DATA: COOL

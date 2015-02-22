@@ -120,7 +120,7 @@ var testrunner = function (file) {
     
           //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
-           //setTimeout( function () {console.log(folder.scopes)}, 100);
+          // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
     
     };
 
@@ -134,8 +134,8 @@ var equalizer = function (t, out) {
     };
 
 var testfiles = [ 
-   /*i*/
-   "first.md", 
+   /**/ 
+   "first.md",
     "eval.md",
     "sub.md",
     "async.md",
@@ -158,7 +158,8 @@ var testfiles = [
     "erroreval.md",
     "scopeexists.md",
     "subindent.md",
-    "linkquotes.md"
+    "linkquotes.md",
+    "cycle.md"
 ];
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {

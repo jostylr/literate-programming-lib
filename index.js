@@ -27,12 +27,15 @@ var Folder = function (actions) {
         this.commands = Object.create(Folder.commands);
         this.directives = Object.create(Folder.directives);
         this.reports = {};
+        this.recording = {};
+        this.reporters = Folder.reporters;
         
         this.maker = {   'emit text ready' : function (doc, name) {
                         var gcd = doc.gcd;
             
                         var evt =  "text ready:" + name;
-                        gcd.emit("waiting for:text:"  + name, evt);
+                        gcd.emit("waiting for:text:"  + name, 
+                            [evt, "text", name]);
                         var f = function (text) {
                             gcd.emit(evt, text);
                         };
@@ -52,7 +55,8 @@ var Folder = function (actions) {
                         var gcd = doc.gcd;
             
                         var evt = "text ready:" + fname;
-                        gcd.emit("waiting for:text:"  + fname, evt);
+                        gcd.emit("waiting for:text:"  + fname, 
+                            [evt, "text", fname]);
                         var f = function (text) {
                             doc.store(name, text);
                             gcd.emit(evt, text);
@@ -64,7 +68,8 @@ var Folder = function (actions) {
                         var gcd = doc.gcd;
             
                         var evt = "location filled:" + lname;
-                        gcd.emit("waiting for:location:"  + lname, evt);
+                        gcd.emit("waiting for:location:"  + lname,
+                            [evt, "location", lname]);
             
                         var f = function (subtext) {
                             subtext = doc.indent(subtext, indents[loc]);
@@ -78,7 +83,8 @@ var Folder = function (actions) {
                         var gcd = doc.gcd;
             
                         var evt = "minor ready:" + name;
-                        gcd.emit("waiting for:minor:" + name, evt);
+                        gcd.emit("waiting for:minor:" + name,
+                            [evt, "minor", name]);
             
                         var f = function () {
                             gcd.emit(evt, frags.join(""));
@@ -90,7 +96,8 @@ var Folder = function (actions) {
                         var gcd = doc.gcd;
             
                         var evt = "text ready:" + name;
-                        gcd.emit("waiting for:text:"  + name, evt);
+                        gcd.emit("waiting for:text:"  + name,
+                            [evt, "text", name]);
             
                         var f = function () {
                             var text = frags.join("");
@@ -149,12 +156,11 @@ var Folder = function (actions) {
                 
                 var fun = doc.commands[command];
                 
-                
                 if (fun) {
                     fun.apply(doc, [input, args, name, command]);
                 } else {
                     gcd.emit("waiting for:command:" + command, 
-                        "command defined:" + command);
+                        ["command defined:" + command, "cmd", command, name]);
                     han = function () {
                         fun = doc.commands[command];
                         if (fun) {
@@ -303,10 +309,10 @@ var Folder = function (actions) {
                  
                 var reports = gcd.parent.reports; 
                 
-                var evt = data;
+                var evt = data[0];
                 var msg = evObj.pieces.slice(0,-1).reverse().join(":");
                 
-                reports[msg] = evt;
+                reports[msg] = data.slice(1);
                 gcd.once(evt, function () {
                     delete reports[msg];
                 });
@@ -477,7 +483,7 @@ var sync = Folder.prototype.wrapSync = function (fun, label) {
                 var out = fun.call(doc, input, args);
                 gcd.emit("text ready:" + name, out); 
             } catch (e) {
-                console.log(e);
+                doc.log(e);
                 gcd.emit("error:command execution:" + name, 
                     [e, input, args, command]); 
             }
@@ -498,7 +504,7 @@ var async = Folder.prototype.wrapAsync = function (fun, label) {
     
             var callback = function (err, data) {
                 if (err) {
-                    console.log(err);
+                    doc.log(err);
                     gcd.emit("error:command execution:" + name, 
                         [err, input, args, command]);
                 } else {
@@ -572,14 +578,83 @@ Folder.prototype.subnameTransform = function (subname, lname) {
     
     };
 
+Folder.reporters = {
+    save : function (args) {
+            var name = this.recording[args[2]] || args[2];
+            return "NOT SAVED: " + args[0] + " AS REQUESTED BY: " + args[1] + 
+                " NEED: " + name;
+        },
+    out : function (args) {
+            var name = this.recording[args[2]] || args[2];
+            return "NOT REPORTED OUT: " + args[0] + " AS REQUESTED BY: " + args[1] + 
+                "\nNEED: " + name;
+        },
+    "command defined" : function (args) {
+            var name = this.recording[args[2]] || args[2];
+            return "COMMAND NOT DEFINED: " + args[0] + " AS REQUESTED IN: " + args[1] + 
+                "\nNEED: " + name;
+        },
+    "scope exists" : function (data) {
+            if (data[3]) {
+                return "NEED SCOPE: " + data[0] + " FOR RETRIEVING: " + data[2] + 
+                    " IN FILE: " + data[1]; 
+            } else {
+                return "NEED SCOPE: " + data[0] + " FOR SAVING: " + data[2] + 
+                    " IN FILE: " + data[1]; 
+            }
+        },
+    "text" : function (data) {
+            var hint = this.recording[data[0]];
+            var parts = data[0].split(":").reverse();
+            var block = parts[0].split(this.colon.v)[0];
+            if (hint) {
+                return "PROBLEM WITH:" + hint + " IN:" + block + 
+                    " FIlE:" + parts[1]; 
+            } 
+        
+        },
+    "minor" : function (data) {
+            var hint = this.recording[data[0]];
+            var parts = data[0].split(":").reverse();
+            var block = parts[0].split(this.colon.v)[0];
+            if (hint) {
+                return "PROBLEM WITH:" + hint + " IN:" + block + 
+                    " FIlE:" + parts[1]; 
+            } 
+        
+        },
+    "retrieval" : function (data) {
+            return "NEED VAR: " + data[0] + "FROM: " + data[1];
+        },
+    "cmd" : function (data) {
+            var ind = data[1].lastIndexOf(this.colon.v);
+            if (ind === -1) {
+                ind = data[1].length;
+            }
+            var name = data[1].slice(0, ind);
+            var hint = this.recording[name];
+            return "NEED COMMAND:" + data[0] + " FOR: " + hint; 
+        }
+
+};
+
 Folder.prototype.reportwaits = function () {
         var report = this.reports;
-        var arr, msg;
+        var reporters = this.reporters;
+        var arr, msg, data, temp;
     
         arr = [];
         
         for (msg in report) {
-            arr.push("NEED:" + report[msg] + " TODO: " + msg);
+            data = report[msg];
+            if (reporters.hasOwnProperty(data[0]) ) {
+                temp = reporters[data[0]].call(this, data.slice(1) );
+                if (temp) {
+                    arr.push(temp);
+                } else { 
+                   // console.log(msg, data);
+                }
+            }
         }
     
         return arr; 
@@ -746,7 +821,7 @@ Folder.directives = {   save : function (args) {
         var emitname = "for save:" + doc.file + ":" + savename; 
     
        gcd.emit("waiting for:saving file:" + savename + ":from:" + doc.file, 
-            "file ready:" + savename);
+            ["file ready:" + savename, "save", savename, doc.file, start]);
     
         var f = function (data) {
             // doc.store(savename, data);
@@ -828,7 +903,7 @@ Folder.directives = {   save : function (args) {
                     doc.colon.escape(outname);
             
                 gcd.emit("waiting for:dumping out:" + outname, 
-                    emitname);
+                    [emitname, outname, doc.file, start]  );
             
                 var f = function (data) {
                     gcd.emit(emitname, data);
@@ -911,6 +986,10 @@ Folder.directives = {   save : function (args) {
                 }
                 
                 start = doc.colon.escape(start);
+            
+                gcd.emit("waiting for:command definition:" + cmdname, 
+                    ["command defined:"+cmdname, cmdname, doc.file, start]  );
+            
                
                 var han = function (block) {
                     var f; 
@@ -1048,7 +1127,7 @@ Doc.prototype.retrieve = function (name, cb) {
             return ;
         } else {
             gcd.emit("waiting for:retrieval:" + doc.file, 
-                "text stored:" + file + ":" + varname);
+                ["text stored:" + file + ":" + varname, "retrieval", file, varname]);
             f = function () {
                 doc.retrieve(name, cb);
             };
@@ -1057,8 +1136,9 @@ Doc.prototype.retrieve = function (name, cb) {
             return ;
         }
     } else {
-        gcd.emit("waiting for:retrieval:" + cb+ ":need:" + name, 
-            "scope exists:" + file);
+        gcd.emit("waiting for:retrieval:" + cb+ "need:" + name, 
+            ["scope exists:" + file, "scope exists",  file, doc.file, varname,
+            true]);
         f = function () {
             doc.retrieve(name, cb);
         };
@@ -1166,7 +1246,7 @@ Doc.prototype.blockCompiling = function (block, file, bname) {
         var gcd = doc.gcd;
         var colon = doc.colon;
         
-        var found, quote, place, qfrag, lname, slashcount;
+        var  quote, place, qfrag, lname, slashcount;
         var name = file + ":" + bname;
         var ind = 0;
         var loc = 0; // location in fragment array 
@@ -1181,7 +1261,6 @@ Doc.prototype.blockCompiling = function (block, file, bname) {
                 loc += 1;
                 break;
             } else {
-                found = ind;
                 ind += 1;
     
                 if (block[ind].match(/['"`]/)) {
@@ -1234,8 +1313,12 @@ Doc.prototype.blockCompiling = function (block, file, bname) {
                 loc += 1;
             
     
-                last = ind = doc.substituteParsing(block, ind+1, quote, lname);
-                
+                last = doc.substituteParsing(block, ind+1, quote, lname);
+               
+                doc.parent.recording[lname] = block.slice(ind-1, last);
+    
+                ind = last;
+    
             }
         }
         if (bname.indexOf(colon.v) !== -1) {
@@ -1273,6 +1356,7 @@ Doc.prototype.substituteParsing = function (text, ind, quote, lname ) {
                 //index already points at after quote so do not increment
                 gcd.once("text ready:" + lname + colon.v + "0",
                     doc.maker['emit text ready'](doc, lname));
+                doc.parent.recording[ lname + colon.v + "0"] = match[1];
             } else {
                 gcd.emit("failure in parsing:" + lname, ind);
                 return ind;
@@ -1300,7 +1384,7 @@ Doc.prototype.pipeParsing = function (text, ind, quote, name) {
        
     
         var chr, argument, argnum, match, command, 
-            comname, nextname, aname, result ;
+            comname, nextname, aname, result, start, orig=ind ;
         var n = text.length;
         var comnum = 0;
         var comreg = doc.regexs.command[quote];
@@ -1329,14 +1413,17 @@ Doc.prototype.pipeParsing = function (text, ind, quote, name) {
                 if (chr === quote) {
                     gcd.once("text ready:" + nextname, 
                         doc.maker['emit text ready'](doc, name));
+                    doc.parent.recording[nextname] = name;
+                    doc.parent.recording[nextname] = text.slice(orig, ind);
                     gcd.emit("command parsed:" + comname, [doc.file, command, nextname]);
                     break;
                 } else if (chr === "|") {
+                    doc.parent.recording[nextname] = text.slice(orig, ind);
                     gcd.emit("command parsed:" + comname, [doc.file, command, nextname]);
                     continue;
                 }
             } else {
-                gcd.emit("failure in parsing:" + name, ind);
+                gcd.emit("failure in parsing:" + name, text.slice(orig, ind));
                 return ind+1;
                 
             }
@@ -1349,52 +1436,61 @@ Doc.prototype.pipeParsing = function (text, ind, quote, name) {
                 wsreg.lastIndex = ind;
                 wsreg.exec(text);
                 ind = wsreg.lastIndex;
-                if (text[ind] === "\u005F") {
-                    if (['"', "'", "`"].indexOf(text[ind+1]) !== -1) {
-                    
+                if ( (text[ind] === "\u005F") && 
+                    (['"', "'", "`"].indexOf(text[ind+1]) !== -1) )  {
+                        start = ind;
                         ind = doc.substituteParsing(text, ind+2, text[ind+1], aname);
-                        continue;
-                    }
-                }
-                // no substitute, just an argument. 
-                argument = '';
-                while (ind < n) {
-                    argreg.lastIndex = ind;
-                    match = argreg.exec(text);
-                    if (match) {
-                        ind = argreg.lastIndex;
-                        argument += match[1];
-                        chr = match[2];
-                        if (chr === "\\") {
-                           result = doc.backslash(text, ind, doc.indicator );
-                           ind = result[1];
-                           argument += result[0];
-                           continue;
+                        doc.parent.recording[aname] =  text.slice(start, ind);
+                        wsreg.lastIndex = ind;
+                        wsreg.exec(text);
+                        ind = wsreg.lastIndex;
+                        chr = text[ind];
+                        ind += 1;
+                } else {
+                    // no substitute, just an argument. 
+                    argument = '';
+                    while (ind < n) {
+                        argreg.lastIndex = ind;
+                        match = argreg.exec(text);
+                        if (match) {
+                            ind = argreg.lastIndex;
+                            argument += match[1];
+                            chr = match[2];
+                            if (chr === "\\") {
+                               result = doc.backslash(text, ind, doc.indicator );
+                               ind = result[1];
+                               argument += result[0];
+                               continue;
+                            } else {
+                                argument = argument.trim();
+                                argument = doc.whitespaceEscape(argument, doc.indicator);
+                                gcd.emit("text ready:" + aname, argument);
+                                break;
+                            }
                         } else {
-                            argument = argument.trim();
-                            argument = doc.whitespaceEscape(argument, doc.indicator);
-                            gcd.emit("text ready:" + aname, argument);
-                            break;
+                            gcd.emit("failure in parsing:" + name, text.slice(orig, ind));
+                            return ind+1;
+                            
                         }
-                    } else {
-                        gcd.emit("failure in parsing:" + name, ind);
-                        return ind+1;
-                        
                     }
+                    doc.parent.recording[aname] = command + colon.v + argnum + colon.v + argument;
                 }
                 if (chr === ",") {
                     argnum += 1;
                     continue;
                 } else if (chr === "|") {
+                    doc.parent.recording[nextname] = text.slice(orig, ind);
                     gcd.emit("command parsed:" + comname, [doc.file, command, nextname]);
                     break;
                 } else if (chr === quote) {
                     gcd.once("text ready:" + nextname, 
                         doc.maker['emit text ready'](doc, name));
+                    doc.parent.recording[nextname] = name;
+                    doc.parent.recording[nextname] = text.slice(orig, ind);
                     gcd.emit("command parsed:" + comname, [doc.file, command, nextname]);
                     return ind;
                 } else {
-                   gcd.emit("failure in parsing:" + name, ind);
+                   gcd.emit("failure in parsing:" + name, text.slice(orig, ind));
                    return ind+1;
                     
                 }
@@ -1500,7 +1596,8 @@ Doc.prototype.store = function (name, text) {
         var f;
         if (! scope[0]) {
             gcd.emit("waiting for:storing:" + doc.file + ":" + name,
-                "scope exists:" + scope[2]);
+                ["scope exists:" + scope[2], "scope exists",  scope[2],
+                doc.file, scope[1] ]);
             f = function () {
                 doc.store(name, text);
             };

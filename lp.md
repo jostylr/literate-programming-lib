@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.0.4")
+# [literate-programming-lib](# "version:1.1.0")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -123,9 +123,6 @@ Each doc within a folder shares all the directives and commands.
 
     Folder.prototype.parse = _"commonmark";
 
-
-Folder.prototype.parse = _"marked";
-
     Folder.prototype.newdoc = _"Make a new document";
 
     Folder.prototype.colon = _"colon";
@@ -143,6 +140,18 @@ Folder.prototype.parse = _"marked";
     var async = Folder.prototype.wrapAsync = _"Command wrapper async";
 
     Folder.prototype.subnameTransform = _"Subname Transform";
+
+    Folder.reporters = {
+        save : _"save:reporter",
+        out : _"out:reporter",
+        "command defined" : _"define directive:reporter",
+        "scope exists" : _"create global scope:reporter",
+        "text" : _"text reporter",
+        "minor" : _"text reporter",
+        "retrieval" : _"retrieval reporter",
+        "cmd" : _"command reporter"
+    
+    };
 
 
     Folder.prototype.reportwaits = _"reporting on waiting";
@@ -177,6 +186,8 @@ added. The internal basic compiling is baked in though it can be overwritten.
         this.commands = Object.create(Folder.commands);
         this.directives = Object.create(Folder.directives);
         this.reports = {};
+        this.recording = {};
+        this.reporters = Folder.reporters;
         
         this.maker = _"maker";
 
@@ -547,23 +558,21 @@ variable name.
 This is where we define the waiting function. It takes in a message to report
 for whatever is interested in checking (maybe the end of a process or in a web
 page, a user clicking on a report -- difficult since the compilation phase
-never officially ends). It also takes in an event to listen for to remove it
-from the 
+never officially ends). It also takes in an array that should be of the form
+`[event for removal, type of reporter, args for reporters...]`
 
-`waiting for:type:file:name, evt` although not necessarily (command
-definitions seem to create something different).
+`waiting for:type:file:name, [evt, reportname, args to report` 
 
-NEEDs some more work on making these messages informative. 
 
     waiting for --> wait reporting
      
     var reports = gcd.parent.reports; 
 
-    var evt = data;
+    var evt = data[0];
     var msg = evObj.pieces.slice(0,-1).reverse().join(":");
 
 
-    reports[msg] = evt;
+    reports[msg] = data.slice(1);
     gcd.once(evt, function () {
         delete reports[msg];
     });
@@ -577,15 +586,62 @@ returning an array of waiting arguments.
 
     function () {
         var report = this.reports;
-        var arr, msg;
+        var reporters = this.reporters;
+        var arr, msg, data, temp;
 
         arr = [];
         
         for (msg in report) {
-            arr.push("NEED:" + report[msg] + " TODO: " + msg);
+            data = report[msg];
+            if (reporters.hasOwnProperty(data[0]) ) {
+                temp = reporters[data[0]].call(this, data.slice(1) );
+                if (temp) {
+                    arr.push(temp);
+                } else { 
+                   // console.log(msg, data);
+                }
+            }
         }
 
         return arr; 
+    }
+
+
+### Text Reporter
+
+This function deals with text that we are waiting for. 
+
+    function (data) {
+        var hint = this.recording[data[0]];
+        var parts = data[0].split(":").reverse();
+        var block = parts[0].split(this.colon.v)[0];
+        if (hint) {
+            return "PROBLEM WITH:" + hint + " IN:" + block + 
+                " FIlE:" + parts[1]; 
+        } 
+
+    }
+
+### Retrieval Reporter
+
+This function deal with waiting for a variable to be stored. 
+
+    function (data) {
+        return "NEED VAR: " + data[0] + "FROM: " + data[1];
+    }
+
+### Command Reporter
+
+This reports on somebody waiting for a command. 
+    
+    function (data) {
+        var ind = data[1].lastIndexOf(this.colon.v);
+        if (ind === -1) {
+            ind = data[1].length;
+        }
+        var name = data[1].slice(0, ind);
+        var hint = this.recording[name];
+        return "NEED COMMAND:" + data[0] + " FOR: " + hint; 
     }
 
 ## colon
@@ -896,7 +952,7 @@ We create a stitch handler for the closures here.
         var gcd = doc.gcd;
         var colon = doc.colon;
         
-        var found, quote, place, qfrag, lname, slashcount;
+        var  quote, place, qfrag, lname, slashcount;
         var name = file + ":" + bname;
         var ind = 0;
         var loc = 0; // location in fragment array 
@@ -911,7 +967,6 @@ We create a stitch handler for the closures here.
                 loc += 1;
                 break;
             } else {
-                found = ind;
                 ind += 1;
 
                 _":check for quote"
@@ -921,8 +976,12 @@ We create a stitch handler for the closures here.
                 _":we are a go"
             
 
-                last = ind = doc.substituteParsing(block, ind+1, quote, lname);
-                
+                last = doc.substituteParsing(block, ind+1, quote, lname);
+               
+                doc.parent.recording[lname] = block.slice(ind-1, last);
+
+                ind = last;
+
             }
         }
         _":stitching"
@@ -953,10 +1012,6 @@ fragment off pre slashes. Next, we figure out if the underscore is escaped and
 replace any backslashes that have been escaped. With one slash, we continue
 the loop ignoring all that has been.  We subtract 2 from ind since we already
 incremented for smooth continuity.
-
-Note that with commonmark, `\_` will be reported as `_` to the lit pro doc.
-That is in commonmark, backslash underscore translates to underscore. So to
-actually escape the underscore, we need to use two backslashes: `\\_`.  
 
      place = ind-2;
      slashcount = 0;
@@ -1175,6 +1230,7 @@ it into command 0. If there are no commands, then command 0 is the done bit.
         //index already points at after quote so do not increment
         gcd.once("text ready:" + lname + colon.v + "0",
             doc.maker['emit text ready'](doc, lname));
+        doc.parent.recording[ lname + colon.v + "0"] = match[1];
     } else {
         gcd.emit("failure in parsing:" + lname, ind);
         return ind;
@@ -1302,7 +1358,7 @@ We need to track the command numbering for the event emitting.
        
 
         var chr, argument, argnum, match, command, 
-            comname, nextname, aname, result ;
+            comname, nextname, aname, result, start, orig=ind ;
         var n = text.length;
         var comnum = 0;
         var comreg = doc.regexs.command[quote];
@@ -1377,12 +1433,14 @@ At that point, we emit the text ready for the previous level.
 
     gcd.once("text ready:" + nextname, 
         doc.maker['emit text ready'](doc, name));
+    doc.parent.recording[nextname] = name;
     _":com parse"
 
 [com parse]()
 
 This is split off for convenience. 
 
+    doc.parent.recording[nextname] = text.slice(orig, ind);
     gcd.emit("command parsed:" + comname, [doc.file, command, nextname]);
 
     
@@ -1418,13 +1476,16 @@ but I think that leads to uncertainty. Bad enough not having parentheses.
         wsreg.lastIndex = ind;
         wsreg.exec(text);
         ind = wsreg.lastIndex;
-        if (text[ind] === "\u005F") {
+        if ( (text[ind] === "\u005F") && 
+            (['"', "'", "`"].indexOf(text[ind+1]) !== -1) )  {
             _":deal with substitute text"
-        }
-        // no substitute, just an argument. 
-        argument = '';
-        while (ind < n) {
-            _":get full argument"
+        } else {
+            // no substitute, just an argument. 
+            argument = '';
+            while (ind < n) {
+                _":get full argument"
+            }
+            doc.parent.recording[aname] = command + colon.v + argnum + colon.v + argument;
         }
         if (chr === ",") {
             argnum += 1;
@@ -1449,13 +1510,17 @@ but I think that leads to uncertainty. Bad enough not having parentheses.
 
 So if there is a quote after an underscore, then we chunk along the substitue.
 It should return the index right after the end of the subsitution part. After
-that, we try to chunk
+that, we chunk along to the next non-whitespace character. It should be a
+comma, a pipe, or a matching quote. Anything else is an error. 
 
-    if (['"', "'", "`"].indexOf(text[ind+1]) !== -1) {
-
+        start = ind;
         ind = doc.substituteParsing(text, ind+2, text[ind+1], aname);
-        continue;
-    }
+        doc.parent.recording[aname] =  text.slice(start, ind);
+        wsreg.lastIndex = ind;
+        wsreg.exec(text);
+        ind = wsreg.lastIndex;
+        chr = text[ind];
+        ind += 1;
 
 [get full argument]()
 
@@ -1495,7 +1560,7 @@ For failure, we just emit there is a failure and exit where we left off. Not a
 good state. Maybe with some testing and experiments, this could be done
 better. Incrementing index prevent possible endless loop. 
 
-    gcd.emit("failure in parsing:" + name, ind);
+    gcd.emit("failure in parsing:" + name, text.slice(orig, ind));
     return ind+1;
  
 
@@ -1515,6 +1580,11 @@ If none of those are present a backslash is returned.
 
 We return an object with the post end index in ind and the string to replace
 as chr.
+
+Note that with commonmark, `\_` will be reported as `_` to the lit pro doc.
+That is in commonmark, backslash underscore translates to underscore. So to
+actually escape the underscore, we need to use two backslashes: `\\_`.  
+
 
     function (text, ind, indicator) {
         var chr, match, num;
@@ -1706,7 +1776,8 @@ the scope exists.
 Scope is of the form `[null, varname, alias]`
 
     gcd.emit("waiting for:storing:" + doc.file + ":" + name,
-        "scope exists:" + scope[2]);
+        ["scope exists:" + scope[2], "scope exists",  scope[2],
+        doc.file, scope[1] ]);
     f = function () {
         doc.store(name, text);
     };
@@ -1782,8 +1853,9 @@ If there is no scope yet of this kind, then we listen for it to be defined and
 linked. The file var there is poorly named; it is the link name of the scope
 since the actual global scope name is not known. 
 
-    gcd.emit("waiting for:retrieval:" + cb+ ":need:" + name, 
-        "scope exists:" + file);
+    gcd.emit("waiting for:retrieval:" + cb+ "need:" + name, 
+        ["scope exists:" + file, "scope exists",  file, doc.file, varname,
+        true]);
     f = function () {
         doc.retrieve(name, cb);
     };
@@ -1798,7 +1870,7 @@ In this bit, we have no variable defined yet. So we need to listen for it. We
 will get triggered
 
     gcd.emit("waiting for:retrieval:" + doc.file, 
-        "text stored:" + file + ":" + varname);
+        ["text stored:" + file + ":" + varname, "retrieval", file, varname]);
     f = function () {
         doc.retrieve(name, cb);
     };
@@ -1883,6 +1955,22 @@ object is created.
         return scopes[name];
     }
 
+[reporter]()
+
+This deals with scope existing. 
+
+    function (data) {
+        if (data[3]) {
+            return "NEED SCOPE: " + data[0] + " FOR RETRIEVING: " + data[2] + 
+                " IN FILE: " + data[1]; 
+        } else {
+            return "NEED SCOPE: " + data[0] + " FOR SAVING: " + data[2] + 
+                " IN FILE: " + data[1]; 
+        }
+    }
+    
+
+
 ### Create Linked Scope
 
 This is where we go to create scopes. It creates an alias to another scope. It
@@ -1947,7 +2035,8 @@ them per document or folder making them accessible to manipulations.
                 var gcd = doc.gcd;
 
                 var evt =  "text ready:" + name;
-                gcd.emit("waiting for:text:"  + name, evt);
+                gcd.emit("waiting for:text:"  + name, 
+                    [evt, "text", name]);
                 var f = function (text) {
                     gcd.emit(evt, text);
                 };
@@ -1967,7 +2056,8 @@ them per document or folder making them accessible to manipulations.
                 var gcd = doc.gcd;
 
                 var evt = "text ready:" + fname;
-                gcd.emit("waiting for:text:"  + fname, evt);
+                gcd.emit("waiting for:text:"  + fname, 
+                    [evt, "text", fname]);
                 var f = function (text) {
                     doc.store(name, text);
                     gcd.emit(evt, text);
@@ -1979,7 +2069,8 @@ them per document or folder making them accessible to manipulations.
                 var gcd = doc.gcd;
 
                 var evt = "location filled:" + lname;
-                gcd.emit("waiting for:location:"  + lname, evt);
+                gcd.emit("waiting for:location:"  + lname,
+                    [evt, "location", lname]);
 
                 var f = function (subtext) {
                     subtext = doc.indent(subtext, indents[loc]);
@@ -1993,7 +2084,8 @@ them per document or folder making them accessible to manipulations.
                 var gcd = doc.gcd;
 
                 var evt = "minor ready:" + name;
-                gcd.emit("waiting for:minor:" + name, evt);
+                gcd.emit("waiting for:minor:" + name,
+                    [evt, "minor", name]);
 
                 var f = function () {
                     gcd.emit(evt, frags.join(""));
@@ -2005,7 +2097,8 @@ them per document or folder making them accessible to manipulations.
                 var gcd = doc.gcd;
 
                 var evt = "text ready:" + name;
-                gcd.emit("waiting for:text:"  + name, evt);
+                gcd.emit("waiting for:text:"  + name,
+                    [evt, "text", name]);
 
                 var f = function () {
                     var text = frags.join("");
@@ -2051,13 +2144,11 @@ arguments. The third argument is the name to emit when all is done.
 
     var fun = doc.commands[command];
 
-    
-
     if (fun) {
         fun.apply(doc, [input, args, name, command]);
     } else {
         gcd.emit("waiting for:command:" + command, 
-            "command defined:" + command);
+            ["command defined:" + command, "cmd", command, name]);
         han = function () {
             fun = doc.commands[command];
             if (fun) {
@@ -2126,7 +2217,7 @@ executing.
                 var out = fun.call(doc, input, args);
                 gcd.emit("text ready:" + name, out); 
             } catch (e) {
-                console.log(e);
+                doc.log(e);
                 gcd.emit("error:command execution:" + name, 
                     [e, input, args, command]); 
             }
@@ -2156,7 +2247,7 @@ receive `err, data` where data is the text to emit.
 
             var callback = function (err, data) {
                 if (err) {
-                    console.log(err);
+                    doc.log(err);
                     gcd.emit("error:command execution:" + name, 
                         [err, input, args, command]);
                 } else {
@@ -2459,7 +2550,7 @@ us where to begin. The
         var emitname = "for save:" + doc.file + ":" + savename; 
 
        gcd.emit("waiting for:saving file:" + savename + ":from:" + doc.file, 
-            "file ready:" + savename);
+            ["file ready:" + savename, "save", savename, doc.file, start]);
 
         var f = function (data) {
             // doc.store(savename, data);
@@ -2511,6 +2602,19 @@ block being parsed.
 
     start = doc.colon.escape(start);
 
+[reporter]() 
+
+Here we make the function that will give the report when a save does not
+happen. This is very important. 
+
+The args should `filename to save, section to wait for`. 
+
+    function (args) {
+        var name = this.recording[args[2]] || args[2];
+        return "NOT SAVED: " + args[0] + " AS REQUESTED BY: " + args[1] + 
+            " NEED: " + name;
+    }
+
 ### Out
 
 This is the same as save, except it just ouputs it to the console via doc.log. 
@@ -2533,7 +2637,7 @@ save, etc.
             doc.colon.escape(outname);
 
         gcd.emit("waiting for:dumping out:" + outname, 
-            emitname);
+            [emitname, outname, doc.file, start]  );
 
 
 
@@ -2586,6 +2690,20 @@ block being parsed.
     }
 
     start = doc.colon.escape(start);
+
+[reporter]() 
+
+Here we make the function that will give the report when a save does not
+happen. This is very important. 
+
+The args should `outname, file, section to wait for`. 
+
+    function (args) {
+        var name = this.recording[args[2]] || args[2];
+        return "NOT REPORTED OUT: " + args[0] + " AS REQUESTED BY: " + args[1] + 
+            "\nNEED: " + name;
+    }
+
 
 
 ### New scope
@@ -2752,6 +2870,10 @@ input.
         var wrapper; 
       
         _":deal with start"
+
+        gcd.emit("waiting for:command definition:" + cmdname, 
+            ["command defined:"+cmdname, cmdname, doc.file, start]  );
+
        
         var han = function (block) {
             var f; 
@@ -2824,6 +2946,18 @@ block being parsed.
 
     start = doc.colon.escape(start);
 
+[reporter]() 
+
+Here we make the function that will give the report when a save does not
+happen. This is very important. 
+
+The args should `filename to save, section to wait for`. 
+
+    function (args) {
+        var name = this.recording[args[2]] || args[2];
+        return "COMMAND NOT DEFINED: " + args[0] + " AS REQUESTED IN: " + args[1] + 
+            "\nNEED: " + name;
+    }
 
 ### dir eval
 
@@ -2851,6 +2985,7 @@ marked parsing stage.
         }
         
     }
+
 
 
 ### Block off
@@ -2960,8 +3095,8 @@ The log array should be cleared between tests.
     var equalizer = _"equalizer";
 
     var testfiles = [ 
-       /*i*/
-       "first.md", 
+       /**/ 
+       "first.md",
         "eval.md",
         "sub.md",
         "async.md",
@@ -2984,7 +3119,8 @@ The log array should be cleared between tests.
         "erroreval.md",
         "scopeexists.md",
         "subindent.md",
-        "linkquotes.md"
+        "linkquotes.md",
+        "cycle.md"
     ];
 
 
@@ -3078,7 +3214,7 @@ process the inputs.
 
           //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
-           //setTimeout( function () {console.log(folder.scopes)}, 100);
+          // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
     }
 
@@ -3527,25 +3663,9 @@ imagine. See `tests/h5.md` for the test examples.
 ## TODO
 
 
-For the waiting, I think it should be possible to get the actual snippet it
-pertains to. It would also be good to detect recursive cycles and report them,
-e.g., a section that points to itself. 
-
-Biggest thing is to report dead-ends. That is, variables (blocks) that are
-requested but never delivered. 
-
-Check out other markdown parsers; marked has insecurity reported though given
-this use case, I doubt it matters (running untrusted lit docs is a security
-issue regardless).  
-
-Create and test ways to report problems (blocks not being compiled, things not
-being saved, etc.) This is both direct error reporting as well as logging, but
-also just a simple list of the things that did not complete. 
-
-Make sure missing blocks don't cause problems. Also make sure referencing each
-other is not a problem. Shouldn't be other than they never get compiled. But
-we need a warning of such things (at least not compiling, ideally also looking
-at dependencies). Along with this, make sure an empty file is fine. 
+Wondering about the use of numbering the backslashes. That is `\5` could mean
+5 backslashes and it would then become `\4` on the next iteration. It is neat,
+but not sure if it is needed. 
 
 
 Implement command line module, and some basic litpro-modules

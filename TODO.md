@@ -1,22 +1,6 @@
-For the waiting, I think it should be possible to get the actual snippet it
-pertains to. It would also be good to detect recursive cycles and report them,
-e.g., a section that points to itself. 
-
-Biggest thing is to report dead-ends. That is, variables (blocks) that are
-requested but never delivered. 
-
-Check out other markdown parsers; marked has insecurity reported though given
-this use case, I doubt it matters (running untrusted lit docs is a security
-issue regardless).  
-
-Create and test ways to report problems (blocks not being compiled, things not
-being saved, etc.) This is both direct error reporting as well as logging, but
-also just a simple list of the things that did not complete. 
-
-Make sure missing blocks don't cause problems. Also make sure referencing each
-other is not a problem. Shouldn't be other than they never get compiled. But
-we need a warning of such things (at least not compiling, ideally also looking
-at dependencies). Along with this, make sure an empty file is fine. 
+Wondering about the use of numbering the backslashes. That is `\5` could mean
+5 backslashes and it would then become `\4` on the next iteration. It is neat,
+but not sure if it is needed. 
 
 
 Implement command line module, and some basic litpro-modules
