@@ -19,6 +19,7 @@ var apply = function (instance, obj) {
     };
 
 var Folder = function (actions) {
+        actions = actions || Folder.actions;
     
         var gcd = this.gcd = new EvW();
         this.docs = {};
@@ -323,6 +324,8 @@ var Folder = function (actions) {
             apply(gcd, actions);
         }
     
+        Folder.postInit(this);
+    
         return this;
     };
 
@@ -577,6 +580,8 @@ Folder.prototype.subnameTransform = function (subname, lname) {
         return subname;
     
     };
+
+Folder.postInit = function () {}; //a hook for plugin this modification
 
 Folder.reporters = {
     save : function (args) {

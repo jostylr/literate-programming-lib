@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.2.0")
+# [literate-programming-lib](# "version:1.2.1")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -141,6 +141,8 @@ Each doc within a folder shares all the directives and commands.
 
     Folder.prototype.subnameTransform = _"Subname Transform";
 
+    Folder.postInit = function () {}; //a hook for plugin this modification
+
     Folder.reporters = {
         save : _"save:reporter",
         out : _"out:reporter",
@@ -178,6 +180,7 @@ Some things such as how to take in input and put out output are needed to be
 added. The internal basic compiling is baked in though it can be overwritten.
 
     function (actions) {
+        actions = actions || Folder.actions;
 
         var gcd = this.gcd = new EvW();
         this.docs = {};
@@ -198,6 +201,8 @@ added. The internal basic compiling is baked in though it can be overwritten.
         if (actions) {
             apply(gcd, actions);
         }
+
+        Folder.postInit(this);
 
         return this;
     }
