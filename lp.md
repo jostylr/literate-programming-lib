@@ -957,7 +957,7 @@ We create a stitch handler for the closures here.
         var gcd = doc.gcd;
         var colon = doc.colon;
         
-        var  quote, place, qfrag, lname, slashcount;
+        var  quote, place, qfrag, lname, slashcount, numstr, chr;
         var name = file + ":" + bname;
         var ind = 0;
         var loc = 0; // location in fragment array 
@@ -1007,52 +1007,68 @@ backtick.
         continue;
     }
 
-
-
 [check for escaped]()
 
-So we need to see if there are backslashes before the underscore. We first
-decide if there are any and how many. If there are, then we need to cut a
-fragment off pre slashes. Next, we figure out if the underscore is escaped and
-replace any backslashes that have been escaped. With one slash, we continue
-the loop ignoring all that has been.  We subtract 2 from ind since we already
-incremented for smooth continuity.
+Index was already incremented past the underscore. So we subtract. 
 
-     place = ind-2;
-     slashcount = 0;
-     while (block[place] === '\\') {
-        slashcount += 1;
-        place -= 1;
-     }
-     if (slashcount) {
-        _":deal with escapes"
-     }
+Note that any escaping of the leading substitution should be followed by
+escaping any underscores in the commands to the same level. 
 
-[deal with escapes]() 
+This will determine whether
+the underscore is escaped. This is done by looking backwards for a digit or an
+underscore. Just the first underscore encountered matters. Some cases:
 
-Here we are in the case of escapes. It is not particularly efficient but should rarely
-happen. We definitely split here at this point.
+* `\1_"`  is the same as `\_"` and the block is not seen, yielding `_"`
+* `\0_"` is the same as `_"` and the block will be run. This is good if you
+  actually want `\1?` where the question mark is what is returned from the
+  block run. That is `\1\0_"` is the same as `\1_"` if we had no escaping.
+* `\2_"` will yield `\1_"` and prime it for more escaping.
+* `\\1_"` will yield `\_"` 
 
-If underscore is escaped, then we cut up to ind (remember it is added 1
-already). This cuts to the underscore. 
-
-    qfrag = ''; 
-    while (slashcount > 1) {
-        qfrag += "\\";
-        slashcount -= 2;
-    }
-
-    frags[loc] = block.slice(last,place+1)+qfrag + 
-       ( ( slashcount === 1) ? "\u005F" : "" ) ;
-    loc += 1;
-    if (slashcount === 1) {
-        last = ind; // will start next frag after escaped underscore.
+    place = ind-2;
+    numstr = '0123456789';
+    slashcount = '';
+    chr = block[place];
+    if (chr === '\\' ) {
+        frags[loc] = block.slice(last, place) + "\u005F";
+        loc += 1;
+        last = ind;  
         continue;
-    } else {
-        last = ind-1; // probably overwritten before used
-    }
+    } else if ( numstr.indexOf(chr) !== -1 ) {
+        slashcount += chr;
+        place -= 1;
+        chr = block[place];
+        while ( numstr.indexOf(chr) !== -1 ) {
+            slashcount += chr;
+            place -= 1;
+            chr = block[place];
+        }
 
-Gonna need some testing here.
+
+We are defnitely in the stage of an escape situation. The number needs to be
+positive. It will then decrement and print out a backslash and number escape,
+including 0. 
+
+        if (chr === '\\') {
+            slashcount = parseInt(slashcount, 10);
+            if (slashcount > 0) {
+                slashcount -= 1;
+                frags[loc] = block.slice(last, place) + "\\" +
+                     slashcount + "\u005F";
+                loc += 1;
+                last = ind; 
+                continue;
+
+So with slashcount 0, this is not escaping except for the escape. 
+
+            } else {
+                frags[loc] = block.slice(last, place);
+                loc += 1;
+                last = ind-1;
+            }
+        }
+    }
+    
 
 
 [we are a go]()
@@ -1099,6 +1115,89 @@ then we need to run the commands if applicable after the stitching.
         gcd.once("ready to stitch:"+name,
             doc.maker['stitch store emit'](doc, bname, name, frags));
     }
+
+
+## Escaping underscore
+
+Delete soon. 
+
+[check for escaped]()
+
+So we need to see if there are backslashes before the underscore. We first
+decide if there are any and how many. If there are, then we need to cut a
+fragment off pre slashes. Next, we figure out if the underscore is escaped and
+replace any backslashes that have been escaped. With one slash, we continue
+the loop ignoring all that has been.  We subtract 2 from ind since we already
+incremented for smooth continuity.
+
+     place = ind-2;
+     slashcount = 0;
+     if (block[place]
+     while (block[place] === '\\') {
+        slashcount += 1;
+        place -= 1;
+     }
+     if (slashcount) {
+        _":deal with escapes"
+     }
+
+[deal with escapes]() 
+
+Here we are in the case of escapes. It is not particularly efficient but should rarely
+happen. We definitely split here at this point.
+
+If underscore is escaped, then we cut up to ind (remember it is added 1
+already). This cuts to the underscore. 
+
+    qfrag = ''; 
+    while (slashcount > 1) {
+        qfrag += "\\";
+        slashcount -= 2;
+    }
+
+    frags[loc] = block.slice(last,place+1)+qfrag + 
+       ( ( slashcount === 1) ? "\u005F" : "" ) ;
+    loc += 1;
+    if (slashcount === 1) {
+        last = ind; // will start next frag after escaped underscore.
+        continue;
+    } else {
+        last = ind-1; // probably overwritten before used
+    }
+
+Gonna need some testing here.
+
+
+
+[num]()
+
+Not used, but it was a beautiful idea. This backslashing is just in arguments
+and multiple runs of them is probably not likely. 
+
+* Numbers do a countdown of backslashes, sucking up the next character as well. So `\4_`
+becomes `\3_`, `\1_` becomes `_`.  So to put an actual `\5` then we can do
+`\1\5` which becomes `\5`. Note our markdown processor converts `\?` into `?` where `?`
+is any punctuation character, but it does not affect other characters.
+
+
+This processes the backslash with a number.
+
+We use a trick of a possible 0 length match to get it to start at the
+beginning. 
+
+    num = /[0-9]*/g;
+    num.lastIndex = ind;
+    match = num.exec(text)[0]; //should always succeed
+    if (match.length) {
+        ind = match.length;
+        left = parseInt(match[0])-1;
+        if (left <= 0) {
+            return [text[ind], ind+1];
+        } else {
+           return ["\\" + left + text[ind], ind+1];
+        }
+    }
+    
 
 
 ## Figure out indent
@@ -1481,9 +1580,18 @@ but I think that leads to uncertainty. Bad enough not having parentheses.
         wsreg.lastIndex = ind;
         wsreg.exec(text);
         ind = wsreg.lastIndex;
+
         if ( (text[ind] === "\u005F") && 
             (['"', "'", "`"].indexOf(text[ind+1]) !== -1) )  {
             _":deal with substitute text"
+
+The next one deals with an escaped argument in subbing, that is `\0_"` means
+it should be evaluated. 
+
+        } else if ( (text.slice(ind, ind+3) === "\\0\u005F")   && 
+            (['"', "'", "`"].indexOf(text[ind+3]) !== -1) )  {
+                ind += 2;
+                _":deal with substitute text"
         } else {
             // no substitute, just an argument. 
             argument = '';
@@ -1579,7 +1687,7 @@ backslashes, underscores, pipes, quotes and
 
 * u leads to unicode sucking up. This uses fromCodePoint
 * n converted to a new line. 
-* a whitespace will be preserved. 
+* a whitespace will be preserved.
 
 If none of those are present a backslash is returned. 
 
@@ -1588,13 +1696,14 @@ as chr.
 
 Note that with commonmark, `\_` will be reported as `_` to the lit pro doc.
 That is in commonmark, backslash underscore translates to underscore. So to
-actually escape the underscore, we need to use two backslashes: `\\_`.  
+actually escape the underscore, we need to use two backslashes: `\\_`.
 
 
     function (text, ind, indicator) {
-        var chr, match, num;
+        var chr, match, num, left;
         var uni = /[0-9A-F]+/g; 
-    
+        
+
         chr = text[ind];
         switch (chr) {
         case "|" : return ["|", ind+1];
@@ -1614,6 +1723,8 @@ actually escape the underscore, we need to use two backslashes: `\\_`.
 
         }
     }
+
+
 
 [unicode]()
 
@@ -2639,7 +2750,7 @@ The args should `filename to save, section to wait for`.
 
 This is the same as save, except it just ouputs it to the console via doc.log. 
 
-Note I copied the save codew which is rather poor form. It would be good to
+Note I copied the save code which is rather poor form. It would be good to
 abstract this out a bit. Need to just pass along the f and the name of out or
 save, etc. 
 
@@ -3103,7 +3214,8 @@ The log array should be cleared between tests.
         "scopeexists.md",
         "subindent.md",
         "linkquotes.md",
-        "cycle.md"
+        "cycle.md",
+        "backslash.md"
     ];
 
 
@@ -3508,6 +3620,11 @@ common scopes) and the commands run the output of one to the input of the
 other, also taking in arguments which could they themselves be block
 substitutions. 
 
+Note that one can also backslash escape the underscore. To have multiple
+escapes (to allow for multiple compiling), one can use `\#_"` where the number
+gets decremented by one on each compile and when it is compiled with 0 there,
+the sub gets run.
+
 
  ### Directive
 
@@ -3650,11 +3767,14 @@ imagine. See `tests/h5.md` for the test examples.
 
 ## TODO
 
+Have switch syntax see larger block in command parsing.
 
-Wondering about the use of numbering the backslashes. That is `\5` could mean
-5 backslashes and it would then become `\4` on the next iteration. It is neat,
-but not sure if it is needed. 
+Consider a sub of key values that do replacements in order of length, so
+subtitle replaces before title. 
 
+Test a file with nothing in it and a file with no headers with a save
+directive. It may be the raw directive was a problem, but something was
+problematic. 
 
 Implement command line module, and some basic litpro-modules
 
@@ -3787,6 +3907,9 @@ software.
 
 
 ## Change Log
+Terrible at logs. Anyway, added backslash escape to subbing stuff. So now one
+can more easily escape stuff. 
+
 1.0.3 marked errors now reported slightly better and sub now does proper
 indenting.  
 

@@ -164,7 +164,8 @@ var testfiles = [
     "scopeexists.md",
     "subindent.md",
     "linkquotes.md",
-    "cycle.md"
+    "cycle.md",
+    "backslash.md"
 ];
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {

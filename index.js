@@ -1272,7 +1272,7 @@ Doc.prototype.blockCompiling = function (block, file, bname) {
         var gcd = doc.gcd;
         var colon = doc.colon;
         
-        var  quote, place, qfrag, lname, slashcount;
+        var  quote, place, qfrag, lname, slashcount, numstr, chr;
         var name = file + ":" + bname;
         var ind = 0;
         var loc = 0; // location in fragment array 
@@ -1296,28 +1296,41 @@ Doc.prototype.blockCompiling = function (block, file, bname) {
                 }
                 
                 place = ind-2;
-                 slashcount = 0;
-                 while (block[place] === '\\') {
-                    slashcount += 1;
-                    place -= 1;
-                 }
-                 if (slashcount) {
-                    qfrag = ''; 
-                    while (slashcount > 1) {
-                        qfrag += "\\";
-                        slashcount -= 2;
-                    }
-                    
-                    frags[loc] = block.slice(last,place+1)+qfrag + 
-                       ( ( slashcount === 1) ? "\u005F" : "" ) ;
+                numstr = '0123456789';
+                slashcount = '';
+                chr = block[place];
+                if (chr === '\\' ) {
+                    frags[loc] = block.slice(last, place) + "\u005F";
                     loc += 1;
-                    if (slashcount === 1) {
-                        last = ind; // will start next frag after escaped underscore.
-                        continue;
-                    } else {
-                        last = ind-1; // probably overwritten before used
+                    last = ind;  
+                    continue;
+                } else if ( numstr.indexOf(chr) !== -1 ) {
+                    slashcount += chr;
+                    place -= 1;
+                    chr = block[place];
+                    while ( numstr.indexOf(chr) !== -1 ) {
+                        slashcount += chr;
+                        place -= 1;
+                        chr = block[place];
                     }
-                 } 
+                
+                    if (chr === '\\') {
+                        slashcount = parseInt(slashcount, 10);
+                        if (slashcount > 0) {
+                            slashcount -= 1;
+                            frags[loc] = block.slice(last, place) + "\\" +
+                                 slashcount + "\u005F";
+                            loc += 1;
+                            last = ind; 
+                            continue;
+                
+                        } else {
+                            frags[loc] = block.slice(last, place);
+                            loc += 1;
+                            last = ind-1;
+                        }
+                    }
+                } 
     
                 place = ind-1;
                 if (last !== place ) {
@@ -1462,6 +1475,7 @@ Doc.prototype.pipeParsing = function (text, ind, quote, name) {
                 wsreg.lastIndex = ind;
                 wsreg.exec(text);
                 ind = wsreg.lastIndex;
+            
                 if ( (text[ind] === "\u005F") && 
                     (['"', "'", "`"].indexOf(text[ind+1]) !== -1) )  {
                         start = ind;
@@ -1472,6 +1486,18 @@ Doc.prototype.pipeParsing = function (text, ind, quote, name) {
                         ind = wsreg.lastIndex;
                         chr = text[ind];
                         ind += 1;
+            
+                } else if ( (text.slice(ind, ind+3) === "\\0\u005F")   && 
+                    (['"', "'", "`"].indexOf(text[ind+3]) !== -1) )  {
+                        ind += 2;
+                            start = ind;
+                            ind = doc.substituteParsing(text, ind+2, text[ind+1], aname);
+                            doc.parent.recording[aname] =  text.slice(start, ind);
+                            wsreg.lastIndex = ind;
+                            wsreg.exec(text);
+                            ind = wsreg.lastIndex;
+                            chr = text[ind];
+                            ind += 1;
                 } else {
                     // no substitute, just an argument. 
                     argument = '';
@@ -1560,8 +1586,9 @@ Doc.prototype.regexs = {
     };
 
 Doc.prototype.backslash = function (text, ind, indicator) {
-        var chr, match, num;
+        var chr, match, num, left;
         var uni = /[0-9A-F]+/g; 
+        
     
         chr = text[ind];
         switch (chr) {
