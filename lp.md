@@ -952,7 +952,7 @@ The variable last is where to start from the last match.
 
 We create a stitch handler for the closures here. 
 
-    function (block, file, bname) {
+    function (block, file, bname, mainblock) {
         var doc = this;
         var gcd = doc.gcd;
         var colon = doc.colon;
@@ -981,7 +981,8 @@ We create a stitch handler for the closures here.
                 _":we are a go"
             
 
-                last = doc.substituteParsing(block, ind+1, quote, lname);
+                last = doc.substituteParsing(block, ind+1, quote, lname,
+                mainblock);
                
                 doc.parent.recording[lname] = block.slice(ind-1, last);
 
@@ -1117,88 +1118,6 @@ then we need to run the commands if applicable after the stitching.
     }
 
 
-## Escaping underscore
-
-Delete soon. 
-
-[check for escaped]()
-
-So we need to see if there are backslashes before the underscore. We first
-decide if there are any and how many. If there are, then we need to cut a
-fragment off pre slashes. Next, we figure out if the underscore is escaped and
-replace any backslashes that have been escaped. With one slash, we continue
-the loop ignoring all that has been.  We subtract 2 from ind since we already
-incremented for smooth continuity.
-
-     place = ind-2;
-     slashcount = 0;
-     if (block[place]
-     while (block[place] === '\\') {
-        slashcount += 1;
-        place -= 1;
-     }
-     if (slashcount) {
-        _":deal with escapes"
-     }
-
-[deal with escapes]() 
-
-Here we are in the case of escapes. It is not particularly efficient but should rarely
-happen. We definitely split here at this point.
-
-If underscore is escaped, then we cut up to ind (remember it is added 1
-already). This cuts to the underscore. 
-
-    qfrag = ''; 
-    while (slashcount > 1) {
-        qfrag += "\\";
-        slashcount -= 2;
-    }
-
-    frags[loc] = block.slice(last,place+1)+qfrag + 
-       ( ( slashcount === 1) ? "\u005F" : "" ) ;
-    loc += 1;
-    if (slashcount === 1) {
-        last = ind; // will start next frag after escaped underscore.
-        continue;
-    } else {
-        last = ind-1; // probably overwritten before used
-    }
-
-Gonna need some testing here.
-
-
-
-[num]()
-
-Not used, but it was a beautiful idea. This backslashing is just in arguments
-and multiple runs of them is probably not likely. 
-
-* Numbers do a countdown of backslashes, sucking up the next character as well. So `\4_`
-becomes `\3_`, `\1_` becomes `_`.  So to put an actual `\5` then we can do
-`\1\5` which becomes `\5`. Note our markdown processor converts `\?` into `?` where `?`
-is any punctuation character, but it does not affect other characters.
-
-
-This processes the backslash with a number.
-
-We use a trick of a possible 0 length match to get it to start at the
-beginning. 
-
-    num = /[0-9]*/g;
-    num.lastIndex = ind;
-    match = num.exec(text)[0]; //should always succeed
-    if (match.length) {
-        ind = match.length;
-        left = parseInt(match[0])-1;
-        if (left <= 0) {
-            return [text[ind], ind+1];
-        } else {
-           return ["\\" + left + text[ind], ind+1];
-        }
-    }
-    
-
 
 ## Figure out indent
 
@@ -1287,7 +1206,7 @@ The numbering of the commands is the input into that command number, not the
 output. So we use subname to get the text from that location and then feed
 it into command 0. If there are no commands, then command 0 is the done bit. 
 
-    function (text, ind, quote, lname ) { 
+    function (text, ind, quote, lname, mainblock ) { 
 
         var doc = this;
         var gcd = doc.gcd;
@@ -1326,10 +1245,10 @@ it into command 0. If there are no commands, then command 0 is the done bit.
     ind = subreg.lastIndex;
     chr = match[2];
     subname = match[1].trim().toLowerCase();
-    subname = doc.subnameTransform(subname, lname);
+    subname = doc.subnameTransform(subname, lname, mainblock);
     subname = colon.escape(subname);
     if (chr === "|") {
-        ind = doc.pipeParsing(text, ind, quote, lname);
+        ind = doc.pipeParsing(text, ind, quote, lname, mainblock);
     } else if (chr === quote) { 
         //index already points at after quote so do not increment
         gcd.once("text ready:" + lname + colon.v + "0",
@@ -1347,8 +1266,8 @@ document. We use a hack to get the mainblock name. This works for lnames of
 the form `file:main\:...` that is, everything between the first colon and
 the first escaped colon will be returned as mainblock.
 
-    function (subname, lname) {
-        var mainblock, colind, first, second, main;
+    function (subname, lname, mainblock) {
+        var colind, first, second, main;
         var doc = this;
         var colon = doc.colon;
 
@@ -1365,8 +1284,12 @@ the first escaped colon will be returned as mainblock.
 This slices the mainblock. It is used repeatedly in the if's to minimize the
 need to do this if it is not going to be used. 
 
-    colind = lname.indexOf(":");
-    mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
+    if (mainblock) {
+        mainblock.split(colon.v).slice(0,-1).join(colon.v);
+    } else {
+        colind = lname.indexOf(":");
+        mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
+    }
 
 
 [fix colon subname]()
@@ -1455,7 +1378,7 @@ so we are passed in that quote as well.
 
 We need to track the command numbering for the event emitting. 
 
-    function (text, ind, quote, name) {
+    function (text, ind, quote, name, mainblock) {
         var doc = this;
         var gcd = doc.gcd;
         var colon = doc.colon;
@@ -1627,7 +1550,7 @@ that, we chunk along to the next non-whitespace character. It should be a
 comma, a pipe, or a matching quote. Anything else is an error. 
 
         start = ind;
-        ind = doc.substituteParsing(text, ind+2, text[ind+1], aname);
+        ind = doc.substituteParsing(text, ind+2, text[ind+1], aname, mainblock);
         doc.parent.recording[aname] =  text.slice(start, ind);
         wsreg.lastIndex = ind;
         wsreg.exec(text);
@@ -2402,7 +2325,7 @@ This implements the command `eval`. This evaluates the code as JavaScript. It
 is formulated to be synchronous eval.
 
 Extra arguments are concatenated together and eval'd, in order with input
-first. 
+first.
 
 
     function ( input, args ) {
@@ -2430,18 +2353,68 @@ This is a bit of a hack. So any command will have a colon in it. This triggers
 the block compiling to emit a minor ready event, which we can listen for and
 the simply emit the text ready event. The name also include the file name 
 
+The stripped is to remove the starting filename. 
+
+
+
     function (input, args, name) {
         var doc = this;
         var gcd = doc.gcd;
+        var file = doc.file;
+        var colon = doc.colon.v;
+        var i, n, start, nextname, oldname, firstname;
 
         var stripped = name.slice(name.indexOf(":")+1);
 
-        gcd.once("minor ready:" + name, function (text) {
-            gcd.emit("text ready:" + name, text); 
-        });
 
-        doc.blockCompiling(input, doc.file, stripped);
+        var hanMaker = _":handle maker";
+
+
+
+        if (args.length === 0) {
+            gcd.once("minor ready:" + name, function (text) {
+                gcd.emit("text ready:" + name, text); 
+            });
+            doc.blockCompiling(input, file, stripped);
+        } else {
+            _":args"
+        }
     }
+
+[args]()
+
+If there are arguments to use, then we interpret them as blocks to compile
+from.
+
+
+    n = args.length;
+    firstname = oldname = stripped + colon + ( args[0] || '') + colon + 0;
+    for (i = 1; i < n; i += 1) {
+        start = args[i] || '';
+        nextname = stripped + colon + start + colon + i;
+        gcd.once("minor ready:" + file + ":" + oldname, hanMaker(file,
+            nextname, start) );
+        gcd.emit("waiting for:cmd compiling:" + nextname  + ":from:" + doc.file, 
+            ["minor ready:" + file + ":" + nextname, "compile", nextname, doc.file, start]);
+        oldname = nextname;
+    }
+    start =  args[0] || '';
+    gcd.once("minor ready:" + file + ":" + oldname, function (text) {
+        gcd.emit("text ready:"  + name, text);
+    });
+    doc.blockCompiling(input, file, firstname, start);
+
+[handle maker]()
+
+This returns a function that will be the handler. It closures around the
+relevant bits. 
+
+    function (file, nextname, start) {
+        return function (text) {
+            doc.blockCompiling(text, file, nextname, start);
+        };
+    }
+
 
 ### Async Eval
 
@@ -2688,7 +2661,7 @@ after the pipe, we get commands to act on the sections.
          title = title + '"';
          gcd.once("text ready:" + emitname, f);
         
-         doc.pipeParsing(title, 0, '"', emitname);
+         doc.pipeParsing(title, 0, '"', emitname, start);
 
      } else {
         gcd.once("text ready:" + emitname + colon.v + "0", f); 
@@ -3000,7 +2973,7 @@ input.
             title = title + '"';
             gcd.once("text ready:" + cmdname, han);
             
-            doc.pipeParsing(title, 0, '"', cmdname);
+            doc.pipeParsing(title, 0, '"', cmdname, start);
 
         } else {
            gcd.once("text ready:" + cmdname + colon.v + "0", han); 
@@ -3307,13 +3280,11 @@ process the inputs.
                 }
             }
 
-          /*setTimeout( function () {
-            console.log(folder.reportwaits().join("\n"));
-          }); */
+         // setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
           //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
-          // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+        //   setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
     }
 

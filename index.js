@@ -524,22 +524,30 @@ var async = Folder.prototype.wrapAsync = function (fun, label) {
         return f;
     };
 
-Folder.prototype.subnameTransform = function (subname, lname) {
-        var mainblock, colind, first, second, main;
+Folder.prototype.subnameTransform = function (subname, lname, mainblock) {
+        var colind, first, second, main;
         var doc = this;
         var colon = doc.colon;
     
         if (subname[0] === ":") {
-            colind = lname.indexOf(":");
-            mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
+            if (mainblock) {
+                mainblock.split(colon.v).slice(0,-1).join(colon.v);
+            } else {
+                colind = lname.indexOf(":");
+                mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
+            }
             subname = mainblock+subname;
             return subname;
         }
     
         if (subname.slice(0, 6) === "../../" ) {
             //in a/b/c asking for a
-            colind = lname.indexOf(":");
-            mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
+            if (mainblock) {
+                mainblock.split(colon.v).slice(0,-1).join(colon.v);
+            } else {
+                colind = lname.indexOf(":");
+                mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
+            }
             main = mainblock.slice(0, mainblock.indexOf("/")); 
             if ((subname.length > 6) && (subname[6] !== ":") ) {
                 subname =  main + "/" + subname.slice(6);
@@ -548,8 +556,12 @@ Folder.prototype.subnameTransform = function (subname, lname) {
             }
         } else if (subname.slice(0,2) === "./" ) {
             // in a/b asking for a/b/c using ./c
-            colind = lname.indexOf(":");
-            mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
+            if (mainblock) {
+                mainblock.split(colon.v).slice(0,-1).join(colon.v);
+            } else {
+                colind = lname.indexOf(":");
+                mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
+            }
             if (subname[2] === ":" ) {
                 subname = mainblock + subname.slice(2);
             } else {
@@ -557,8 +569,12 @@ Folder.prototype.subnameTransform = function (subname, lname) {
             }
         } else if (subname.slice(0,3) === "../") {
             //either in a/b or in a/b/c and asking for a or a/b, respectively
-            colind = lname.indexOf(":");
-            mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
+            if (mainblock) {
+                mainblock.split(colon.v).slice(0,-1).join(colon.v);
+            } else {
+                colind = lname.indexOf(":");
+                mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
+            }
             first = mainblock.indexOf("/");
             second = mainblock.indexOf("/", first+1);
         
@@ -759,14 +775,41 @@ Folder.commands = {   eval : sync(function ( input, args ) {
         compile : function (input, args, name) {
                 var doc = this;
                 var gcd = doc.gcd;
+                var file = doc.file;
+                var colon = doc.colon.v;
+                var i, n, start, nextname, oldname, firstname;
             
                 var stripped = name.slice(name.indexOf(":")+1);
             
-                gcd.once("minor ready:" + name, function (text) {
-                    gcd.emit("text ready:" + name, text); 
-                });
+                var hanMaker = function (file, nextname, start) {
+                        return function (text) {
+                            doc.blockCompiling(text, file, nextname, start);
+                        };
+                    };
             
-                doc.blockCompiling(input, doc.file, stripped);
+                if (args.length === 0) {
+                    gcd.once("minor ready:" + name, function (text) {
+                        gcd.emit("text ready:" + name, text); 
+                    });
+                    doc.blockCompiling(input, file, stripped);
+                } else {
+                    n = args.length;
+                    firstname = oldname = stripped + colon + ( args[0] || '') + colon + 0;
+                    for (i = 1; i < n; i += 1) {
+                        start = args[i] || '';
+                        nextname = stripped + colon + start + colon + i;
+                        gcd.once("minor ready:" + file + ":" + oldname, hanMaker(file,
+                            nextname, start) );
+                        gcd.emit("waiting for:cmd compiling:" + nextname  + ":from:" + doc.file, 
+                            ["minor ready:" + file + ":" + nextname, "compile", nextname, doc.file, start]);
+                        oldname = nextname;
+                    }
+                    start =  args[0] || '';
+                    gcd.once("minor ready:" + file + ":" + oldname, function (text) {
+                        gcd.emit("text ready:"  + name, text);
+                    });
+                    doc.blockCompiling(input, file, firstname, start);
+                }
             },
         raw : sync(function (input, args) {
                 var doc = this;
@@ -848,7 +891,7 @@ Folder.directives = {   save : function (args) {
               title = title + '"';
               gcd.once("text ready:" + emitname, f);
              
-              doc.pipeParsing(title, 0, '"', emitname);
+              doc.pipeParsing(title, 0, '"', emitname, start);
          
           } else {
              gcd.once("text ready:" + emitname + colon.v + "0", f); 
@@ -938,7 +981,7 @@ Folder.directives = {   save : function (args) {
                      title = title + '"';
                      gcd.once("text ready:" + emitname, f);
                     
-                     doc.pipeParsing(title, 0, '"', emitname);
+                     doc.pipeParsing(title, 0, '"', emitname, start);
                 
                  } else {
                     gcd.once("text ready:" + emitname + colon.v + "0", f); 
@@ -1048,7 +1091,7 @@ Folder.directives = {   save : function (args) {
                     title = title + '"';
                     gcd.once("text ready:" + cmdname, han);
                     
-                    doc.pipeParsing(title, 0, '"', cmdname);
+                    doc.pipeParsing(title, 0, '"', cmdname, start);
             
                 } else {
                    gcd.once("text ready:" + cmdname + colon.v + "0", han); 
@@ -1267,7 +1310,7 @@ Doc.prototype.getIndent = function ( block, place ) {
         return indent;
     };
 
-Doc.prototype.blockCompiling = function (block, file, bname) {
+Doc.prototype.blockCompiling = function (block, file, bname, mainblock) {
         var doc = this;
         var gcd = doc.gcd;
         var colon = doc.colon;
@@ -1352,7 +1395,8 @@ Doc.prototype.blockCompiling = function (block, file, bname) {
                 loc += 1;
             
     
-                last = doc.substituteParsing(block, ind+1, quote, lname);
+                last = doc.substituteParsing(block, ind+1, quote, lname,
+                mainblock);
                
                 doc.parent.recording[lname] = block.slice(ind-1, last);
     
@@ -1371,7 +1415,7 @@ Doc.prototype.blockCompiling = function (block, file, bname) {
         gcd.emit("block substitute parsing done:"+name);
     };
 
-Doc.prototype.substituteParsing = function (text, ind, quote, lname ) { 
+Doc.prototype.substituteParsing = function (text, ind, quote, lname, mainblock ) { 
     
         var doc = this;
         var gcd = doc.gcd;
@@ -1387,10 +1431,10 @@ Doc.prototype.substituteParsing = function (text, ind, quote, lname ) {
             ind = subreg.lastIndex;
             chr = match[2];
             subname = match[1].trim().toLowerCase();
-            subname = doc.subnameTransform(subname, lname);
+            subname = doc.subnameTransform(subname, lname, mainblock);
             subname = colon.escape(subname);
             if (chr === "|") {
-                ind = doc.pipeParsing(text, ind, quote, lname);
+                ind = doc.pipeParsing(text, ind, quote, lname, mainblock);
             } else if (chr === quote) { 
                 //index already points at after quote so do not increment
                 gcd.once("text ready:" + lname + colon.v + "0",
@@ -1416,7 +1460,7 @@ Doc.prototype.substituteParsing = function (text, ind, quote, lname ) {
     
     };
 
-Doc.prototype.pipeParsing = function (text, ind, quote, name) {
+Doc.prototype.pipeParsing = function (text, ind, quote, name, mainblock) {
         var doc = this;
         var gcd = doc.gcd;
         var colon = doc.colon;
@@ -1479,7 +1523,7 @@ Doc.prototype.pipeParsing = function (text, ind, quote, name) {
                 if ( (text[ind] === "\u005F") && 
                     (['"', "'", "`"].indexOf(text[ind+1]) !== -1) )  {
                         start = ind;
-                        ind = doc.substituteParsing(text, ind+2, text[ind+1], aname);
+                        ind = doc.substituteParsing(text, ind+2, text[ind+1], aname, mainblock);
                         doc.parent.recording[aname] =  text.slice(start, ind);
                         wsreg.lastIndex = ind;
                         wsreg.exec(text);
@@ -1491,7 +1535,7 @@ Doc.prototype.pipeParsing = function (text, ind, quote, name) {
                     (['"', "'", "`"].indexOf(text[ind+3]) !== -1) )  {
                         ind += 2;
                             start = ind;
-                            ind = doc.substituteParsing(text, ind+2, text[ind+1], aname);
+                            ind = doc.substituteParsing(text, ind+2, text[ind+1], aname, mainblock);
                             doc.parent.recording[aname] =  text.slice(start, ind);
                             wsreg.lastIndex = ind;
                             wsreg.exec(text);

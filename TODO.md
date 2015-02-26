@@ -7,12 +7,6 @@ Test a file with nothing in it and a file with no headers with a save
 directive. It may be the raw directive was a problem, but something was
 problematic. 
 
-Wondering about the use of numbering the backslashes. That is `\5` could mean
-5 backslashes and it would then become `\4` on the next iteration. It is neat,
-but not sure if it is needed. Could be very useful with compiling command and
-name.
-
-
 Implement command line module, and some basic litpro-modules
 
 Add in an opt-out for file saving or a rerouting... Add to Version the ability

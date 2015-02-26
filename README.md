@@ -148,6 +148,11 @@ common scopes) and the commands run the output of one to the input of the
 other, also taking in arguments which could they themselves be block
 substitutions. 
 
+Note that one can also backslash escape the underscore. To have multiple
+escapes (to allow for multiple compiling), one can use `\#_"` where the number
+gets decremented by one on each compile and when it is compiled with 0 there,
+the sub gets run.
+
 
 ### Directive
 
