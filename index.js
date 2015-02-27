@@ -531,19 +531,19 @@ Folder.prototype.subnameTransform = function (subname, lname, mainblock) {
     
         if (subname[0] === ":") {
             if (mainblock) {
-                mainblock.split(colon.v).slice(0,-1).join(colon.v);
+                //console.log(mainblock)
             } else {
                 colind = lname.indexOf(":");
                 mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
             }
-            subname = mainblock+subname;
+            subname = mainblock + subname;
             return subname;
         }
     
         if (subname.slice(0, 6) === "../../" ) {
             //in a/b/c asking for a
             if (mainblock) {
-                mainblock.split(colon.v).slice(0,-1).join(colon.v);
+                //console.log(mainblock)
             } else {
                 colind = lname.indexOf(":");
                 mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
@@ -557,7 +557,7 @@ Folder.prototype.subnameTransform = function (subname, lname, mainblock) {
         } else if (subname.slice(0,2) === "./" ) {
             // in a/b asking for a/b/c using ./c
             if (mainblock) {
-                mainblock.split(colon.v).slice(0,-1).join(colon.v);
+                //console.log(mainblock)
             } else {
                 colind = lname.indexOf(":");
                 mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
@@ -570,7 +570,7 @@ Folder.prototype.subnameTransform = function (subname, lname, mainblock) {
         } else if (subname.slice(0,3) === "../") {
             //either in a/b or in a/b/c and asking for a or a/b, respectively
             if (mainblock) {
-                mainblock.split(colon.v).slice(0,-1).join(colon.v);
+                //console.log(mainblock)
             } else {
                 colind = lname.indexOf(":");
                 mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
@@ -592,7 +592,8 @@ Folder.prototype.subnameTransform = function (subname, lname, mainblock) {
             }
         
         }
-        
+       
+    
         return subname;
     
     };
@@ -629,8 +630,8 @@ Folder.reporters = {
             var parts = data[0].split(":").reverse();
             var block = parts[0].split(this.colon.v)[0];
             if (hint) {
-                return "PROBLEM WITH:" + hint + " IN:" + block + 
-                    " FIlE:" + parts[1]; 
+                return "PROBLEM WITH: " + hint + " IN: " + block + 
+                    " FIlE: " + parts[1]; 
             } 
         
         },
@@ -639,13 +640,13 @@ Folder.reporters = {
             var parts = data[0].split(":").reverse();
             var block = parts[0].split(this.colon.v)[0];
             if (hint) {
-                return "PROBLEM WITH:" + hint + " IN:" + block + 
-                    " FIlE:" + parts[1]; 
+                return "PROBLEM WITH: " + hint + " IN: " + block + 
+                    " FIlE: " + parts[1]; 
             } 
         
         },
     "retrieval" : function (data) {
-            return "NEED VAR: " + data[0] + "FROM: " + data[1];
+            return "NEED VAR: " + data[1] + " FROM: " + data[0];
         },
     "cmd" : function (data) {
             var ind = data[1].lastIndexOf(this.colon.v);
@@ -654,7 +655,7 @@ Folder.reporters = {
             }
             var name = data[1].slice(0, ind);
             var hint = this.recording[name];
-            return "NEED COMMAND:" + data[0] + " FOR: " + hint; 
+            return "NEED COMMAND: " + data[0] + " FOR: " + hint; 
         }
 
 };
@@ -777,6 +778,7 @@ Folder.commands = {   eval : sync(function ( input, args ) {
                 var gcd = doc.gcd;
                 var file = doc.file;
                 var colon = doc.colon.v;
+                var escape = doc.colon.escape;
                 var i, n, start, nextname, oldname, firstname;
             
                 var stripped = name.slice(name.indexOf(":")+1);
@@ -794,10 +796,10 @@ Folder.commands = {   eval : sync(function ( input, args ) {
                     doc.blockCompiling(input, file, stripped);
                 } else {
                     n = args.length;
-                    firstname = oldname = stripped + colon + ( args[0] || '') + colon + 0;
+                    firstname = oldname = escape(stripped + colon + ( args[0] || '') + colon + 0);
                     for (i = 1; i < n; i += 1) {
                         start = args[i] || '';
-                        nextname = stripped + colon + start + colon + i;
+                        nextname = escape(stripped + colon + start + colon + i);
                         gcd.once("minor ready:" + file + ":" + oldname, hanMaker(file,
                             nextname, start) );
                         gcd.emit("waiting for:cmd compiling:" + nextname  + ":from:" + doc.file, 
@@ -850,7 +852,7 @@ Folder.directives = {   save : function (args) {
         var savename = doc.colon.escape(args.link);
         var title = args.input;
     
-        var options, start, ind;
+        var options, start, blockhead, ind;
         if ( args.href[0] === "#") {
             start = args.href.slice(1).replace(/-/g, " ");
         } else {
@@ -869,6 +871,16 @@ Folder.directives = {   save : function (args) {
         
         if (!start) {
             start = args.cur;
+        }
+        
+        blockhead = doc.colon.restore(start);
+        
+        if ( (ind = blockhead.indexOf("::")) !== -1)  {
+            if (  (ind = blockhead.indexOf(":", ind+2 )) !== -1 ) {
+                blockhead = blockhead.slice(0, ind);
+            }
+        } else if ( (ind = blockhead.indexOf(":") ) !== -1) {
+            blockhead = blockhead.slice(0, ind);
         }
         
         start = doc.colon.escape(start);
@@ -891,7 +903,7 @@ Folder.directives = {   save : function (args) {
               title = title + '"';
               gcd.once("text ready:" + emitname, f);
              
-              doc.pipeParsing(title, 0, '"', emitname, start);
+              doc.pipeParsing(title, 0, '"', emitname, blockhead);
          
           } else {
              gcd.once("text ready:" + emitname + colon.v + "0", f); 
@@ -940,7 +952,7 @@ Folder.directives = {   save : function (args) {
                 var outname = args.link;
                 var title = args.input;
                 
-                var options, start, ind;
+                var options, start, blockhead, ind;
                 if ( args.href[0] === "#") {
                     start = args.href.slice(1).replace(/-/g, " ");
                 } else {
@@ -959,6 +971,16 @@ Folder.directives = {   save : function (args) {
                 
                 if (!start) {
                     start = args.cur;
+                }
+                
+                blockhead = doc.colon.restore(start);
+                
+                if ( (ind = blockhead.indexOf("::")) !== -1)  {
+                    if (  (ind = blockhead.indexOf(":", ind+2 )) !== -1 ) {
+                        blockhead = blockhead.slice(0, ind);
+                    }
+                } else if ( (ind = blockhead.indexOf(":") ) !== -1) {
+                    blockhead = blockhead.slice(0, ind);
                 }
                 
                 start = doc.colon.escape(start);
@@ -981,7 +1003,7 @@ Folder.directives = {   save : function (args) {
                      title = title + '"';
                      gcd.once("text ready:" + emitname, f);
                     
-                     doc.pipeParsing(title, 0, '"', emitname, start);
+                     doc.pipeParsing(title, 0, '"', emitname, blockhead);
                 
                  } else {
                     gcd.once("text ready:" + emitname + colon.v + "0", f); 
@@ -1054,6 +1076,16 @@ Folder.directives = {   save : function (args) {
                     start = args.cur;
                 }
                 
+                var blockhead = doc.colon.restore(start);
+                
+                if ( (ind = blockhead.indexOf("::")) !== -1)  {
+                    if (  (ind = blockhead.indexOf(":", ind+2 )) !== -1 ) {
+                        blockhead = blockhead.slice(0, ind);
+                    }
+                } else if ( (ind = blockhead.indexOf(":") ) !== -1) {
+                    blockhead = blockhead.slice(0, ind);
+                }
+                
                 start = doc.colon.escape(start);
             
                 gcd.emit("waiting for:command definition:" + cmdname, 
@@ -1091,7 +1123,7 @@ Folder.directives = {   save : function (args) {
                     title = title + '"';
                     gcd.once("text ready:" + cmdname, han);
                     
-                    doc.pipeParsing(title, 0, '"', cmdname, start);
+                    doc.pipeParsing(title, 0, '"', cmdname, blockhead);
             
                 } else {
                    gcd.once("text ready:" + cmdname + colon.v + "0", han); 

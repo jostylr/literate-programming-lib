@@ -65,7 +65,10 @@ var testrunner = function (file) {
                         if (td.in.hasOwnProperty(filename) ) {
                             gcd.emit("document fetched:" + filename, td.in[rawname]);        
                         } else {
+                            console.log("ERROR~File not found: " + filename);
+                            gcd.parent.createScope(filename);
                             gcd.emit("error:file not found:"+ filename);
+                    
                         }
                     
                     }],
@@ -84,6 +87,8 @@ var testrunner = function (file) {
         var log = td.log; 
     
         //gcd.makeLog();
+    
+        //gcd.monitor('', function (evt, data) { console.log(evt, data); });
     
         test(name, function (t) {
             var outs, m, j, out;
@@ -118,7 +123,7 @@ var testrunner = function (file) {
                 }
             }
     
-         // setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
+          //setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
     
           //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
@@ -157,13 +162,15 @@ var testfiles = [
     "h5.md",
     "ignore.md",
     "direval.md",
-    "reports.md",
     "erroreval.md",
     "scopeexists.md",
     "subindent.md",
     "linkquotes.md",
     "cycle.md",
-    "backslash.md"
+    "backslash.md",
+    "templating.md",
+    "reports.md",
+    "directivesubbing.md"
 ];
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {

@@ -35,9 +35,9 @@ delays it to allow the rest of the stuff to compile and be waiting.
 
 ---
 NOT SAVED: out AS REQUESTED BY: in NEED: output
-PROBLEM WITH:_"block" IN:cycle FIlE:in
-PROBLEM WITH:_"cycle" IN:block FIlE:in
-PROBLEM WITH:_"block:switch" IN:block FIlE:in
-PROBLEM WITH:_"block" IN:block FIlE:in
-PROBLEM WITH:_"cycle" IN:block FIlE:in
-PROBLEM WITH:_"timeout|async" IN:output FIlE:in
+PROBLEM WITH: _"block" IN: cycle FIlE: in
+PROBLEM WITH: _"cycle" IN: block FIlE: in
+PROBLEM WITH: _"block:switch" IN: block FIlE: in
+PROBLEM WITH: _"block" IN: block FIlE: in
+PROBLEM WITH: _"cycle" IN: block FIlE: in
+PROBLEM WITH: _"timeout|async" IN: output FIlE: in

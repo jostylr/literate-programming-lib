@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.2.1")
+# [literate-programming-lib](# "version:1.3.0")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -621,8 +621,8 @@ This function deals with text that we are waiting for.
         var parts = data[0].split(":").reverse();
         var block = parts[0].split(this.colon.v)[0];
         if (hint) {
-            return "PROBLEM WITH:" + hint + " IN:" + block + 
-                " FIlE:" + parts[1]; 
+            return "PROBLEM WITH: " + hint + " IN: " + block + 
+                " FIlE: " + parts[1]; 
         } 
 
     }
@@ -632,7 +632,7 @@ This function deals with text that we are waiting for.
 This function deal with waiting for a variable to be stored. 
 
     function (data) {
-        return "NEED VAR: " + data[0] + "FROM: " + data[1];
+        return "NEED VAR: " + data[1] + " FROM: " + data[0];
     }
 
 ### Command Reporter
@@ -646,7 +646,7 @@ This reports on somebody waiting for a command.
         }
         var name = data[1].slice(0, ind);
         var hint = this.recording[name];
-        return "NEED COMMAND:" + data[0] + " FOR: " + hint; 
+        return "NEED COMMAND: " + data[0] + " FOR: " + hint; 
     }
 
 ## colon
@@ -1274,7 +1274,8 @@ the first escaped colon will be returned as mainblock.
         _":fix colon subname"
 
         _":h5 transform"
-        
+       
+
         return subname;
 
     }
@@ -1285,7 +1286,7 @@ This slices the mainblock. It is used repeatedly in the if's to minimize the
 need to do this if it is not going to be used. 
 
     if (mainblock) {
-        mainblock.split(colon.v).slice(0,-1).join(colon.v);
+        //console.log(mainblock)
     } else {
         colind = lname.indexOf(":");
         mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
@@ -1305,7 +1306,7 @@ Directives may be a bit dodgy on this point.
     
     if (subname[0] === ":") {
         _":slicing"
-        subname = mainblock+subname;
+        subname = mainblock + subname;
         return subname;
     } 
 
@@ -2362,6 +2363,7 @@ The stripped is to remove the starting filename.
         var gcd = doc.gcd;
         var file = doc.file;
         var colon = doc.colon.v;
+        var escape = doc.colon.escape;
         var i, n, start, nextname, oldname, firstname;
 
         var stripped = name.slice(name.indexOf(":")+1);
@@ -2388,10 +2390,10 @@ from.
 
 
     n = args.length;
-    firstname = oldname = stripped + colon + ( args[0] || '') + colon + 0;
+    firstname = oldname = escape(stripped + colon + ( args[0] || '') + colon + 0);
     for (i = 1; i < n; i += 1) {
         start = args[i] || '';
-        nextname = stripped + colon + start + colon + i;
+        nextname = escape(stripped + colon + start + colon + i);
         gcd.once("minor ready:" + file + ":" + oldname, hanMaker(file,
             nextname, start) );
         gcd.emit("waiting for:cmd compiling:" + nextname  + ":from:" + doc.file, 
@@ -2661,7 +2663,7 @@ after the pipe, we get commands to act on the sections.
          title = title + '"';
          gcd.once("text ready:" + emitname, f);
         
-         doc.pipeParsing(title, 0, '"', emitname, start);
+         doc.pipeParsing(title, 0, '"', emitname, blockhead);
 
      } else {
         gcd.once("text ready:" + emitname + colon.v + "0", f); 
@@ -2683,7 +2685,7 @@ the href post `#`. Also, if the name comes out to nothing, then we use the curre
 block being parsed.  
 
 
-    var options, start, ind;
+    var options, start, blockhead, ind;
     if ( args.href[0] === "#") {
         start = args.href.slice(1).replace(/-/g, " ");
     } else {
@@ -2703,6 +2705,17 @@ block being parsed.
     if (!start) {
         start = args.cur;
     }
+
+    blockhead = doc.colon.restore(start);
+
+    if ( (ind = blockhead.indexOf("::")) !== -1)  {
+        if (  (ind = blockhead.indexOf(":", ind+2 )) !== -1 ) {
+            blockhead = blockhead.slice(0, ind);
+        }
+    } else if ( (ind = blockhead.indexOf(":") ) !== -1) {
+        blockhead = blockhead.slice(0, ind);
+    }
+
 
     start = doc.colon.escape(start);
 
@@ -2973,7 +2986,7 @@ input.
             title = title + '"';
             gcd.once("text ready:" + cmdname, han);
             
-            doc.pipeParsing(title, 0, '"', cmdname, start);
+            doc.pipeParsing(title, 0, '"', cmdname, blockhead);
 
         } else {
            gcd.once("text ready:" + cmdname + colon.v + "0", han); 
@@ -3009,6 +3022,17 @@ block being parsed.
     if (!start) {
         start = args.cur;
     }
+
+    var blockhead = doc.colon.restore(start);
+
+    if ( (ind = blockhead.indexOf("::")) !== -1)  {
+        if (  (ind = blockhead.indexOf(":", ind+2 )) !== -1 ) {
+            blockhead = blockhead.slice(0, ind);
+        }
+    } else if ( (ind = blockhead.indexOf(":") ) !== -1) {
+        blockhead = blockhead.slice(0, ind);
+    }
+
 
 
     start = doc.colon.escape(start);
@@ -3182,13 +3206,15 @@ The log array should be cleared between tests.
         "h5.md",
         "ignore.md",
         "direval.md",
-        "reports.md",
         "erroreval.md",
         "scopeexists.md",
         "subindent.md",
         "linkquotes.md",
         "cycle.md",
-        "backslash.md"
+        "backslash.md",
+        "templating.md",
+        "reports.md",
+        "directivesubbing.md"
     ];
 
 
@@ -3247,6 +3273,8 @@ process the inputs.
 
         //gcd.makeLog();
 
+        //gcd.monitor('', function (evt, data) { console.log(evt, data); });
+
         test(name, function (t) {
             var outs, m, j, out;
 
@@ -3280,7 +3308,7 @@ process the inputs.
                 }
             }
 
-         // setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
+          //setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
           //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
@@ -3362,7 +3390,10 @@ with data being the actual file location.
         if (td.in.hasOwnProperty(filename) ) {
             gcd.emit("document fetched:" + filename, td.in[rawname]);        
         } else {
+            console.log("ERROR~File not found: " + filename);
+            gcd.parent.createScope(filename);
             gcd.emit("error:file not found:"+ filename);
+
         }
 
     }
