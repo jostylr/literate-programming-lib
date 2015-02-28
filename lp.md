@@ -2444,12 +2444,9 @@ some mistakes.
 
 ### Sub
 
-This is the sub command which allows us to do substitutions. It takes in the
-feeder text and replaces any occurrence of the given symbol with the
-arguments. In particular, the template is `input --> * , a, b, c` will
-replace in the input of `*1` with `a`, `*2` with `b`, etc., But if there are
-only two arguments, then it becomes a replacement of the first argument with
-the scecond argument, globally. 
+This is the sub command which allows us to do substitutions. Each pair of
+arguments is a term and its replacement value. We will sort the keys by length
+so that the largest matches happen first. 
 
 We will do the replacement using indexOf and splicing due to potential
 conflicts with .replace (the $ replacements and the lack of global aspect if
@@ -2463,36 +2460,32 @@ of code.
         var doc = this;
         var gcd = this.gcd;
 
-        var index = 0, m = str.length, al = args.length,
+        var index = 0, al = args.length, k, keys, obj = {}, 
             i, j, old, newstr, indented;
 
-
-        if ( (!args[0]) ) {
-            gcd.emit("error:sub has insufficient arguments:" + name);
+        for (i = 0; i < al; i +=2) {
+           obj[args[i]] = args[i+1]; 
         }
 
+        keys = Object.keys(obj).sort(function (a, b) {
+            if ( a.length > b.length) {
+                return -1;
+            } else if (a.length < b.length) {
+                return 1;
+            } else {
+                return 0;
+            } });
 
-        if (al === 2) {
-            old = args[0];
-            newstr = args[1] || '';
-            while ( index < m ) { 
+
+        k = keys.length;
+        for (j = 0; j < k; j += 1) {
+            index = 0;
+            old = keys[j];
+            newstr = obj[keys[j]] || '';
+            while (index < str.length ) {
                 _":replace"
             }
-        } else {
-
-We count down to ensure that we have larger numbers matched first, i.e.,
-eliminate `*11` before `*1`. 
-
-            for (j = al-1; j >= 0; j -= 1) {
-                index = 0;
-                old = args[0] + j;
-                newstr = args[j] || '';
-                while (index < m) {
-                    _":replace"
-                }
-            }
         }
-        
 
         gcd.emit("text ready:" + name, str);
     }
@@ -3777,36 +3770,6 @@ subtitle replaces before title.
 Test a file with nothing in it and a file with no headers with a save
 directive. It may be the raw directive was a problem, but something was
 problematic. 
-
-Implement command line module, and some basic litpro-modules
-
-Add in an opt-out for file saving or a rerouting... Add to Version the ability
-to set various boolean flags, such as dev, deploy, ..., add an environment
-directive to set those things. 
-
-More docs.
-
-Have some more preview/testing options. Maybe an abort on failed test/jshint
-kind of stuff and/or a diff viewer. npm diff seems popular. 
-
-
- ## IDE
-
-An in-browser version is planned. The intent is to have it be an IDE for the
-literate program. 
-
-For IDE, implement: https://github.com/mleibman/SlickGrid
-
-For diff saving: http://prettydiff.com/diffview.js  from
-http://stackoverflow.com/questions/3053587/javascript-based-diff-utility
-
-For scroll syncing https://github.com/sakabako/scrollMonitor
-
-Note that code mirror will be the editor. A bit on the new multi-view of
-documents:  http://marijnhaverbeke.nl/blog/codemirror-shared-documents.html
-
-explore using node to run stuff between browser/lit pro/python:r:tex:sage...
-
 
 ## NPM package
 

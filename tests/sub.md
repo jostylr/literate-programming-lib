@@ -8,19 +8,19 @@ Great. We have substituions.
 
 ## Start
 
-    Let's look at our *~. We start with :1, :2, :3.
+    Let's look at our *~. We start with :c.
 
 ## Subbed
 
 This will be unneeded once save: pipes implemented.
 
-    _"start|sub *~, alphabet|sub :, a, b, _"cb""
+    _"start|sub *~, alphabet|sub :, a, :c, _"cb""
 
 ## CB
 
 Let's put c in there as a block.
 
-    c
+    iv
 
 ---
-Let's look at our alphabet. We start with a, b, c.
+Let's look at our alphabet. We start with iv.

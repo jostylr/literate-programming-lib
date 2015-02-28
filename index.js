@@ -698,17 +698,28 @@ Folder.commands = {   eval : sync(function ( input, args ) {
                 var doc = this;
                 var gcd = this.gcd;
             
-                var index = 0, m = str.length, al = args.length,
+                var index = 0, al = args.length, k, keys, obj = {}, 
                     i, j, old, newstr, indented;
             
-                if ( (!args[0]) ) {
-                    gcd.emit("error:sub has insufficient arguments:" + name);
+                for (i = 0; i < al; i +=2) {
+                   obj[args[i]] = args[i+1]; 
                 }
             
-                if (al === 2) {
-                    old = args[0];
-                    newstr = args[1] || '';
-                    while ( index < m ) { 
+                keys = Object.keys(obj).sort(function (a, b) {
+                    if ( a.length > b.length) {
+                        return -1;
+                    } else if (a.length < b.length) {
+                        return 1;
+                    } else {
+                        return 0;
+                    } });
+            
+                k = keys.length;
+                for (j = 0; j < k; j += 1) {
+                    index = 0;
+                    old = keys[j];
+                    newstr = obj[keys[j]] || '';
+                    while (index < str.length ) {
                             i = str.indexOf(old, index);
                         
                             if (i === -1) {
@@ -719,26 +730,7 @@ Folder.commands = {   eval : sync(function ( input, args ) {
                                 index = i + indented.length;
                             }
                     }
-                } else {
-            
-                    for (j = al-1; j >= 0; j -= 1) {
-                        index = 0;
-                        old = args[0] + j;
-                        newstr = args[j] || '';
-                        while (index < m) {
-                                i = str.indexOf(old, index);
-                            
-                                if (i === -1) {
-                                    break;
-                                } else {
-                                    indented = doc.indent(newstr, doc.getIndent(str, i));
-                                    str = str.slice(0,i) + indented + str.slice(i+old.length);
-                                    index = i + indented.length;
-                                }
-                        }
-                    }
                 }
-                
             
                 gcd.emit("text ready:" + name, str);
             },
