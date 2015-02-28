@@ -173,7 +173,8 @@ var testfiles = [
     "directivesubbing.md",
     "empty.md",
     "switchcmd.md",
-    "templateexample.md"
+    "templateexample.md",
+    "pushpop.md"
 ];
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {

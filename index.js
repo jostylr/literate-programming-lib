@@ -29,6 +29,7 @@ var Folder = function (actions) {
         this.directives = Object.create(Folder.directives);
         this.reports = {};
         this.recording = {};
+        this.stack = {};
         this.reporters = Folder.reporters;
         
         this.maker = {   'emit text ready' : function (doc, name) {
@@ -483,7 +484,7 @@ var sync = Folder.prototype.wrapSync = function (fun, label) {
             var gcd = doc.gcd;
             
             try {
-                var out = fun.call(doc, input, args);
+                var out = fun.call(doc, input, args, name);
                 gcd.emit("text ready:" + name, out); 
             } catch (e) {
                 doc.log(e);
@@ -842,7 +843,35 @@ Folder.commands = {   eval : sync(function ( text, args ) {
                     args = args.slice(1);
                 }
                 return (input ? input + sep : '') + args.join(sep) ;
-            }, "cat")
+            }, "cat"),
+        push : sync(function (input, args, name) {
+                var folder = this.parent;
+                var stack = folder.stack;
+                var cmdpipe = name.slice(0, name.lastIndexOf(folder.colon.v));
+                if (stack.hasOwnProperty(cmdpipe)) {
+                    stack[cmdpipe].push(input);
+                } else {
+                    stack[cmdpipe] = [input];
+                }
+                return input;
+            }, "push"),
+        pop : sync(function (input, args, name) {
+                var folder = this.parent;
+                var stack = folder.stack;
+                var cmdpipe = name.slice(0, name.lastIndexOf(folder.colon.v));
+                var ret;
+                if (stack.hasOwnProperty(cmdpipe)) {
+                    ret = stack[cmdpipe].pop();
+                    if (stack[cmdpipe].length === 0) {
+                        delete stack[cmdpipe];
+                    }
+                } else {
+                    gcd.emit("error:pop found nothing to pop:"+name);
+                    ret = input;           
+                }
+                return ret;
+            }, "pop")
+    
     };
 Folder.directives = {   save : function (args) {
         var doc = this;

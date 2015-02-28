@@ -385,22 +385,22 @@ output.
 
 There are a variety of directives that come built in.
     
-* Save `[filename](#start "save:options|commands")` Save the text from start
+* **Save** `[filename](#start "save:options|commands")` Save the text from start
   into file filename. The options can be used in different ways, but in the
   command client it is an encoding string for saving the file; the default
   encoding is utf8.
-* Store `[name](# "store:value")`  This stores the value into name. Think of
+* **Store** `[name](# "store:value")`  This stores the value into name. Think of
   this as a constant declaration at the beginning of a file. You can use it
   for common bits of static text. If you need more dynamism, consider the
   store command instead. 
-* Load `[alias](url "load:options")` This loads the file, found at the url
+* **Load** `[alias](url "load:options")` This loads the file, found at the url
   (file name probably) and stores it in the alias scope as well as under the
   url name. We recommend using a short alias and not relying on the filename
   path since the alias is what will be used repeatedly to reference the blocks
   in the loaded file. Options are open, but for the command line client it is
   the encoding string with default utf8. Note there are no pipes since there
   is no block to act on it. 
-* Define `[command name](#start "define: async/sync/raw|cmd")` This allows one
+* **Define** `[command name](#start "define: async/sync/raw|cmd")` This allows one
   to define commands in a lit pro document. Very handy. Order is irrelevant;
   anything requiring a command will wait for it to be defined. This is
   convenient, but also a bit more of a bother for debugging. Anyway, the start
@@ -416,37 +416,37 @@ There are a variety of directives that come built in.
   callback function that should be called when done. For sync, you probably
   need not worry about a name. The doc that is calling the command is the
   `this`. 
-* Blocks on/off `[off](# "block:")` Stops recording code blocks. This is
+* **Block**s on/off `[off](# "block:")` Stops recording code blocks. This is
   good when writing a bunch of explanatory code text that you do not want
   compiled. You can turn it back on with the `[on](# "block:")` directive.
   Directives and headings are still actively being run and used. These can be
   nested. Think "block comment" sections. Good for turning off troublesome
   sections. 
-* Eval `[?](# "eval:)` Whatever block the eval finds itself, it will eval. It
+* **Eval** `[?](# "eval:)` Whatever block the eval finds itself, it will eval. It
   will eval it only up to the point where it is placed. This is an immediate
   action and can be quite useful for interventions. The eval will have access
   to the doc object which gives one access to just about everything else. This
   is one of those things that make running a literate progamming insecure. The
   return value is nonexistent and the program will not usually wait for any async
   actions to complete. 
-* Ignore `[language](# "ignore:")` This ignores the `language` code blocks.
+* **Ignore** `[language](# "ignore:")` This ignores the `language` code blocks.
   For example, by convention, you could use code fence blocks with language js
   for compiled code and ignore those with javascript. So you can have example
   code that will not be seen and still get your syntax highlighting and
   convenience. Note that this only works with code fences, obviously. As soon
   as this is seen, it will be used and applied there after. 
-* Out  `[outname](#start "save:|commands")` Sends the text from start
+* **Out**  `[outname](#start "save:|commands")` Sends the text from start
   to the console, using outname as a label.
-* New scope `[scope name](# "new scope:")` This creates a new scope (stuff
+* **New scope** `[scope name](# "new scope:")` This creates a new scope (stuff
   before a double colon). You can use it to store variables in a different
   scope. Not terribly needed, but it was easy to expose the underlying
   functionality. 
-* Link Scope `[alias name](# "link scope:scopename")` This creates an alias for
+* **Link Scope** `[alias name](# "link scope:scopename")` This creates an alias for
   an existing scope. This can be useful if you want to use one name and toggle
   between them. For example, you could use the alias `v` for `dev` or `deploy`
   and then have `v::title` be used with just switching what `v` points to
   depending on needs. A bit of a stretch, I admit. 
-* Log `[match string](# "log:")` This is a bit digging into the system. You
+* **Log** `[match string](# "log:")` This is a bit digging into the system. You
   can monitor the events being emitted by using what you want to match for. 
   For example, you could put in a block name (all lower cased) and monitor all
   events for that. This gets sent to `doc.log` which by default prints to
@@ -459,51 +459,56 @@ There are a variety of directives that come built in.
 
 Note commands need to be one word. 
 
-* Eval `code1, code2,...`  The arguments are concatenated together. Then they
+* **Eval** `code1, code2,...`  The arguments are concatenated together. Then they
   are evaluated in the context with the `text` variable having the incoming
   text and its value after evaling the arguments will be what is returned.
   This should make for quick hacking on text. The doc variable is also
   available for inpsecting all sorts of stuff, like the current state of the
   blocks. If you want to evaluate the incoming text and use the result as
   text, then the line `text = eval(text)` as the first argument should work.
-* Async (async eval) `code1, code2, ...` Same deal as eval, except this code
+* **Async** (async eval) `code1, code2, ...` Same deal as eval, except this code
   expects a callback function to be called. It is in the variable callback. So
   you can read a file and have its callback call the callback to send the text
   along its merry way. 
-* Compile This compiles a block of text as if it was in the document
+* **Compile** This compiles a block of text as if it was in the document
   originally. The compiled text will be the output. The arguments give the
   names of blocknames that are used if short-hand minor blocks are
   encountered. This is useful for templating. 
-* Sub `key1, val1, key2, val2, ...`  This replaces `key#` in the text with
+* **Sub** `key1, val1, key2, val2, ...`  This replaces `key#` in the text with
   `val#`. The replacement is sorted based on the length of the key value. This
   is to help with SUBTITLE being replaced before TITLE, for example, while
   allowing one to write it in an order that makes reading make sense. A little
   unorthodox. We'll see if I regret it. 
-* Store `variable name`  This stores the incoming text into the variable name.
+* **Store** `variable name`  This stores the incoming text into the variable name.
   This is good for stashing something in mid computation. For example, 
   `...|store temp | sub THIS, that | store awe | _"temp"` will stash the
   incoming text into temp, then substitute out THIS for that, then store that
   into awe, and finally restore back to the state of temp. Be careful that the
   variable temp could get overwritten if there are any async operations
-  hanging about. Best to have unique names. 
-* Log This will output a concatenated string to doc.log (default console.log)
+  hanging about. Best to have unique names. See push and pop commands for a
+  better way to do this. 
+* **Log** This will output a concatenated string to doc.log (default console.log)
   with the incoming text and the arguments. This is a good way to see what is
   going on in the middle of a transformation.
-* Raw `start, end` This will look for start in the raw text of the file and
+* **Raw** `start, end` This will look for start in the raw text of the file and
   end in the file and return everything in between. Be careful that the raw
   command itself does not get caught up. For example, if you want to cut
   between !@ and @!,  then you could use the very ugly
   `|raw _"|cat ,!, @", _"|cat ,@,!"`
   or have a function that produces the separators, etc. Point is, be aware of
   the issue. This should hopefully not be needed to often.  
-* Trim `This trims the incoming text, both leading and trailing whitespace.
+* **Trim** `This trims the incoming text, both leading and trailing whitespace.
   Useful in some tests of mine. 
-* Cat  This will concatenate the incoming text and the arguments together
+* **Cat**  This will concatenate the incoming text and the arguments together
   using the first argument as the separator. Note one can use `\n` as arg1
   and it should give you a newline (use `\\n` if in a directive due to parser
   escaping backslashes!). If there is just one argument, then it is
   concatenated with the incoming text as is. No separator can be as easy as 
   `|cat ,1,2,...`.
+* **Push** Simply pushes the current state of the incoming text on the stack
+  for this pipe process.
+* **Pop** Replaces the incoming text with popping out the last unpopped pushed
+  on text. 
 
 ## h5 and h6
 
