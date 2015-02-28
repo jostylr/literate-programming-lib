@@ -1174,7 +1174,13 @@ var Doc = function (file, text, parent, actions) {
         this.blockOff = 0;
         
         this.levels = {};
-        this.blocks = {};
+        this.blocks = {'' : ''}; //an empty initial block in case of headless
+        this.heading = this.curname = '';
+        this.levels[0] = text;
+        this.levels[1] = '';
+        this.levels[2] = '';
+    
+        
         this.scopes = {};
         this.vars = parent.createScope(file);
     

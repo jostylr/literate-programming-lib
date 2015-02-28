@@ -170,7 +170,8 @@ var testfiles = [
     "backslash.md",
     "templating.md",
     "reports.md",
-    "directivesubbing.md"
+    "directivesubbing.md",
+    "empty.md"
 ];
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {

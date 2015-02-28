@@ -263,7 +263,13 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.blockOff = 0;
         
         this.levels = {};
-        this.blocks = {};
+        this.blocks = {'' : ''}; //an empty initial block in case of headless
+        this.heading = this.curname = '';
+        this.levels[0] = text;
+        this.levels[1] = '';
+        this.levels[2] = '';
+
+        
         this.scopes = {};
         this.vars = parent.createScope(file);
 
@@ -3207,7 +3213,8 @@ The log array should be cleared between tests.
         "backslash.md",
         "templating.md",
         "reports.md",
-        "directivesubbing.md"
+        "directivesubbing.md",
+        "empty.md"
     ];
 
 
@@ -3763,9 +3770,6 @@ imagine. See `tests/h5.md` for the test examples.
 ## TODO
 
 Have switch syntax see larger block in command parsing.
-
-Consider a sub of key values that do replacements in order of length, so
-subtitle replaces before title. 
 
 Test a file with nothing in it and a file with no headers with a save
 directive. It may be the raw directive was a problem, but something was
