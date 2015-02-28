@@ -536,7 +536,11 @@ Folder.prototype.subnameTransform = function (subname, lname, mainblock) {
                 colind = lname.indexOf(":");
                 mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
             }
-            subname = mainblock + subname;
+            if (subname === ":") {
+                subname = mainblock;
+            } else {
+                subname = mainblock + subname;
+            }
             return subname;
         }
     
@@ -865,6 +869,10 @@ Folder.directives = {   save : function (args) {
             start = args.cur;
         }
         
+        if (start[0] === ":") {
+            start = doc.levels[0] + start;
+        }
+        
         blockhead = doc.colon.restore(start);
         
         if ( (ind = blockhead.indexOf("::")) !== -1)  {
@@ -963,6 +971,10 @@ Folder.directives = {   save : function (args) {
                 
                 if (!start) {
                     start = args.cur;
+                }
+                
+                if (start[0] === ":") {
+                    start = doc.levels[0] + start;
                 }
                 
                 blockhead = doc.colon.restore(start);
@@ -1068,6 +1080,9 @@ Folder.directives = {   save : function (args) {
                     start = args.cur;
                 }
                 
+                if (start[0] === ":") {
+                    start = doc.levels[0] + start;
+                }
                 var blockhead = doc.colon.restore(start);
                 
                 if ( (ind = blockhead.indexOf("::")) !== -1)  {

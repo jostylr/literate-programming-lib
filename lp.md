@@ -1291,6 +1291,10 @@ the first escaped colon will be returned as mainblock.
 This slices the mainblock. It is used repeatedly in the if's to minimize the
 need to do this if it is not going to be used. 
 
+So the name variable should start with a file name with a colon after it and
+then from there to a triple colon should be the major block name on record. 
+
+
     if (mainblock) {
         //console.log(mainblock)
     } else {
@@ -1304,15 +1308,23 @@ need to do this if it is not going to be used.
 A convenient shorthand is to lead with a colon to mean a minor block. We need
 to put the big blockname in for that. 
 
-So the name variable should start with a file name with a colon after it and
-then from there to a triple colon should be the major block name on record. 
+If the subname is simply a colon, then we use the major block heading on
+record for it. 
 
-Directives may be a bit dodgy on this point. 
+Directives require a bit of finesse. See the save directive for how it handles
+it. Basically, it uses the starting href as the mainblock. That is why
+mainblock is being passed in everywhere. 
+
+
 
     
     if (subname[0] === ":") {
         _":slicing"
-        subname = mainblock + subname;
+        if (subname === ":") {
+            subname = mainblock;
+        } else {
+            subname = mainblock + subname;
+        }
         return subname;
     } 
 
@@ -2705,6 +2717,10 @@ block being parsed.
         start = args.cur;
     }
 
+    if (start[0] === ":") {
+        start = doc.levels[0] + start;
+    }
+
     blockhead = doc.colon.restore(start);
 
     if ( (ind = blockhead.indexOf("::")) !== -1)  {
@@ -3022,6 +3038,9 @@ block being parsed.
         start = args.cur;
     }
 
+    if (start[0] === ":") {
+        start = doc.levels[0] + start;
+    }
     var blockhead = doc.colon.restore(start);
 
     if ( (ind = blockhead.indexOf("::")) !== -1)  {
@@ -3031,8 +3050,6 @@ block being parsed.
     } else if ( (ind = blockhead.indexOf(":") ) !== -1) {
         blockhead = blockhead.slice(0, ind);
     }
-
-
 
     start = doc.colon.escape(start);
 
@@ -3214,7 +3231,8 @@ The log array should be cleared between tests.
         "templating.md",
         "reports.md",
         "directivesubbing.md",
-        "empty.md"
+        "empty.md",
+        "switchcmd.md"
     ];
 
 
@@ -3769,11 +3787,7 @@ imagine. See `tests/h5.md` for the test examples.
 
 ## TODO
 
-Have switch syntax see larger block in command parsing.
-
-Test a file with nothing in it and a file with no headers with a save
-directive. It may be the raw directive was a problem, but something was
-problematic. 
+Improve docs.
 
 ## NPM package
 
