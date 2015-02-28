@@ -1,1 +1,1 @@
-Have switch syntax see larger block in command parsing.
+Improve docs.

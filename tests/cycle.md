@@ -19,7 +19,7 @@ What happens if we have blocks that point to each other? Hopefully nothing.
 
 This actually puts the output that we want to see
     
-    _"timeout|async"
+    _"|async _"timeout""
 
 [out](#output "save:")
 
@@ -40,4 +40,4 @@ PROBLEM WITH: _"cycle" IN: block FIlE: in
 PROBLEM WITH: _"block:switch" IN: block FIlE: in
 PROBLEM WITH: _"block" IN: block FIlE: in
 PROBLEM WITH: _"cycle" IN: block FIlE: in
-PROBLEM WITH: _"timeout|async" IN: output FIlE: in
+PROBLEM WITH: _"|async _"timeout"" IN: output FIlE: in

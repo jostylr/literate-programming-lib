@@ -20,7 +20,7 @@ We use directives to do the storing for this first bit.
 
 [other::c](# "store:--")
 
-[other](# "newscope:")
+[other](# "new scope:")
 
 
 ## less

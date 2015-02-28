@@ -686,16 +686,18 @@ Folder.prototype.reportwaits = function () {
         return arr; 
     };
 
-Folder.commands = {   eval : sync(function ( input, args ) {
+Folder.commands = {   eval : sync(function ( text, args ) {
         var doc = this;
     
-        input += "\n" + args.join("\n");
+        var code = args.join("\n");
     
         try {
-            return eval(input).toString();
+            eval(code);
+            return text.toString();
         } catch (e) {
-            doc.gcd.emit("error:command:eval:", [e, input]);
-            return e.name + ":" + e.message +"\n" + input;
+            doc.gcd.emit("error:command:eval:", [e, code, text]);
+            return e.name + ":" + e.message +"\n" + code + "\n\nACTING ON:\n" +
+            text;
         }
     }, "eval"),
         sub : function (str, args, name) {
@@ -757,16 +759,17 @@ Folder.commands = {   eval : sync(function ( input, args ) {
                 }
                 return input;
             }, "log"),
-        async : async(function (input, args, callback) {
+        async : async(function (text, args, callback) {
                 var doc = this;
             
-                input += "\n" + args.join("\n");
+                var code =  args.join("\n");
             
                 try {
-                    eval(input);
+                    eval(code);
                 } catch (e) {
-                    doc.gcd.emit("error:command:async:", [e, input]);
-                    callback(null, e.name + ":" + e.message +"\n" + input);
+                    doc.gcd.emit("error:command:async:", [e, code, text]);
+                    callback(null, e.name + ":" + e.message +"\n"  + code + 
+                     "\n\nACTING ON:\n" + text);
                 }
             }, "async"),
         compile : function (input, args, name) {
@@ -912,14 +915,14 @@ Folder.directives = {   save : function (args) {
           doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
     
     },
-        newscope : function (args) {
+        "new scope" : function (args) {
                 var doc = this;
                 var scopename = args.link;
             
                 doc.parent.createScope(scopename);
             
             },
-        store : function (args) {
+        "store" : function (args) {
                 var doc = this;
                 var value = args.input;
                 var name = doc.colon.escape(args.link);
@@ -927,7 +930,7 @@ Folder.directives = {   save : function (args) {
                 doc.store(name, value);
             
             },
-        log : function (args) {
+        "log" : function (args) {
                 
                 var doc = this;
                 var gcd = doc.gcd;
@@ -945,7 +948,7 @@ Folder.directives = {   save : function (args) {
                 });
             
             },
-        out : function (args) {
+        "out" : function (args) {
                 var doc = this;
                 var colon = doc.colon;
                 var gcd = doc.gcd;
@@ -1016,7 +1019,7 @@ Folder.directives = {   save : function (args) {
                  doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
             
             },
-        load: function (args) {
+        "load" : function (args) {
                 var doc = this;
                 var gcd = doc.gcd;
                 var folder = doc.parent;
@@ -1048,7 +1051,7 @@ Folder.directives = {   save : function (args) {
                 }
             
             },
-        linkscope : function (args) {
+        "link scope" : function (args) {
                 var doc = this;
                 var alias = args.link;
                 var scopename = args.input;
@@ -1138,19 +1141,21 @@ Folder.directives = {   save : function (args) {
                 
                 doc.retrieve(start, "text ready:" + cmdname + colon.v + "0");
             },
-        "block on" : function () {
-                var doc = this; 
-            
-                if (doc.blockOff > 0) {
-                    doc.blockOff -= 1;
+        "block" : function (args) {
+                var doc = this;
+                
+                if (args.link === "off") {
+                    doc.blockOff += 1;
+                } else if (args.link === "on") {
+                    if (doc.blockOff > 0 ) {
+                        doc.blockOff -= 1;
+                    }
+                } else {
+                    doc.log("block directive found, but the toggle was not understood: " + 
+                        args.link + "  It should be either on or off");
                 }
             
             },
-        "block off" : function () {
-                var doc = this;
-            
-                doc.blockOff += 1;
-            }, 
         "ignore" : function (args) {
                 var lang = args.link;
             
@@ -1160,7 +1165,7 @@ Folder.directives = {   save : function (args) {
                 gcd.on("code block found:" + lang, "ignore code block");
             
             },
-        eval : function (args) {
+        "eval" : function (args) {
                 var doc = this;
             
                 var block = doc.blocks[args.cur];

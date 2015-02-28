@@ -4,12 +4,16 @@ error eval -- testing evals for errors
 
 Wanted to catch and report eval errors. 
 
-    _"ev|eval _"more", _"and""
-    _"ev|async _"more", _"and""
+    _":text|eval _"ev", _"more", _"and""
+    _":text|async _"ev", _"more", _"and""
     _"log1"
     _"log2"
 
 [out](# "save:")
+
+[text]()
+
+    Some text.
 
 ## Define
 
@@ -49,10 +53,16 @@ ReferenceError:c is not defined
 a = 1+2;
 b = c;
 d= 5;
+
+ACTING ON:
+Some text.
 ReferenceError:c is not defined
 a = 1+2;
 b = c;
 d= 5;
+
+ACTING ON:
+Some text.
 ReferenceError:c is not defined
 b = c;
 ReferenceError:c is not defined

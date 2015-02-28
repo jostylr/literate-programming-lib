@@ -6,19 +6,19 @@ So we want to test turning off code blocks and their nesting.
 
     Some code
 
-[ignore](# "block off:")
+[off](# "block:")
 
     more code
 
-[ignore](# "block off:")
+[off](# "block:")
 
 [out](# "save:")
 
-[attention](# "block on:")
+[on](# "block:")
 
     more ignored code
 
-[attention](# "block on:")
+[on](# "block:")
 
     great
 ---

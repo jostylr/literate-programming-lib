@@ -19,7 +19,7 @@ This is the eval block
 
 We simply run the eval and pipe into a sub.
 
-    great. _"eval stuff| async| sub !, b"
+    great. _"|async _"eval stuff" | sub !, b"
     
 ---
 great. cool beans

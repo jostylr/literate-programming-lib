@@ -2340,23 +2340,52 @@ Here we have some commands and directives that are of common use
 
 ### Eval
 
-This implements the command `eval`. This evaluates the code as JavaScript. It
+This implements the command `eval`. This evaluates the arguments as JavaScript. It
 is formulated to be synchronous eval.
 
-Extra arguments are concatenated together and eval'd, in order with input
+Arguments are concatenated together and eval'd, in order with input
 first.
 
+The incoming text is stored in the variable text which the eval should be able
+to see. Manipulate that variable. The text is then passed along. 
 
-    function ( input, args ) {
+
+    function ( text, args ) {
         var doc = this;
 
-        input += "\n" + args.join("\n");
+        var code = args.join("\n");
 
         try {
-            return eval(input).toString();
+            eval(code);
+            return text.toString();
         } catch (e) {
-            doc.gcd.emit("error:command:eval:", [e, input]);
-            return e.name + ":" + e.message +"\n" + input;
+            doc.gcd.emit("error:command:eval:", [e, code, text]);
+            return e.name + ":" + e.message +"\n" + code + "\n\nACTING ON:\n" +
+            text;
+        }
+    }
+
+### Async Eval
+
+This implements the ability to evaluate input asynchronously. This will
+execute input in the context given. So doc, args, callback should all be
+variables available in the code. When done, invoke callback with signature
+`f(err, data)` where data should be string. 
+
+Note the catch here will not catch errors from the async stuff, but will catch
+some mistakes.
+
+    function (text, args, callback) {
+        var doc = this;
+
+        var code =  args.join("\n");
+
+        try {
+            eval(code);
+        } catch (e) {
+            doc.gcd.emit("error:command:async:", [e, code, text]);
+            callback(null, e.name + ":" + e.message +"\n"  + code + 
+             "\n\nACTING ON:\n" + text);
         }
     }
 
@@ -2436,28 +2465,6 @@ relevant bits.
     }
 
 
-### Async Eval
-
-This implements the ability to evaluate input asynchronously. This will
-execute input in the context given. So doc, args, callback should all be
-variables available in the code. When done, invoke callback with signature
-`f(err, data)` where data should be string. 
-
-Note the catch here will not catch errors from the async stuff, but will catch
-some mistakes.
-
-    function (input, args, callback) {
-        var doc = this;
-
-        input += "\n" + args.join("\n");
-
-        try {
-            eval(input);
-        } catch (e) {
-            doc.gcd.emit("error:command:async:", [e, input]);
-            callback(null, e.name + ":" + e.message +"\n" + input);
-        }
-    }
 
 
 ### Sub
@@ -2616,17 +2623,16 @@ For now, just simple saving, but we can implement the pipe parsing a bit later
 for saving as well. 
 
     {   save : _"save",
-        newscope : _"new scope",
-        store : _"dir store",
-        log : _"dir log",
-        out : _"out",
-        load: _"load",
-        linkscope : _"link scope",
+        "new scope" : _"new scope",
+        "store" : _"dir store",
+        "log" : _"dir log",
+        "out" : _"out",
+        "load" : _"load",
+        "link scope" : _"link scope",
         define : _"define directive",
-        "block on" : _"block on",
-        "block off" : _"block off", 
+        "block" : _"block",
         "ignore" : _"ignore language",
-        eval : _"dir eval"
+        "eval" : _"dir eval"
     }
 
 
@@ -3095,32 +3101,33 @@ marked parsing stage.
 
 
 
-### Block off
+### Block
 
-This is a directive that turns off the code blocks being registered.
-Directives and headings are still active.
-
-    function () {
-        var doc = this;
-
-        doc.blockOff += 1;
-    }
-
-
-### Block on 
+This is a directive that turns on or off the code blocks being registered.
+Directives and headings are still active. 
 
 This turns block concatenation back on. Note that the number of on's must be
 the same as those off's. That is two offs will require two ons before code is
 being compiled. Extra ons are ignored. 
 
-    function () {
-        var doc = this; 
 
-        if (doc.blockOff > 0) {
-            doc.blockOff -= 1;
+    function (args) {
+        var doc = this;
+        
+        if (args.link === "off") {
+            doc.blockOff += 1;
+        } else if (args.link === "on") {
+            if (doc.blockOff > 0 ) {
+                doc.blockOff -= 1;
+            }
+        } else {
+            doc.log("block directive found, but the toggle was not understood: " + 
+                args.link + "  It should be either on or off");
         }
 
     }
+
+
 
 ### Ignore language
 
@@ -3232,7 +3239,8 @@ The log array should be cleared between tests.
         "reports.md",
         "directivesubbing.md",
         "empty.md",
-        "switchcmd.md"
+        "switchcmd.md",
+        "templateexample.md"
     ];
 
 
@@ -3503,24 +3511,38 @@ perhaps most in line with [noweb](http://tex.loria.fr/litte/ieee.pdf).
 
 It uses markdown as the basic document format with the code to be weaved
 together being markdown code blocks.  GitHub flavored code fences can also be used 
-to demarcate code blocks. 
+to demarcate code blocks. In particular, [commonmark](http://commonmark.org/)
+is the spec that the parsing of the markdown is used. Anything considered code
+by it will be considered code by literate programming. 
 
-It does not care what language(s) your are programming in. 
+This processing does not care what language(s) your are programming in. But it
+may skew towards more useful for the web stack. 
 
-This is the core library that is used as a module. See ... for the command
-line client and the full version which has a variety of useful standard
-plugins.
+This is the core library that is used as a module. See 
+[-cli](https://github.com/jostylr/literate-programming-cli)  for the command
+line client. The [full](https://github.com/jostylr/literate-programming)
+version has a variety of useful standard
+plugins ("batteries included").
 
  ## Installation
 
 This requires [node.js](http://nodejs.org) and [npm](https://npmjs.org/) to be
-installed. Then issue the command:
+installed. See [nvm](https://github.com/creationix/nvm) for a recommend
+installation of node; it allows one to toggle between different versions. This
+has been tested on node.js .10, .12, and io.js.  It is basic javascript and
+should work pretty much on any javascript engine. 
+
+Then issue the command:
 
     npm install literate-programming-lib
 
- ## Using
+Since this is the library module, typically you use the client version install
+and do not install the lib directly. If you are hacking with modules, then you
+already know that you will want this in the package.json file. 
 
-You can use `LitPro = require('literate-programming-lib');` to get 
+ ## Using as a module
+
+You can use `Folder = require('literate-programming-lib');` to get 
 a constructor that will create what I think of as a folder.
 The folder will handle all the documents and scopes and etc.  
 
@@ -3537,8 +3559,8 @@ variable gcd is the event emitter (dispatcher if you will).
 
     
     var fs = require('fs');
-    var LitPro = require('literate-programming-lib');
-    var folder = new LitPro();
+    var Folder = require('literate-programming-lib');
+    var folder = new Folder();
     var gcd = folder.gcd;
     var colon = folder.colon;
    
@@ -3565,7 +3587,7 @@ variable gcd is the event emitter (dispatcher if you will).
  get saved. 
 
  The reason the lib does not have this natively is that I separated it out
- specifically to avoid requiring files. Instead you can use any kind of
+ specifically to avoid requiring file system access. Instead you can use any kind of
  function that provides text, or whatever. It should be fine to also use
  `folder.newdoc` directly on each bit of text as needed; everything will
  patiently wait until the right stuff is ready. I think. 
@@ -3627,14 +3649,17 @@ are the bits that are woven together.
 
  ### Code Block
 
-Each code block can contain whatever kind of code, but there is one special
+Each code block can contain whatever kind of code, but there is a primary special
 syntax.  
 
 `_"Block name"` This tells the compiler to compile the block with "Block
    name" and then replace the `_"Block name"` with that code.
 
+Note the the allowed quotes are double, single, and backtick. Matching types
+are expected. And yes, it is useful to have three different types. 
+
 The full syntax is something of the form 
-`_"scope name::block name:subblock name | cmd arg 1, arg 2 | cmd2 |cmd3 ..."`
+`_"scope name::block name:minor block name | cmd arg 1, arg 2 | cmd2 |cmd3 ..."`
 where the scope name allows us to refer to other documents (or artificial
 common scopes) and the commands run the output of one to the input of the
 other, also taking in arguments which could they themselves be block
@@ -3642,9 +3667,11 @@ substitutions.
 
 Note that one can also backslash escape the underscore. To have multiple
 escapes (to allow for multiple compiling), one can use `\#_"` where the number
-gets decremented by one on each compile and when it is compiled with 0 there,
-the sub gets run.
+gets decremented by one on each compile and, when it is compiled with a 0 there,
+the sub finally gets run.
 
+A block of the form `_":first"` would look for a minor block, i.e., a block
+that has been created by a switch directive. See next section. 
 
  ### Directive
 
@@ -3654,20 +3681,31 @@ compiled block to a file.
 
 The syntax for the save directive is 
 
-    [file.ext](#name-the-heading "save: :named code block | pipe commands")  
+    [file.ext](#name-the-heading "save: encoding | pipe commands")  
 
-where file.ext is the name of the file to save to,  name-the-heading is the
-heading of the block whose compiled version is being saved (spaces in the
-heading get converted to dashes for id linking purposes), `save:` is the
-directive to save a file, `named code block` is the (generally not needed)
-name of the code block within the heading block, and the pipe commands are
-optional as well for further processing of the text before saving. 
+where 
+
+* `file.ext` is the name of the file to save to
+* `name-the-heading` is the heading of the block whose compiled version is being saved. 
+Spaces in the heading get converted to dashes for id linking purposes.  Colons can be used
+to reference other scopes and/or minor blocks. In particular, `#:jack` will
+refernce the `jack` minor in the current heading block where the save
+directive is located.
+* `save:` is there to say this is the directive to save a file
+* `encoding` is any valid encoding of
+  [iconv-lite](https://github.com/ashtuchkin/iconv-lite/wiki/Supported-Encodings).
+  This is relevant more in the command line module, but is here as the save
+  directive is here. 
+* `pipe commands` optional commands to process the text before saving. See
+  next section. 
+
 
 For other directives, what the various parts mean depends, but it is always 
 
     [some](#stuff "dir: whatever")  
 
-where the `dir` should be replaced with a directive name.  
+where the `dir` should be replaced with a directive name. If dir is absent,
+but the colon is there, then this demarcates a minor block start.   
 
  ### Pipes
 
@@ -3678,30 +3716,124 @@ thin wrapper for the jshint module and report errors to the console.
 That command would then return the text in an untouched fashion.  We can also use 
 pipe commands to modify the text. 
 
-Commands can be used in block substitutions, sub-block switches, and
-directives that are setup to do such as the save and out directive:  
+Commands can be used in block substitutions, minor block directive switches, and
+other directives that are setup to use them such as the save and out directive:  
 `[code.js](#some-js-code "save: | jstidy)` will tidy up the code
-before storing it in the file `code.js`.
+before storing it in the file `code.js`. 
 
- ### Named Code Block
+If you want your own directive to process pipes, see the [save directive](https://github.com/jostylr/literate-programming-lib/blob/master/lp.md#save)  in
+lp.md. Pay particular attention to the "process" and "deal with start" minor
+blocks. The functionality of pipe parsing is in the `doc.pipeParsing` command,
+but there events that need to be respected in the setup. 
+
+Commands take arguments separated by commas and commands end with pipes or the
+block naming quote. One can also use a named code block as an argument, using
+any of the quote marks (same or different as surroung block name). To
+escape commas, quotes, pipes, underscores, spaces (spaces get trimmed from the
+beginning and ending of an argument), newlines, one can use a backslash, which
+also escapes itself. Note that the commonmark parser will escape all
+backslash-punctuation combinations outside of code blocks. So you may need a
+double backslash in directive command pipings. 
+
+You can also use `\n` to puta newline in line or `\u...` where the ... is a
+unicode codepoint per javascript spec implemented by [string.fromcodepoint](https://github.com/mathiasbynens/String.fromCodePoint).    
+
+
+ ### Minor Block
 
 Finally, you can use distinct code blocks within a full block. If you simply
 have multiple code blocks with none of the switching syntax below, then they
 will get concatenated into a single code block. 
 
-You can also switch to have subblocks within a main heading. This is mainly
+You can also switch to have what I call minor blocks within a main heading. This is mainly
 used for small bits that are just pushed out of the way for convenience. A
-full heading change is more appropriate for something that merits attention. 
+full heading change is more appropriate for something that merits separate attention. 
 
-To do a swtich one can either use a link of the form `[code name]()` or 
-`[code name](#whatever "switch:|cmd ...")` Note this is a bit of a break from
-earlier versions in which a link on its own line would do a switch. Now it is
+To create a minor block, one can either use a link of the form `[code name]()` or 
+`[code name](#whatever ":|cmd ...")` Note this is a bit of a break from
+earlier versions in which a link on its own line would create a minor block. Now it is
 purely on the form and not on placement. 
 
 
 Example: Let's say in heading block `### Loopy` we have `[outer loop]()` 
 Then it will create a code block that can be referenced by
 `_"Loopy:outer loop"`.
+
+ #### Templating
+
+One use of minor blocks is as a templating mechanism.
+
+    ## Top
+
+    After the first compile, the numbers will be decremented, but the blocks
+    will not be evaluated.
+    
+        \1_":first"
+
+        \2_":second"
+        
+        \1_":final"
+
+
+    This is now a template. We could use it as
+
+    [happy.txt](# "save:| compile basic, great")
+    [sad.txt](# "save:| compile basic, grumpy")
+
+
+    # Basic
+
+    [first]()
+        
+        Greetings and Salutations
+
+    [final]()
+
+        Sincerely,
+        Jack
+
+    # Great
+
+    [second]()
+
+        You are great.
+
+    # Grumpy
+
+    [second]()
+
+        You are grumpy.
+
+This would produce two text files 
+
+
+happy.txt: 
+
+    Greetings and Salutations
+
+    You are great.
+
+    Sincerely,
+    Jack
+
+sad.txt: 
+
+    
+    Greetings and Salutations
+
+    You are grumpy.
+    
+
+    Sincerely,
+    Jack
+
+    
+Note that you need to be careful about feeding in the escaped commands into
+other parsers. For example, I was using Jade to generate HTML structure and
+then using this templating to inject content (using markdown). Well, Jade
+escapes quotes and this was causing troubles. So I used backticks to delimit
+the block name instead of quotes and it worked fine. Be flexible.
+
 
  ## Nifty parts of writing literate programming
 
@@ -3741,34 +3873,137 @@ pre-defined ways. For example, if designing a web interface, you can organize
 the files by widgets, mixing in HTML, CSS, and JS in a single file whose
 purpose is clear. Then the central file can pull it all in to a single web
 page (or many) as well as save the CSS and JS to their own files as per the
-reommendation, lessing the CS, tanspiling ES6, linting, and minifying all as
-desired.
+reommendation, lessing the CSS, tanspiling ES6, linting, and minifying all as
+desired. Or you could just write each output file separate in its own litpro
+document.
+
+It's all good. You decide the order and grouping. The structure of your litpro
+documents is up to you and is **independent** of the needed structures of the
+output. 
 
  ## Built in directives
 
 There are a variety of directives that come built in.
     
-* Save
-* Out
-* New scope
-* Link Scope
-* Store
-* Blocks on/off
-* Log
-* Load
-* Define
-* Ignore (ignores the language in the link)
+* Save `[filename](#start "save:options|commands")` Save the text from start
+  into file filename. The options can be used in different ways, but in the
+  command client it is an encoding string for saving the file; the default
+  encoding is utf8.
+* Store `[name](# "store:value")`  This stores the value into name. Think of
+  this as a constant declaration at the beginning of a file. You can use it
+  for common bits of static text. If you need more dynamism, consider the
+  store command instead. 
+* Load `[alias](url "load:options")` This loads the file, found at the url
+  (file name probably) and stores it in the alias scope as well as under the
+  url name. We recommend using a short alias and not relying on the filename
+  path since the alias is what will be used repeatedly to reference the blocks
+  in the loaded file. Options are open, but for the command line client it is
+  the encoding string with default utf8. Note there are no pipes since there
+  is no block to act on it. 
+* Define `[command name](#start "define: async/sync/raw|cmd")` This allows one
+  to define commands in a lit pro document. Very handy. Order is irrelevant;
+  anything requiring a command will wait for it to be defined. This is
+  convenient, but also a bit more of a bother for debugging. Anyway, the start
+  is where we find the text for the body of the command. The post colon, pre
+  pipe area expects one of three options which is explained below in plugins.
+  The default is sync which if you return the text you want to pass along from
+  the command, then it is all good. Start with that. You can also pipe your
+  command definition through pipe commands before finally installing the
+  function as a live function. Lots of power, lots of headaches :) The
+  signature of a command is `function (input, args, name)` where the input is
+  the text being piped in, the args are the arguments array (all text) of the
+  command, and name is the name to be emitted when done. For async, name is a
+  callback function that should be called when done. For sync, you probably
+  need not worry about a name. The doc that is calling the command is the
+  `this`. 
+* Blocks on/off `[off](# "block:")` Stops recording code blocks. This is
+  good when writing a bunch of explanatory code text that you do not want
+  compiled. You can turn it back on with the `[on](# "block:")` directive.
+  Directives and headings are still actively being run and used. These can be
+  nested. Think "block comment" sections. Good for turning off troublesome
+  sections. 
+* Eval `[?](# "eval:)` Whatever block the eval finds itself, it will eval. It
+  will eval it only up to the point where it is placed. This is an immediate
+  action and can be quite useful for interventions. The eval will have access
+  to the doc object which gives one access to just about everything else. This
+  is one of those things that make running a literate progamming insecure. The
+  return value is nonexistent and the program will not usually wait for any async
+  actions to complete. 
+* Ignore `[language](# "ignore:")` This ignores the `language` code blocks.
+  For example, by convention, you could use code fence blocks with language js
+  for compiled code and ignore those with javascript. So you can have example
+  code that will not be seen and still get your syntax highlighting and
+  convenience. Note that this only works with code fences, obviously. As soon
+  as this is seen, it will be used and applied there after. 
+* Out  `[outname](#start "save:|commands")` Sends the text from start
+  to the console, using outname as a label.
+* New scope `[scope name](# "new scope:")` This creates a new scope (stuff
+  before a double colon). You can use it to store variables in a different
+  scope. Not terribly needed, but it was easy to expose the underlying
+  functionality. 
+* Link Scope `[alias name](# "link scope:scopename")` This creates an alias for
+  an existing scope. This can be useful if you want to use one name and toggle
+  between them. For example, you could use the alias `v` for `dev` or `deploy`
+  and then have `v::title` be used with just switching what `v` points to
+  depending on needs. A bit of a stretch, I admit. 
+* Log `[match string](# "log:")` This is a bit digging into the system. You
+  can monitor the events being emitted by using what you want to match for. 
+  For example, you could put in a block name (all lower cased) and monitor all
+  events for that. This gets sent to `doc.log` which by default prints to
+  `console.log`. If you use `\:` in the match string, this becomes the triple
+  colon separator that we use for techinical reasons for `block:minor` name syntax. 
+  This directive's code gives a bit of insight as to how to get
+  more out of the system.
 
  ## Built in commands
 
-* Eval
-* Async (async eval)
-* Compile (manual compiling of block of text)
-* Sub
-* Store
-* Log
-* Raw
-* Raw Clean
+Note commands need to be one word. 
+
+* Eval `code1, code2,...`  The arguments are concatenated together. Then they
+  are evaluated in the context with the `text` variable having the incoming
+  text and its value after evaling the arguments will be what is returned.
+  This should make for quick hacking on text. The doc variable is also
+  available for inpsecting all sorts of stuff, like the current state of the
+  blocks. If you want to evaluate the incoming text and use the result as
+  text, then the line `text = eval(text)` as the first argument should work.
+* Async (async eval) `code1, code2, ...` Same deal as eval, except this code
+  expects a callback function to be called. It is in the variable callback. So
+  you can read a file and have its callback call the callback to send the text
+  along its merry way. 
+* Compile This compiles a block of text as if it was in the document
+  originally. The compiled text will be the output. The arguments give the
+  names of blocknames that are used if short-hand minor blocks are
+  encountered. This is useful for templating. 
+* Sub `key1, val1, key2, val2, ...`  This replaces `key#` in the text with
+  `val#`. The replacement is sorted based on the length of the key value. This
+  is to help with SUBTITLE being replaced before TITLE, for example, while
+  allowing one to write it in an order that makes reading make sense. A little
+  unorthodox. We'll see if I regret it. 
+* Store `variable name`  This stores the incoming text into the variable name.
+  This is good for stashing something in mid computation. For example, 
+  `...|store temp | sub THIS, that | store awe | _"temp"` will stash the
+  incoming text into temp, then substitute out THIS for that, then store that
+  into awe, and finally restore back to the state of temp. Be careful that the
+  variable temp could get overwritten if there are any async operations
+  hanging about. Best to have unique names. 
+* Log This will output a concatenated string to doc.log (default console.log)
+  with the incoming text and the arguments. This is a good way to see what is
+  going on in the middle of a transformation.
+* Raw `start, end` This will look for start in the raw text of the file and
+  end in the file and return everything in between. Be careful that the raw
+  command itself does not get caught up. For example, if you want to cut
+  between !@ and @!,  then you could use the very ugly
+  `|raw _"|cat ,!, @", _"|cat ,@,!"`
+  or have a function that produces the separators, etc. Point is, be aware of
+  the issue. This should hopefully not be needed to often.  
+* Trim `This trims the incoming text, both leading and trailing whitespace.
+  Useful in some tests of mine. 
+* Cat  This will concatenate the incoming text and the arguments together
+  using the first argument as the separator. Note one can use `\n` as arg1
+  and it should give you a newline (use `\\n` if in a directive due to parser
+  escaping backslashes!). If there is just one argument, then it is
+  concatenated with the incoming text as is. No separator can be as easy as 
+  `|cat ,1,2,...`.
 
  ## h5 and h6
 
@@ -3777,7 +4012,15 @@ of h1-4 headings. So for example,  if we have `# top` and then `##### doc` and
 `###### something` then the sections would be recorded as `top, top/doc,
 top/doc/something` and we have a path syntax such as `../` which would yield
 `top/doc` if placed in `top/doc/something`. Ideally, this should work as you
-imagine. See `tests/h5.md` for the test examples. 
+imagine. See `tests/h5.md` for the test examples.
+
+
+ ## Plugins
+
+This is a big topic which I will only touch on here. You can define commands
+in the text of a literate program, and we will discuss this a bit here, but
+mostly, both commands and directives get defined in module plugins or the `lprc.js`
+file if need be. 
 
  ## LICENSE
 

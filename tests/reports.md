@@ -39,7 +39,7 @@ Here we ask for some things that will never happen.
 
 And one more hopelessness
 
-    _":ev|async"
+    _"|async _":ev""
 
 [ev]()
 
@@ -51,7 +51,7 @@ This does not call the callback.
 
 This actually puts the output that we want to see
     
-    _"timeout|async"
+    _"|async _"timeout""
 
 ## Timeout 
 
@@ -74,6 +74,6 @@ PROBLEM WITH: _"just::kidding" IN: hopeless FIlE: in
 NEED SCOPE: just FOR RETRIEVING: kidding IN FILE: in
 PROBLEM WITH: _"actual:not here" IN: hopeless FIlE: in
 PROBLEM WITH: _"not a var" IN: hopeless FIlE: in
-PROBLEM WITH: _":ev|async" IN: hey now FIlE: in
-PROBLEM WITH: _"timeout|async" IN: output FIlE: in
+PROBLEM WITH: _"|async _":ev"" IN: hey now FIlE: in
+PROBLEM WITH: _"|async _"timeout"" IN: output FIlE: in
 NEED COMMAND: bogus FOR: _"|bogus art, dee"
