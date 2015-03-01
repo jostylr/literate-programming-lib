@@ -4039,12 +4039,8 @@ Note commands need to be one word.
   with the incoming text and the arguments. This is a good way to see what is
   going on in the middle of a transformation.
 * **Raw** `start, end` This will look for start in the raw text of the file and
-  end in the file and return everything in between. Be careful that the raw
-  command itself does not get caught up. For example, if you want to cut
-  between !@ and @!,  then you could use the very ugly
-  `|raw _"|cat ,!, @", _"|cat ,@,!"`
-  or have a function that produces the separators, etc. Point is, be aware of
-  the issue. This should hopefully not be needed too often.  
+  end in the file and return everything in between. The start and end are
+  considered stand-alone lines. 
 * **Trim** `This trims the incoming text, both leading and trailing whitespace.
   Useful in some tests of mine. 
 * **Cat**  This will concatenate the incoming text and the arguments together
