@@ -31,6 +31,7 @@ var Folder = function (actions) {
         this.recording = {};
         this.stack = {};
         this.reporters = Folder.reporters;
+        this.plugins = Object.create(Folder.plugins);
         
         this.maker = {   'emit text ready' : function (doc, name) {
                         var gcd = doc.gcd;
@@ -346,7 +347,7 @@ Folder.prototype.parse = function (doc) {
     
         var walker = parsed.walker();
         var event, node, entering, htext = false, ltext = false, lang, code;
-        var ind, pipes, middle, title, href; //for links
+        var ind, pipes, middle, title, href, directive; //for links
     
         while ((event = walker.next())) {
             node = event.node;
@@ -389,12 +390,14 @@ Folder.prototype.parse = function (doc) {
                         }
                         gcd.emit("switch found:" + file, [ltext,pipes]);
                     } else if ( (ind = title.indexOf(":")) !== -1) {
+                        directive =  title.slice(0,ind).trim().toLowerCase(); 
                         gcd.emit("directive found:" + 
-                           title.slice(0,ind).trim().toLowerCase() + ":" + file, 
+                         directive +  ":" + file, 
                             { link : ltext,
                              input : title.slice(ind+1),
                              href: href, 
-                             cur: doc.curname});
+                             cur: doc.curname, 
+                             directive : directive });
                     }
                     ltext = false;
                 }
@@ -430,7 +433,7 @@ Folder.prototype.parse = function (doc) {
 Folder.prototype.newdoc = function (name, text, actions) {
         var parent = this;
     
-        var doc = new Doc(name, text, parent, actions);
+        var doc = new parent.Doc(name, text, parent, actions);
         
         try {
             parent.parse(doc);
@@ -478,7 +481,7 @@ Folder.prototype.log = function (text) { console.log(text); };
 
 Folder.prototype.indicator = "\u2AF6\u2AF6\u2AF6";
 
-var sync = Folder.prototype.wrapSync = function (fun, label) {
+var sync  = Folder.prototype.wrapSync = function (fun, label) {
         var f = function (input, args, name, command) {
             var doc = this;
             var gcd = doc.gcd;
@@ -499,6 +502,9 @@ var sync = Folder.prototype.wrapSync = function (fun, label) {
     
         return f;
     };
+Folder.sync = function (name, fun) {
+    Folder.commands[name] = sync(name, fun);
+};
 
 var async = Folder.prototype.wrapAsync = function (fun, label) {
         var f = function (input, args, name, command) {
@@ -516,7 +522,7 @@ var async = Folder.prototype.wrapAsync = function (fun, label) {
                 }
             };
     
-            fun.call(doc, input, args, callback);
+            fun.call(doc, input, args, callback, name);
         };
         if (label)  {
             f._label = label;
@@ -524,6 +530,9 @@ var async = Folder.prototype.wrapAsync = function (fun, label) {
         
         return f;
     };
+Folder.async = function (name, fun) {
+    Folder.commands[name] = async(name, fun);
+};
 
 Folder.prototype.subnameTransform = function (subname, lname, mainblock) {
         var colind, first, second, main;
@@ -604,6 +613,7 @@ Folder.prototype.subnameTransform = function (subname, lname, mainblock) {
     };
 
 Folder.postInit = function () {}; //a hook for plugin this modification
+Folder.plugins = {};
 
 Folder.reporters = {
     save : function (args) {
@@ -856,6 +866,7 @@ Folder.commands = {   eval : sync(function ( text, args ) {
                 return input;
             }, "push"),
         pop : sync(function (input, args, name) {
+                var gcd = this.gcd;
                 var folder = this.parent;
                 var stack = folder.stack;
                 var cmdpipe = name.slice(0, name.lastIndexOf(folder.colon.v));
@@ -1210,7 +1221,7 @@ Folder.directives = {   save : function (args) {
             }
     };
 
-var Doc = function (file, text, parent, actions) {
+var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
         this.parent = parent;
         var gcd = this.gcd = parent.gcd;
     
@@ -1230,7 +1241,6 @@ var Doc = function (file, text, parent, actions) {
         this.levels[2] = '';
     
         
-        this.scopes = {};
         this.vars = parent.createScope(file);
     
         this.commands = parent.commands;
@@ -1241,8 +1251,10 @@ var Doc = function (file, text, parent, actions) {
         this.log = this.parent.log;
         this.scopes = this.parent.scopes;
         this.subnameTransform = this.parent.subnameTransform;
-        this.reports = {};
         this.indicator = this.parent.indicator;
+        this.wrapAsync = parent.wrapAsync;
+        this.wrapSync = parent.wrapSync;
+        this.plugins = parent.plugins;
     
         if (actions) {
             apply(gcd, actions);
@@ -1394,7 +1406,7 @@ Doc.prototype.blockCompiling = function (block, file, bname, mainblock) {
         var gcd = doc.gcd;
         var colon = doc.colon;
         
-        var  quote, place, qfrag, lname, slashcount, numstr, chr;
+        var  quote, place, lname, slashcount, numstr, chr;
         var name = file + ":" + bname;
         var ind = 0;
         var loc = 0; // location in fragment array 
@@ -1709,7 +1721,7 @@ Doc.prototype.regexs = {
     };
 
 Doc.prototype.backslash = function (text, ind, indicator) {
-        var chr, match, num, left;
+        var chr, match, num;
         var uni = /[0-9A-F]+/g; 
         
     
@@ -1758,10 +1770,6 @@ Doc.prototype.whitespaceEscape = function (text, indicator) {
         return text;
     
     };
-
-Doc.prototype.wrapSync = Folder.prototype.wrapSync;
-
-Doc.prototype.wrapAsync = Folder.prototype.wrapAsync;
 
 Doc.prototype.store = function (name, text) {
         var doc = this;

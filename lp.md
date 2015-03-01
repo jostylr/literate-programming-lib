@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.3.0")
+# [literate-programming-lib](# "version:1.4.0")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -135,13 +135,22 @@ Each doc within a folder shares all the directives and commands.
 
     Folder.prototype.indicator = "\u2AF6\u2AF6\u2AF6";
     
-    var sync = Folder.prototype.wrapSync = _"Command wrapper sync";
+    var sync  = Folder.prototype.wrapSync = _"Command wrapper sync";
+    Folder.sync = function (name, fun) {
+        Folder.commands[name] = sync(name, fun);
+    };
 
     var async = Folder.prototype.wrapAsync = _"Command wrapper async";
+    Folder.async = function (name, fun) {
+        Folder.commands[name] = async(name, fun);
+    };
+
+
 
     Folder.prototype.subnameTransform = _"Subname Transform";
 
     Folder.postInit = function () {}; //a hook for plugin this modification
+    Folder.plugins = {};
 
     Folder.reporters = {
         save : _"save:reporter",
@@ -162,7 +171,7 @@ Each doc within a folder shares all the directives and commands.
     Folder.directives = _"Directives";
 
 
-    var Doc = _"doc constructor";
+    var Doc = Folder.prototype.Doc = _"doc constructor";
 
     _"doc constructor:prototype"
  
@@ -192,6 +201,7 @@ added. The internal basic compiling is baked in though it can be overwritten.
         this.recording = {};
         this.stack = {};
         this.reporters = Folder.reporters;
+        this.plugins = Object.create(Folder.plugins);
         
         this.maker = _"maker";
 
@@ -271,7 +281,6 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.levels[2] = '';
 
         
-        this.scopes = {};
         this.vars = parent.createScope(file);
 
         this.commands = parent.commands;
@@ -282,8 +291,10 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.log = this.parent.log;
         this.scopes = this.parent.scopes;
         this.subnameTransform = this.parent.subnameTransform;
-        this.reports = {};
         this.indicator = this.parent.indicator;
+        this.wrapAsync = parent.wrapAsync;
+        this.wrapSync = parent.wrapSync;
+        this.plugins = parent.plugins;
     
         if (actions) {
             apply(gcd, actions);
@@ -318,10 +329,6 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
     Doc.prototype.backslash = _"Backslash";
 
     Doc.prototype.whitespaceEscape = _"whitespace escape";
-
-    Doc.prototype.wrapSync = Folder.prototype.wrapSync;
-
-    Doc.prototype.wrapAsync = Folder.prototype.wrapAsync;
 
     Doc.prototype.store = _"Store";
 
@@ -685,7 +692,7 @@ This takes in a file name, text, and possibly some more event/handler actions.
     function (name, text, actions) {
         var parent = this;
 
-        var doc = new Doc(name, text, parent, actions);
+        var doc = new parent.Doc(name, text, parent, actions);
         
         try {
             parent.parse(doc);
@@ -725,7 +732,7 @@ informational and we extract headers, links, and code blocks.
 
         var walker = parsed.walker();
         var event, node, entering, htext = false, ltext = false, lang, code;
-        var ind, pipes, middle, title, href; //for links
+        var ind, pipes, middle, title, href, directive; //for links
 
         while ((event = walker.next())) {
             node = event.node;
@@ -842,12 +849,14 @@ in the heading then.
             }
             gcd.emit("switch found:" + file, [ltext,pipes]);
         } else if ( (ind = title.indexOf(":")) !== -1) {
+            directive =  title.slice(0,ind).trim().toLowerCase(); 
             gcd.emit("directive found:" + 
-               title.slice(0,ind).trim().toLowerCase() + ":" + file, 
+             directive +  ":" + file, 
                 { link : ltext,
                  input : title.slice(ind+1),
                  href: href, 
-                 cur: doc.curname});
+                 cur: doc.curname, 
+                 directive : directive });
         }
         ltext = false;
     }
@@ -964,7 +973,7 @@ We create a stitch handler for the closures here.
         var gcd = doc.gcd;
         var colon = doc.colon;
         
-        var  quote, place, qfrag, lname, slashcount, numstr, chr;
+        var  quote, place, lname, slashcount, numstr, chr;
         var name = file + ":" + bname;
         var ind = 0;
         var loc = 0; // location in fragment array 
@@ -1643,7 +1652,7 @@ actually escape the underscore, we need to use two backslashes: `\\_`.
 
 
     function (text, ind, indicator) {
-        var chr, match, num, left;
+        var chr, match, num;
         var uni = /[0-9A-F]+/g; 
         
 
@@ -2314,7 +2323,7 @@ receive `err, data` where data is the text to emit.
                 }
             };
 
-            fun.call(doc, input, args, callback);
+            fun.call(doc, input, args, callback, name);
         };
         if (label)  {
             f._label = label;
@@ -2635,6 +2644,7 @@ first argument, which could be empty, is the join separator.
 ### Pop 
 
     function (input, args, name) {
+        var gcd = this.gcd;
         var folder = this.parent;
         var stack = folder.stack;
         var cmdpipe = name.slice(0, name.lastIndexOf(folder.colon.v));
@@ -4034,7 +4044,7 @@ Note commands need to be one word.
   between !@ and @!,  then you could use the very ugly
   `|raw _"|cat ,!, @", _"|cat ,@,!"`
   or have a function that produces the separators, etc. Point is, be aware of
-  the issue. This should hopefully not be needed to often.  
+  the issue. This should hopefully not be needed too often.  
 * **Trim** `This trims the incoming text, both leading and trailing whitespace.
   Useful in some tests of mine. 
 * **Cat**  This will concatenate the incoming text and the arguments together
@@ -4065,6 +4075,262 @@ in the text of a literate program, and we will discuss this a bit here, but
 mostly, both commands and directives get defined in module plugins or the `lprc.js`
 file if need be. 
 
+ ### Defining Commands
+
+The define directive allows one to create commands within a document. This is
+a good place to start getting used to how things work. 
+
+A command has the function signature `function (input, args, name)-> void`
+where the input is the incoming text (we are piping along when evaluating
+commands), args are the arguments that are comma separated after the command
+name, and the name is the name of the event that needs to be emitted with the
+outgoing text. The function context is the `doc` example.
+
+A minimal example is 
+
+    function ( input, args, name) {
+        this.gcd.emit(name, input);
+    }
+
+We simply emit the name with the incoming text as data. We usually use `doc`
+for the `this` variable. This is the `raw` option in the define directive. 
+
+The default is `sync` and is very easy. 
+
+    function ( input, args, name) {
+        return input;
+    }
+
+That is, we just return the text we want to return. In general, the name is
+not needed though it may provide context clues. 
+
+The third option is an `async` command. For those familiar with node
+conventions, this is easy and natural. 
+
+    function (input, args, callback, name) {
+        callback(null, input);
+    }
+
+The callback takes in an error as first argument and, if no error, the text to
+output. One should be able to use this as a function callback to pass into
+other callback async setups in node. 
+
+So that's the flow. Obviously, you are free to do what you like with the text
+inside. You can access the document as `this` and from there get to the event
+emitter `gcd` and the parent, `folder`, leading to other docs. The scopes are
+available as well. Synchronous is the easiest, but asynchronous control flow
+is just as good and is needed for reading files, network requests, external
+process executions, etc. 
+
+ ### Plugin convention.
+
+I recommend the following npm module conventions for plugins for
+literate-programming. 
+
+1. litpro-... is the name. So all plugins would be namespaced to litpro.
+   Clear, but short. 
+2. Set `module.exports = function(Folder, other)` The first argument is the
+   Folder object which construts folders which constructs documents. By
+   accessing Folder, one can add a lot of functionality. This access is
+   granted in the command line client before any `folder` is created. 
+
+   The other argument depends on context, but for the command line client it
+   is the parsed in arguments object. It can be useful for a number of
+   purposes, but one should limit its use as it narrows the context of the
+   use. 
+3. Define commands and, less, directives. Commands are for transforming text,
+   directives are for doing document flow maipulations. Other hacks on
+   `Folder` should be even less rare than adding directives. 
+4. Commands and directives are globally defined. 
+5. `Folder.commands[cmd name] = function (input, args, name)...` is how to add a
+   command function. You can use `Folder.sync(cmdname, cmdfun)` and
+   `Folder.async` to install sync and async functions directly in the same
+   fashion as used by the define directive.
+6. `Folder.directives[directive name] = function (args)` is how to install a
+   directive. There are no helper functions for directives. These are more for
+   controlling the flow of the compiling in the large. The arg keys are read
+   off from `[link](href "directive:input")`. Also provided is the current
+   block name which is given by the key `cur`. 
+7. If you want to do stuff after folder and its event emitter, gcd, is
+   created, then you can modify Folder.postInit to be a function that does
+   whatever you want on a folder instance. Think of it as a secondary
+   constructor function.
+8. The Folder has a plugins object where one can stash whatever under the
+   plugin's name. This is largely for options and alternatives. 
+
+ ### Structure of Doc and Folder
+
+To really hack the doc compiling, one should inspect the structure of Folder,
+folder, and doc.  The Folder is a constructor and it has a variety of
+properties on it that are global to all folders. But it also has several
+prototype properties that get inherited by the folder instances. Some of those
+get inherited by the docs as well. For each folder, there is also a gcd object
+which is the event emitter, which comes from the, ahem, magnificient event-when
+library (I wrote it with this use in mind). In many ways, hacking on gcd will
+manipulate the flow of the compiling. 
+
+I wrote the folder instance to maintain flexibility, but typically (so far at
+least), one folder instance per run is typical. Still, there might be a use
+for it in say have a development and production compile separate but running
+simultaneously?
+
+
+ #### Folder
+ 
+These are the properties of Folder that may be of interest.
+
+* commands. This is an object that is prototyped onto the instance of a
+  folder. Changing this adds commands to all created folder instances. 
+* directives. This holds the directives. Otherwise same as commands.
+* reporter. This holds the functions that report out problems. See
+  reporters below. This is not prototyped and is shared across instances.
+* postInit. This does modification of the instance. Default is a noop. 
+* sync, async. These install sync and async commands, respectively. 
+* plugins. This is a space to stash stuff for plugins. Use the plugin sans
+  litpr as the key. Then put there whatever is of use. The idea is if you
+  require something like jshint and then want default options, you can put
+  that there. Then in a lprc file, someone can override those options it will
+  be applied across the project. 
+
+
+ #### folder
+
+Each instance of folder comes with its own instances of:
+
+* docs. Holds all the documents.
+* scopes. Holds all the scopes which are the stuff before the double colon. It
+  includes the blocks from the compiled docs but also any created scopes.
+* reports. This holds all the reports of stuff waiting. As stuff stops
+  waiting, the reports go away. Ideally, this should be empty when all is
+  done.
+* stack. This is for the push and pop of text piping. 
+* maker. Just an internal bit that is probably of no interest to anyone.
+* gcd. This is the event-emitter shared between docs, but not folders. Default
+  actions are added during the instantiation, largely related to the parsing
+  which sets up later. If you want to log what goes on, you may want to look
+  at the event-when docs (makeLog is a good place to start).
+
+
+and shares via the prototype
+
+* parse. This parses the text of docs using commonmark spec
+* newdoc. This creates a new document. Kind of a constructor, but simply
+  called as a function. it calls the constructor Doc.
+* colon. We replace colons with a unicode triple colon for emitting purposes
+  of block names (event-when uses colon as separators too). This contains the
+  escape (does replacement), restore (undoes it), and v which is the unicode
+  tripe colon. If the v is replaced entirely, everything should hopefully work
+  just fine with a new separator.
+* createScope. Creating a scope. 
+* join. What is used to concatenate code blocks under same block heading.
+  Default is "\n"
+* log. What to do with logging. Defaults to console.log.
+* indicator. An internal use to allow escaping of whitespace in command
+  arguments that would otherwisebe trimmed. 
+* wrapSync, wrapAsync. These wrap functions up for command sync, async, but do
+  not install them. Not sure why not install them. 
+* subnameTransform. A function that deals with shorthand minor substitutions
+  that avoid using the main block heading. This can be overwritten if you want
+  some custom behavior. 
+* reportwaits. This is a function that produces the reports of what is still
+  waiting. Very useful for debugging. Default is to use reporters and send it
+  to log. 
+* Doc. This is the constructor for documents. 
+
+
+and uses Object.create to kind of share 
+
+* commands
+* directives
+* plugins
+
+and direct copying from
+
+* reporters
+
+ #### doc
+
+Each file leads to a doc which is stored in the folder. Each doc has a variety
+of stuff going on. 
+
+Unique to each instance
+
+* file. The actual path to the file. It is treated as unique and there is a
+  scope dedicated to it. Don't mess with it. It is also how docs are keyed in
+  the folder.docs object.
+* text. The actual text of the file.
+* blockOff. This tracks whether to take in code blocks as usual. See blocks
+  directive. If 0, code blocks are queued up. If greater than 1, code blocks
+  are ignored. 
+* levels. This tracks the level of the heading that is currently being used.
+  See h5/h6 description
+* blocks. Each heading gets its own key in the blocks and the raw code blocks
+  are put here.
+* heading, curname. These are part of the block parsing. curname is the full
+  name while heading excludes minor block names.
+* vars. This is where the variables live. As each code block is compiled,
+  its result gets stored here. But one can also add any bit of var name and
+  text to this. 
+* parent. This is the folder that contains this doc.
+
+
+Inherited from folder
+
+* commands, modifications affect all
+* directives, modifications affect all
+* scopes, modifications affect all
+* gcd, modifications affect all. Be careful to scope added events to files,
+  etc. 
+* plugins, modifications affect all
+* maker, Object.created
+* colon, Object.created
+* join, overwriting will only affect doc
+* log, overwriting will only affect doc
+* subnameTransform, overwriting will only affect doc
+* indicator, overwriting will only affect doc
+* wrapSync, wrapAsync, overwriting will only affect doc
+
+Prototyped on Doc. Almost all are internal and are of little to no interest.
+
+* pipeParsing. This parses the pipes. This may be useful if you want to do
+  something like in the save or define directives. Check them out in the
+  source if you want to see how to use it. 
+* blockCompiling. This is what the compile command taps into. See how it is
+  done there. 
+* getscope. Looks up a scope and does appropriate async waiting for an
+  existing scope if need be.
+* retrieve. retrieves variable.
+* createLinkedScope. Creates a link to a scope and notifies all.
+* indent. This is the default indenting function for subbing in multi-line
+  blocks. The default idea is to indent up to the indent of the line that
+  contains the block sub; further existing indentation in sublines is
+  respected on top of that. 
+* getIndent. Figuring out the indent
+* substituteParsing
+* regexs. Some regular expressions that are used in the parsing of the code
+  blocks.
+* backslash. The backslash function applied to command arguments.
+* whitespaceEscape. Handling whitespace escaping in conjunction with
+  backslash. Putting the whitespace back.
+* store. stores a variable.
+
+ #### Reporting
+
+A key feature of any programming environment is debugging. It is my hope that
+this version has some better debugging information. The key to this is the
+reporting function of what is waiting around. 
+
+The wait it works is that when an event of the form `waiting for:type:...` is
+emitted with data `[evt, reportname, ...]` then reporters gets a key of the
+event string wthout the `waiting for:`, and when the `evt` is emitted, it is
+removed. 
+
+If it is still waiting around when all is done, then it gets reported. The
+reportname is used to look up which reporter is used. Then that reporter takes
+in the remaining arguments and produces a string that will be part of the
+final report that gets printed out. 
+
+
  ## LICENSE
 
 [MIT-LICENSE](https://github.com/jostylr/literate-programming/blob/master/LICENSE)
@@ -4073,7 +4339,6 @@ file if need be.
 
 ## TODO
 
-Improve docs.
 
 ## NPM package
 
