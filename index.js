@@ -32,6 +32,7 @@ var Folder = function (actions) {
         this.stack = {};
         this.reporters = Folder.reporters;
         this.plugins = Object.create(Folder.plugins);
+        this.flags = {};
         
         this.maker = {   'emit text ready' : function (doc, name) {
                         var gcd = doc.gcd;
@@ -881,7 +882,20 @@ Folder.commands = {   eval : sync(function ( text, args ) {
                     ret = input;           
                 }
                 return ret;
-            }, "pop")
+            }, "pop"),
+        "if" : function (input, args, name) {
+                var doc = this;
+                var gcd = doc.gcd;
+                var flag = args[0];
+            
+                if (doc.parent.flags.hasOwnProperty(flag) ) {
+                    doc.commands[args[1]].call(doc, input, args.slice(2), name);
+                } else {
+                    gcd.emit("text ready:" + name, input);
+                }
+                
+            
+            }
     
     };
 Folder.directives = {   save : function (args) {
@@ -1218,6 +1232,32 @@ Folder.directives = {   save : function (args) {
                     return;
                 }
                 
+            },
+        "if" : function (args) {
+                
+                var doc = this;
+                var folder = doc.parent;
+                var gcd = doc.gcd;
+                
+                var title = args.input;
+                var ind = title.indexOf(";");
+                var flag = title.slice(0, ind).trim();
+                var directive, semi, fun;
+                
+                if (folder.flags.hasOwnProperty(flag) ) {
+                    semi = title.indexOf(":", ind)
+                    directive = title.slice(ind+1, semi).trim();
+                    args.directive = directive;
+                    args.input = title.slice(semi+1).trim();
+            
+                    if (directive && (fun = doc.directives[directive] ) ) {
+                        fun.call(doc, args);
+                    }
+                }
+            },
+        "flag" : function (args) {
+                this.parent.flags[args.link.trim()] = true;
+            
             }
     };
 

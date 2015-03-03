@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.4.0")
+# [literate-programming-lib](# "version:1.4.1")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -202,6 +202,7 @@ added. The internal basic compiling is baked in though it can be overwritten.
         this.stack = {};
         this.reporters = Folder.reporters;
         this.plugins = Object.create(Folder.plugins);
+        this.flags = {};
         
         this.maker = _"maker";
 
@@ -2347,7 +2348,8 @@ Here we have some commands and directives that are of common use
         trim : sync(_"trim", "trim"),
         cat : sync(_"cat", "cat"),
         push : sync(_"push", "push"),
-        pop : sync(_"pop", "pop")
+        pop : sync(_"pop", "pop"),
+        "if" : _"cmd if"
 
     }
 
@@ -2661,6 +2663,24 @@ first argument, which could be empty, is the join separator.
         return ret;
     }
 
+### Cmd if
+
+This checks a flag and then runs a command. 
+
+    function (input, args, name) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var flag = args[0];
+
+        if (doc.parent.flags.hasOwnProperty(flag) ) {
+            doc.commands[args[1]].call(doc, input, args.slice(2), name);
+        } else {
+            gcd.emit("text ready:" + name, input);
+        }
+        
+
+    }
+
 
 ## Directives
 
@@ -2679,7 +2699,9 @@ for saving as well.
         define : _"define directive",
         "block" : _"block",
         "ignore" : _"ignore language",
-        "eval" : _"dir eval"
+        "eval" : _"dir eval",
+        "if" : _"dir if",
+        "flag" : _"dir flag"
     }
 
 
@@ -3136,6 +3158,7 @@ marked parsing stage.
 
         var block = doc.blocks[args.cur];
 
+
         try {
             eval(block);
         } catch (e) {
@@ -3193,6 +3216,43 @@ example code.
         var gcd = doc.gcd;
 
         gcd.on("code block found:" + lang, "ignore code block");
+
+    }
+
+### Dir if
+
+The directive if checks for the flag and then calls the directive being
+referenced if need be. 
+
+    function (args) {
+        
+        var doc = this;
+        var folder = doc.parent;
+        var gcd = doc.gcd;
+        
+        var title = args.input;
+        var ind = title.indexOf(";");
+        var flag = title.slice(0, ind).trim();
+        var directive, semi, fun;
+        
+        if (folder.flags.hasOwnProperty(flag) ) {
+            semi = title.indexOf(":", ind)
+            directive = title.slice(ind+1, semi).trim();
+            args.directive = directive;
+            args.input = title.slice(semi+1).trim();
+
+            if (directive && (fun = doc.directives[directive] ) ) {
+                fun.call(doc, args);
+            }
+        }
+    }
+
+### Dir flag
+
+This sets the flag on the folder which is `this.parent`.
+
+    function (args) {
+        this.parent.flags[args.link.trim()] = true;
 
     }
 
@@ -3256,7 +3316,7 @@ The log array should be cleared between tests.
     var equalizer = _"equalizer";
 
     var testfiles = [ 
-       /**/ 
+       /**/  
        "first.md",
         "eval.md",
         "sub.md",
@@ -3288,7 +3348,8 @@ The log array should be cleared between tests.
         "empty.md",
         "switchcmd.md",
         "templateexample.md",
-        "pushpop.md"
+        "pushpop.md",
+        "if.md"
     ];
 
 
@@ -3345,7 +3406,7 @@ process the inputs.
         
         var log = td.log; 
 
-        //gcd.makeLog();
+        // gcd.makeLog();
 
         //gcd.monitor('', function (evt, data) { console.log(evt, data); });
 
@@ -3382,11 +3443,11 @@ process the inputs.
                 }
             }
 
-          //setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
+          // setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
           //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
-        //   setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+          // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
     }
 
@@ -4002,6 +4063,13 @@ There are a variety of directives that come built in.
   colon separator that we use for techinical reasons for `block:minor` name syntax. 
   This directive's code gives a bit of insight as to how to get
   more out of the system.
+* **If** `[...](... "if: flag; directive:...")` If flag holds true (think build
+  flag), then the driective is executed with the arguments as given. A couple
+  of great uses are conditional evaling which allows for a great deal of
+  flexibility and conditional block on/off which may be useful if there is
+  extensive debugging commands involved. 
+* **Flag** `[flag name](# "flag:")` This sets the named flag to true. Note
+  there is no way to turn a flag off easily. 
 
  ## Built in commands
 
@@ -4041,7 +4109,7 @@ Note commands need to be one word.
 * **Raw** `start, end` This will look for start in the raw text of the file and
   end in the file and return everything in between. The start and end are
   considered stand-alone lines. 
-* **Trim** `This trims the incoming text, both leading and trailing whitespace.
+* **Trim** This trims the incoming text, both leading and trailing whitespace.
   Useful in some tests of mine. 
 * **Cat**  This will concatenate the incoming text and the arguments together
   using the first argument as the separator. Note one can use `\n` as arg1
@@ -4052,7 +4120,10 @@ Note commands need to be one word.
 * **Push** Simply pushes the current state of the incoming text on the stack
   for this pipe process.
 * **Pop** Replaces the incoming text with popping out the last unpopped pushed
-  on text. 
+  on text.
+* **If** `flag, cmd, arg1, arg2, ....` If the flag is present (think build
+  flag), then the command will execute with the given input text and
+  arguments. Otherwise, the input text is passed on.
 
  ## h5 and h6
 
@@ -4186,7 +4257,7 @@ These are the properties of Folder that may be of interest.
   litpr as the key. Then put there whatever is of use. The idea is if you
   require something like jshint and then want default options, you can put
   that there. Then in a lprc file, someone can override those options it will
-  be applied across the project. 
+  be applied across the project.
 
 
  #### folder
@@ -4205,7 +4276,7 @@ Each instance of folder comes with its own instances of:
   actions are added during the instantiation, largely related to the parsing
   which sets up later. If you want to log what goes on, you may want to look
   at the event-when docs (makeLog is a good place to start).
-
+* flags. This holds what flags are present. 
 
 and shares via the prototype
 
@@ -4334,6 +4405,17 @@ final report that gets printed out.
 
 
 ## TODO
+
+Implement if command and if directive. The if command would be if flag, cmd to
+execute, arg1, arg2, ... to put into the command to execute. If flag not
+present, we pass thru. 
+
+For the if directive, we would have `[...](... "if: flag ; dir: ....") so
+basically we check the flag and if it works then we run the directive as if
+the if:flag was not there. 
+
+Also implement flag directive. A flag command would get into issues of
+ordering. 
 
 
 ## NPM package

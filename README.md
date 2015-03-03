@@ -454,6 +454,13 @@ There are a variety of directives that come built in.
   colon separator that we use for techinical reasons for `block:minor` name syntax. 
   This directive's code gives a bit of insight as to how to get
   more out of the system.
+* **If** `[...](... "if: flag; directive:...")` If flag holds true (think build
+  flag), then the driective is executed with the arguments as given. A couple
+  of great uses are conditional evaling which allows for a great deal of
+  flexibility and conditional block on/off which may be useful if there is
+  extensive debugging commands involved. 
+* **Flag** `[flag name](# "flag:")` This sets the named flag to true. Note
+  there is no way to turn a flag off easily. 
 
 ## Built in commands
 
@@ -493,7 +500,7 @@ Note commands need to be one word.
 * **Raw** `start, end` This will look for start in the raw text of the file and
   end in the file and return everything in between. The start and end are
   considered stand-alone lines. 
-* **Trim** `This trims the incoming text, both leading and trailing whitespace.
+* **Trim** This trims the incoming text, both leading and trailing whitespace.
   Useful in some tests of mine. 
 * **Cat**  This will concatenate the incoming text and the arguments together
   using the first argument as the separator. Note one can use `\n` as arg1
@@ -504,7 +511,10 @@ Note commands need to be one word.
 * **Push** Simply pushes the current state of the incoming text on the stack
   for this pipe process.
 * **Pop** Replaces the incoming text with popping out the last unpopped pushed
-  on text. 
+  on text.
+* **If** `flag, cmd, arg1, arg2, ....` If the flag is present (think build
+  flag), then the command will execute with the given input text and
+  arguments. Otherwise, the input text is passed on.
 
 ## h5 and h6
 
@@ -638,7 +648,7 @@ These are the properties of Folder that may be of interest.
   litpr as the key. Then put there whatever is of use. The idea is if you
   require something like jshint and then want default options, you can put
   that there. Then in a lprc file, someone can override those options it will
-  be applied across the project. 
+  be applied across the project.
 
 
 #### folder
@@ -657,7 +667,7 @@ Each instance of folder comes with its own instances of:
   actions are added during the instantiation, largely related to the parsing
   which sets up later. If you want to log what goes on, you may want to look
   at the event-when docs (makeLog is a good place to start).
-
+* flags. This holds what flags are present. 
 
 and shares via the prototype
 

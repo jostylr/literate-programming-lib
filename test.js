@@ -86,7 +86,7 @@ var testrunner = function (file) {
         
         var log = td.log; 
     
-        //gcd.makeLog();
+        // gcd.makeLog();
     
         //gcd.monitor('', function (evt, data) { console.log(evt, data); });
     
@@ -123,11 +123,11 @@ var testrunner = function (file) {
                 }
             }
     
-          //setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
+          // setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
     
           //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
-        //   setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+          // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
     
     };
 
@@ -142,7 +142,7 @@ var equalizer = function (t, out) {
     };
 
 var testfiles = [ 
-   /**/ 
+   /**/  
    "first.md",
     "eval.md",
     "sub.md",
@@ -174,7 +174,8 @@ var testfiles = [
     "empty.md",
     "switchcmd.md",
     "templateexample.md",
-    "pushpop.md"
+    "pushpop.md",
+    "if.md"
 ];
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {
