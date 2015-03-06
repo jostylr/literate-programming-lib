@@ -537,7 +537,7 @@ Folder.async = function (name, fun) {
 };
 
 // communication between folders, say for caching read in files
-Folder.fcd = new EvW; 
+Folder.fcd = new EvW(); 
 
 Folder.prototype.subnameTransform = function (subname, lname, mainblock) {
         var colind, first, second, main;

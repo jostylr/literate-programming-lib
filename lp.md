@@ -146,7 +146,7 @@ Each doc within a folder shares all the directives and commands.
     };
 
     // communication between folders, say for caching read in files
-    Folder.fcd = new EvW; 
+    Folder.fcd = new EvW(); 
 
 
     Folder.prototype.subnameTransform = _"Subname Transform";
