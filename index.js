@@ -33,6 +33,7 @@ var Folder = function (actions) {
         this.reporters = Folder.reporters;
         this.plugins = Object.create(Folder.plugins);
         this.flags = {};
+        this.Folder = Folder;
         
         this.maker = {   'emit text ready' : function (doc, name) {
                         var gcd = doc.gcd;
@@ -534,6 +535,9 @@ var async = Folder.prototype.wrapAsync = function (fun, label) {
 Folder.async = function (name, fun) {
     Folder.commands[name] = async(name, fun);
 };
+
+// communication between folders, say for caching read in files
+Folder.fcd = new EvW; 
 
 Folder.prototype.subnameTransform = function (subname, lname, mainblock) {
         var colind, first, second, main;
@@ -1245,7 +1249,7 @@ Folder.directives = {   save : function (args) {
                 var directive, semi, fun;
                 
                 if (folder.flags.hasOwnProperty(flag) ) {
-                    semi = title.indexOf(":", ind)
+                    semi = title.indexOf(":", ind);
                     directive = title.slice(ind+1, semi).trim();
                     args.directive = directive;
                     args.input = title.slice(semi+1).trim();

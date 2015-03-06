@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.4.1")
+# [literate-programming-lib](# "version:1.4.2")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -145,6 +145,8 @@ Each doc within a folder shares all the directives and commands.
         Folder.commands[name] = async(name, fun);
     };
 
+    // communication between folders, say for caching read in files
+    Folder.fcd = new EvW; 
 
 
     Folder.prototype.subnameTransform = _"Subname Transform";
@@ -203,6 +205,7 @@ added. The internal basic compiling is baked in though it can be overwritten.
         this.reporters = Folder.reporters;
         this.plugins = Object.create(Folder.plugins);
         this.flags = {};
+        this.Folder = Folder;
         
         this.maker = _"maker";
 
@@ -3236,7 +3239,7 @@ referenced if need be.
         var directive, semi, fun;
         
         if (folder.flags.hasOwnProperty(flag) ) {
-            semi = title.indexOf(":", ind)
+            semi = title.indexOf(":", ind);
             directive = title.slice(ind+1, semi).trim();
             args.directive = directive;
             args.input = title.slice(semi+1).trim();
@@ -4442,7 +4445,7 @@ The requisite npm package file.
         "node": ">=0.10"
       },
       "dependencies": {
-        "event-when": "^0.7.1",
+        "event-when": "^1.0.0",
         "commonmark": "^0.17.1",
         "string.fromcodepoint": "^0.2.1"
       },
