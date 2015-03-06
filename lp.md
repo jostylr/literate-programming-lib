@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.4.2")
+# [literate-programming-lib](# "version:1.4.3")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -2281,6 +2281,8 @@ of this block as the text ready event does not further. It just stops
 executing. 
 
     function (fun, label) {
+        _":switching"
+
         var f = function (input, args, name, command) {
             var doc = this;
             var gcd = doc.gcd;
@@ -2302,6 +2304,19 @@ executing.
         return f;
     }
 
+[switching]()
+
+Due to poor thinking, I put the function first and then the name. This is a
+bit unconventional and is annoying. But it is easy to distinguish strings and
+functions so we do so and fix it. 
+
+        var temp;
+        if (typeof fun === "string") {
+            temp = fun;
+            fun = label;
+            label = fun;
+        }
+
 
 
 
@@ -2312,6 +2327,7 @@ call will be of `input, args, callback` and the callback will
 receive `err, data` where data is the text to emit. 
 
     function (fun, label) {
+        _"command wrapper sync:switching"
         var f = function (input, args, name, command) {
             
             var doc = this;

@@ -484,6 +484,13 @@ Folder.prototype.log = function (text) { console.log(text); };
 Folder.prototype.indicator = "\u2AF6\u2AF6\u2AF6";
 
 var sync  = Folder.prototype.wrapSync = function (fun, label) {
+            var temp;
+            if (typeof fun === "string") {
+                temp = fun;
+                fun = label;
+                label = fun;
+            }
+    
         var f = function (input, args, name, command) {
             var doc = this;
             var gcd = doc.gcd;
@@ -509,6 +516,12 @@ Folder.sync = function (name, fun) {
 };
 
 var async = Folder.prototype.wrapAsync = function (fun, label) {
+            var temp;
+            if (typeof fun === "string") {
+                temp = fun;
+                fun = label;
+                label = fun;
+            }
         var f = function (input, args, name, command) {
             
             var doc = this;
