@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.4.3")
+# [literate-programming-lib](# "version:1.4.4")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -170,7 +170,10 @@ Each doc within a folder shares all the directives and commands.
     Folder.prototype.reportwaits = _"reporting on waiting";
 
     Folder.commands = _"Commands";
+    
     Folder.directives = _"Directives";
+
+    Folder.directives.npminfo.types = _"dir npminfo:types";
 
 
     var Doc = Folder.prototype.Doc = _"doc constructor";
@@ -190,12 +193,14 @@ this.
 Some things such as how to take in input and put out output are needed to be
 added. The internal basic compiling is baked in though it can be overwritten.
 
+We have a default scope called `g` for global.
+
     function (actions) {
         actions = actions || Folder.actions;
 
         var gcd = this.gcd = new EvW();
         this.docs = {};
-        this.scopes = {};
+        this.scopes = { g:{} };
         
         this.commands = Object.create(Folder.commands);
         this.directives = Object.create(Folder.directives);
@@ -2720,7 +2725,9 @@ for saving as well.
         "ignore" : _"ignore language",
         "eval" : _"dir eval",
         "if" : _"dir if",
-        "flag" : _"dir flag"
+        "flag" : _"dir flag",
+        "version" : _"dir version",
+        "npminfo" : _"dir npminfo"
     }
 
 
@@ -3270,9 +3277,104 @@ referenced if need be.
 
 This sets the flag on the folder which is `this.parent`.
 
+`[flag name](# "flag:")`
+
     function (args) {
         this.parent.flags[args.link.trim()] = true;
 
+    }
+
+### Dir Version
+
+This gives the name and version of the program. 
+
+`[name](# "version: ")`
+
+    function (args) {
+        var doc = this;
+        var colon = doc.colon;
+
+        doc.store(colon.escape("g::docname"), args.link.trim());
+        doc.store(colon.escape("g::docversion"), args.input.trim());
+    }
+
+### Dir npminfo
+
+This takes in a string for npm files and store the values in global variables.
+
+`[author name](github/gituser "npminfo: author email; deps: ; dev: " )`
+
+    function self (args) {
+        var doc = this;
+        var g = "g" + doc.colon.v + doc.colon.v;
+
+        doc.store(g+"authorname", args.link);
+
+        var gituser = args.href.slice(args.href.lastIndexOf("/")+1).trim();
+        doc.store(g+"gituser", gituser);
+
+        var pieces = args.input.split(";");
+
+        doc.store(g + "authoremail", (pieces.shift() || '').trim());
+      
+        pieces.forEach(function (el) {
+            if (!el) {return;}
+
+            var ret = [];
+            
+            var ind = el.indexOf(":");
+            var kind = el.slice(0, ind).trim();
+            kind = self.types[kind];
+            if (!kind) { doc.log("unrecognized type");return;}
+            var entries = el.slice(ind+1).split(",");
+            entries.forEach(function(el) {
+                if (!el) {return;}
+                var bits = kind.element(el);
+                if (bits) {
+                    ret.push(bits);
+                }
+            });
+            doc.store(g +  kind.save, kind.val(ret) );
+        });
+
+        doc.store(g + "year", ( new Date() ).getFullYear() );
+    }
+
+[standard]()
+
+This is to give a function that handles what the dependency string should be.  
+ 
+    function (str) {
+        var pieces;
+        
+        if (str) {
+            pieces = str.trim().split(/\s+/);
+            if (pieces.length === 2) {
+                return '"' + pieces[0].trim() + '"' + " : " + '"^' + 
+                    pieces[1].trim() + '"';
+            } 
+        }
+    }
+
+[deps]()
+
+    {   val : function (arr) {return arr.join(",\n");},
+        element : _":standard",
+        save : "npm dependencies" 
+    }
+
+[dev]()
+
+    {   val : function (arr) {return arr.join(",\n");},
+        element : _":standard",
+        save : "npm dev dependencies"
+    }
+
+[types]() 
+
+    { 
+        deps : _":deps",
+        dev : _":dev"
     }
 
 
@@ -3368,7 +3470,8 @@ The log array should be cleared between tests.
         "switchcmd.md",
         "templateexample.md",
         "pushpop.md",
-        "if.md"
+        "if.md",
+        "version.md"
     ];
 
 
@@ -3466,7 +3569,7 @@ process the inputs.
 
           //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
-          // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+         //  setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
     }
 
@@ -4089,6 +4192,15 @@ There are a variety of directives that come built in.
   extensive debugging commands involved. 
 * **Flag** `[flag name](# "flag:")` This sets the named flag to true. Note
   there is no way to turn a flag off easily. 
+* **Version** `[name](# "version: number")` This gives the name and version of
+  the program.
+  Saves `g::docname` and `g::docversion`.
+* **npminfo** `[author name](github/gituser "npminfo: author email; deps: ;
+  dev: " )` This takes in a string for some basic author information and
+  dependencies used. To add on or modify how it handles the deps, dev, etc.,
+  modify the `types` object on `Folder.directives.npminfo`.
+  Saves `g::authorname`, `g::gituser`, `g::authoremail`, `g::npm
+  dependencies`, `g::npm dev dependencies`.
 
  ## Built in commands
 

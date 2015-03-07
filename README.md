@@ -461,6 +461,15 @@ There are a variety of directives that come built in.
   extensive debugging commands involved. 
 * **Flag** `[flag name](# "flag:")` This sets the named flag to true. Note
   there is no way to turn a flag off easily. 
+* **Version** `[name](# "version: number")` This gives the name and version of
+  the program.
+  Saves `g::docname` and `g::docversion`.
+* **npminfo** `[author name](github/gituser "npminfo: author email; deps: ;
+  dev: " )` This takes in a string for some basic author information and
+  dependencies used. To add on or modify how it handles the deps, dev, etc.,
+  modify the `types` object on `Folder.directives.npminfo`.
+  Saves `g::authorname`, `g::gituser`, `g::authoremail`, `g::npm
+  dependencies`, `g::npm dev dependencies`.
 
 ## Built in commands
 

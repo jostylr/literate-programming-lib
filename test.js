@@ -127,7 +127,7 @@ var testrunner = function (file) {
     
           //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
-          // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+         //  setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
     
     };
 
@@ -175,7 +175,8 @@ var testfiles = [
     "switchcmd.md",
     "templateexample.md",
     "pushpop.md",
-    "if.md"
+    "if.md",
+    "version.md"
 ];
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {

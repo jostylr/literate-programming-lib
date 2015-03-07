@@ -23,7 +23,7 @@ var Folder = function (actions) {
     
         var gcd = this.gcd = new EvW();
         this.docs = {};
-        this.scopes = {};
+        this.scopes = { g:{} };
         
         this.commands = Object.create(Folder.commands);
         this.directives = Object.create(Folder.directives);
@@ -915,6 +915,7 @@ Folder.commands = {   eval : sync(function ( text, args ) {
             }
     
     };
+
 Folder.directives = {   save : function (args) {
         var doc = this;
         var colon = doc.colon;
@@ -1275,6 +1276,79 @@ Folder.directives = {   save : function (args) {
         "flag" : function (args) {
                 this.parent.flags[args.link.trim()] = true;
             
+            },
+        "version" : function (args) {
+                var doc = this;
+                var colon = doc.colon;
+            
+                doc.store(colon.escape("g::docname"), args.link.trim());
+                doc.store(colon.escape("g::docversion"), args.input.trim());
+            },
+        "npminfo" : function self (args) {
+                var doc = this;
+                var g = "g" + doc.colon.v + doc.colon.v;
+            
+                doc.store(g+"authorname", args.link);
+            
+                var gituser = args.href.slice(args.href.lastIndexOf("/")+1).trim();
+                doc.store(g+"gituser", gituser);
+            
+                var pieces = args.input.split(";");
+            
+                doc.store(g + "authoremail", (pieces.shift() || '').trim());
+              
+                pieces.forEach(function (el) {
+                    if (!el) {return;}
+            
+                    var ret = [];
+                    
+                    var ind = el.indexOf(":");
+                    var kind = el.slice(0, ind).trim();
+                    kind = self.types[kind];
+                    if (!kind) { doc.log("unrecognized type");return;}
+                    var entries = el.slice(ind+1).split(",");
+                    entries.forEach(function(el) {
+                        if (!el) {return;}
+                        var bits = kind.element(el);
+                        if (bits) {
+                            ret.push(bits);
+                        }
+                    });
+                    doc.store(g +  kind.save, kind.val(ret) );
+                });
+            
+                doc.store(g + "year", ( new Date() ).getFullYear() );
+            }
+    };
+
+Folder.directives.npminfo.types = { 
+        deps : {   val : function (arr) {return arr.join(",\n");},
+                element : function (str) {
+                        var pieces;
+                        
+                        if (str) {
+                            pieces = str.trim().split(/\s+/);
+                            if (pieces.length === 2) {
+                                return '"' + pieces[0].trim() + '"' + " : " + '"^' + 
+                                    pieces[1].trim() + '"';
+                            } 
+                        }
+                    },
+                save : "npm dependencies" 
+            },
+        dev : {   val : function (arr) {return arr.join(",\n");},
+                element : function (str) {
+                        var pieces;
+                        
+                        if (str) {
+                            pieces = str.trim().split(/\s+/);
+                            if (pieces.length === 2) {
+                                return '"' + pieces[0].trim() + '"' + " : " + '"^' + 
+                                    pieces[1].trim() + '"';
+                            } 
+                        }
+                    },
+                save : "npm dev dependencies"
             }
     };
 
