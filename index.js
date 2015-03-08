@@ -1317,7 +1317,7 @@ Folder.directives = {   save : function (args) {
                     doc.store(g +  kind.save, kind.val(ret) );
                 });
             
-                doc.store(g + "year", ( new Date() ).getFullYear() );
+                doc.store(g + "year", ( new Date() ).getFullYear().toString() );
             }
     };
 

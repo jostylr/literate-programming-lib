@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.4.4")
+# [literate-programming-lib](# "version:1.4.5")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -3337,7 +3337,7 @@ This takes in a string for npm files and store the values in global variables.
             doc.store(g +  kind.save, kind.val(ret) );
         });
 
-        doc.store(g + "year", ( new Date() ).getFullYear() );
+        doc.store(g + "year", ( new Date() ).getFullYear().toString() );
     }
 
 [standard]()
