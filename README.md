@@ -623,7 +623,12 @@ literate-programming.
    whatever you want on a folder instance. Think of it as a secondary
    constructor function.
 8. The Folder has a plugins object where one can stash whatever under the
-   plugin's name. This is largely for options and alternatives. 
+   plugin's name. This is largely for options and alternatives. The folder and
+   doc object have prototyped objects on this as well which allows one to
+   choose the scope of applicability of objects. But beware that subobjects
+   are not prototyped (unless setup in that way; you may want to implement
+   that by Object.creating what is there, if anything). Think of it as deciding
+   where options should live when creating them. 
 
 ### Structure of Doc and Folder
 

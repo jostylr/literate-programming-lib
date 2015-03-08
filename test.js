@@ -135,7 +135,12 @@ var equalizer = function (t, out) {
         return function (text, evObj) {
             var gcd = evObj.emitter;
             if (text !== out) {
-                console.log(text + "\n---\n" + out);
+                if ( (text[text.length-1] === "\n") && 
+                    (out[out.length-1] !== "\n" ) ) {
+                    out += "\n";
+                } else {
+                    console.log(text + "---\n" + out);
+                }
             }
             t.equals(text, out);
         };

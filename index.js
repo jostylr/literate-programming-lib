@@ -632,6 +632,36 @@ Folder.prototype.subnameTransform = function (subname, lname, mainblock) {
 
 Folder.postInit = function () {}; //a hook for plugin this modification
 Folder.plugins = {};
+Folder.plugins.npminfo = { 
+        deps : {   val : function (arr) {return arr.join(",\n");},
+                element : function (str) {
+                        var pieces;
+                        
+                        if (str) {
+                            pieces = str.trim().split(/\s+/);
+                            if (pieces.length === 2) {
+                                return '"' + pieces[0].trim() + '"' + " : " + '"^' + 
+                                    pieces[1].trim() + '"';
+                            } 
+                        }
+                    },
+                save : "npm dependencies" 
+            },
+        dev : {   val : function (arr) {return arr.join(",\n");},
+                element : function (str) {
+                        var pieces;
+                        
+                        if (str) {
+                            pieces = str.trim().split(/\s+/);
+                            if (pieces.length === 2) {
+                                return '"' + pieces[0].trim() + '"' + " : " + '"^' + 
+                                    pieces[1].trim() + '"';
+                            } 
+                        }
+                    },
+                save : "npm dev dependencies"
+            }
+    };
 
 Folder.reporters = {
     save : function (args) {
@@ -970,6 +1000,9 @@ Folder.directives = {   save : function (args) {
     
          var f = function (data) {
              // doc.store(savename, data);
+             if (data[data.length-1] !== "\n") {
+                data += "\n";
+             }
              gcd.emit("file ready:" + savename, data);
          };
          f._label = "save;;" + savename;
@@ -1288,6 +1321,8 @@ Folder.directives = {   save : function (args) {
                 var doc = this;
                 var g = "g" + doc.colon.v + doc.colon.v;
             
+                var types = doc.plugins.npminfo;
+            
                 doc.store(g+"authorname", args.link);
             
                 var gituser = args.href.slice(args.href.lastIndexOf("/")+1).trim();
@@ -1304,7 +1339,7 @@ Folder.directives = {   save : function (args) {
                     
                     var ind = el.indexOf(":");
                     var kind = el.slice(0, ind).trim();
-                    kind = self.types[kind];
+                    kind = types[kind];
                     if (!kind) { doc.log("unrecognized type");return;}
                     var entries = el.slice(ind+1).split(",");
                     entries.forEach(function(el) {
@@ -1318,37 +1353,6 @@ Folder.directives = {   save : function (args) {
                 });
             
                 doc.store(g + "year", ( new Date() ).getFullYear().toString() );
-            }
-    };
-
-Folder.directives.npminfo.types = { 
-        deps : {   val : function (arr) {return arr.join(",\n");},
-                element : function (str) {
-                        var pieces;
-                        
-                        if (str) {
-                            pieces = str.trim().split(/\s+/);
-                            if (pieces.length === 2) {
-                                return '"' + pieces[0].trim() + '"' + " : " + '"^' + 
-                                    pieces[1].trim() + '"';
-                            } 
-                        }
-                    },
-                save : "npm dependencies" 
-            },
-        dev : {   val : function (arr) {return arr.join(",\n");},
-                element : function (str) {
-                        var pieces;
-                        
-                        if (str) {
-                            pieces = str.trim().split(/\s+/);
-                            if (pieces.length === 2) {
-                                return '"' + pieces[0].trim() + '"' + " : " + '"^' + 
-                                    pieces[1].trim() + '"';
-                            } 
-                        }
-                    },
-                save : "npm dev dependencies"
             }
     };
 
@@ -1385,7 +1389,7 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
         this.indicator = this.parent.indicator;
         this.wrapAsync = parent.wrapAsync;
         this.wrapSync = parent.wrapSync;
-        this.plugins = parent.plugins;
+        this.plugins = Object.create(parent.plugins);
     
         if (actions) {
             apply(gcd, actions);

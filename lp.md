@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.4.5")
+# [literate-programming-lib](# "version:1.4.6")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -153,6 +153,7 @@ Each doc within a folder shares all the directives and commands.
 
     Folder.postInit = function () {}; //a hook for plugin this modification
     Folder.plugins = {};
+    Folder.plugins.npminfo = _"dir npminfo:types";
 
     Folder.reporters = {
         save : _"save:reporter",
@@ -173,7 +174,6 @@ Each doc within a folder shares all the directives and commands.
     
     Folder.directives = _"Directives";
 
-    Folder.directives.npminfo.types = _"dir npminfo:types";
 
 
     var Doc = Folder.prototype.Doc = _"doc constructor";
@@ -303,7 +303,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.indicator = this.parent.indicator;
         this.wrapAsync = parent.wrapAsync;
         this.wrapSync = parent.wrapSync;
-        this.plugins = parent.plugins;
+        this.plugins = Object.create(parent.plugins);
     
         if (actions) {
             apply(gcd, actions);
@@ -2741,6 +2741,8 @@ We save it in vars of the document with the name in the link. The href tells
 us where to begin. The title gives us options before the first pipe while
 after the pipe, we get commands to act on the sections. 
 
+This tacks on a newline at the end of the file data to meet convention.
+
 
     function (args) {
         var doc = this;
@@ -2761,6 +2763,9 @@ after the pipe, we get commands to act on the sections.
 
          var f = function (data) {
              // doc.store(savename, data);
+             if (data[data.length-1] !== "\n") {
+                data += "\n";
+             }
              gcd.emit("file ready:" + savename, data);
          };
          f._label = "save;;" + savename;
@@ -3308,6 +3313,8 @@ This takes in a string for npm files and store the values in global variables.
         var doc = this;
         var g = "g" + doc.colon.v + doc.colon.v;
 
+        var types = doc.plugins.npminfo;
+
         doc.store(g+"authorname", args.link);
 
         var gituser = args.href.slice(args.href.lastIndexOf("/")+1).trim();
@@ -3324,7 +3331,7 @@ This takes in a string for npm files and store the values in global variables.
             
             var ind = el.indexOf(":");
             var kind = el.slice(0, ind).trim();
-            kind = self.types[kind];
+            kind = types[kind];
             if (!kind) { doc.log("unrecognized type");return;}
             var entries = el.slice(ind+1).split(",");
             entries.forEach(function(el) {
@@ -3627,7 +3634,12 @@ output file name.
         return function (text, evObj) {
             var gcd = evObj.emitter;
             if (text !== out) {
-                console.log(text + "\n---\n" + out);
+                if ( (text[text.length-1] === "\n") && 
+                    (out[out.length-1] !== "\n" ) ) {
+                    out += "\n";
+                } else {
+                    console.log(text + "---\n" + out);
+                }
             }
             t.equals(text, out);
         };
@@ -4354,7 +4366,12 @@ literate-programming.
    whatever you want on a folder instance. Think of it as a secondary
    constructor function.
 8. The Folder has a plugins object where one can stash whatever under the
-   plugin's name. This is largely for options and alternatives. 
+   plugin's name. This is largely for options and alternatives. The folder and
+   doc object have prototyped objects on this as well which allows one to
+   choose the scope of applicability of objects. But beware that subobjects
+   are not prototyped (unless setup in that way; you may want to implement
+   that by Object.creating what is there, if anything). Think of it as deciding
+   where options should live when creating them. 
 
  ### Structure of Doc and Folder
 
@@ -4640,12 +4657,3 @@ out of or in connection with the software or the use or other dealings in the
 software.
 
 
-## Change Log
-Terrible at logs. Anyway, added backslash escape to subbing stuff. So now one
-can more easily escape stuff. 
-
-1.0.3 marked errors now reported slightly better and sub now does proper
-indenting.  
-
-1.0.1 Fixed store exists problem which was listening for the wrong event; this
-was in variable retrieval.
