@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.4.6")
+# [literate-programming-lib](# "version:1.5.0")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
