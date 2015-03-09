@@ -259,6 +259,11 @@ Example: Let's say in heading block `### Loopy` we have `[outer loop]()`
 Then it will create a code block that can be referenced by
 `_"Loopy:outer loop"`.
 
+Note: If the switch syntax is `[](#... ":|...")` then this just transforms
+whatever is point to in href using the pipe commands. That is, it is not a
+switch, but fills in a gap for main blocks not having pipe switch syntax. The
+key is the empty link text.
+
 #### Templating
 
 One use of minor blocks is as a templating mechanism.
@@ -393,13 +398,17 @@ There are a variety of directives that come built in.
   this as a constant declaration at the beginning of a file. You can use it
   for common bits of static text. If you need more dynamism, consider the
   store command instead. 
+* **Transform** `[](#start "transform:|...)` or `[](#start ":|...")`.
+  This takes the value that start points to and transforms it using the pipe
+  commands. Note one can store the transformed values using the store command
+  (not directive). 
 * **Load** `[alias](url "load:options")` This loads the file, found at the url
   (file name probably) and stores it in the alias scope as well as under the
   url name. We recommend using a short alias and not relying on the filename
   path since the alias is what will be used repeatedly to reference the blocks
   in the loaded file. Options are open, but for the command line client it is
   the encoding string with default utf8. Note there are no pipes since there
-  is no block to act on it. 
+  is no block to act on it.
 * **Define** `[command name](#start "define: async/sync/raw|cmd")` This allows one
   to define commands in a lit pro document. Very handy. Order is irrelevant;
   anything requiring a command will wait for it to be defined. This is

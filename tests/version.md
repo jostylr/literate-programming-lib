@@ -1,6 +1,6 @@
 version -- testing version and npminfo command
 ---
-# [litpro-version-test](# "version: 0.4.2")
+# [litpro-version-test](# "version: 0.4.2 ; A tagline appears")
 
     _"g::docname"
 
@@ -15,6 +15,8 @@ version -- testing version and npminfo command
     _"g::npm dependencies"
 
     _"g::npm dev dependencies"
+
+    _"g::tagline"
 
 
 [out](# "save:")
@@ -36,3 +38,5 @@ jostylr@gmail.com
 
 "literate-programming-cli" : "^0.6.0",
 "tape" : "^3.5.0"
+
+A tagline appears

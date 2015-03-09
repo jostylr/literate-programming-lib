@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.5.0")
+# [literate-programming-lib](# "version:1.5.1")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -851,24 +851,65 @@ in the heading then.
         if ((!href) && (!title)) {
             gcd.emit("switch found:"+file, [ltext, ""]);
         } else if (title[0] === ":") {
-            ind = 0;
-            _":before pipe"
-            if (middle) {
-                ltext += "." + middle.toLowerCase();    
+            if (!ltext) {
+                _":transform"
+            } else {
+                _":switch with pipes"
             }
-            gcd.emit("switch found:" + file, [ltext,pipes]);
         } else if ( (ind = title.indexOf(":")) !== -1) {
-            directive =  title.slice(0,ind).trim().toLowerCase(); 
-            gcd.emit("directive found:" + 
-             directive +  ":" + file, 
-                { link : ltext,
-                 input : title.slice(ind+1),
-                 href: href, 
-                 cur: doc.curname, 
-                 directive : directive });
+            _":directive"
         }
         ltext = false;
     }
+
+[transform]()
+
+This becomes a directive, but looks a lot like a switch. It kind of fills in
+the gap of main blocks not having pipes that can act on them. The idea is that
+this can transform the text and do something with it, maybe just log or eval'd
+or stored in a different variable. 
+
+    gcd.emit("directive found:transform:" + file, 
+        {   link : '' ,
+            input : title.slice(1),
+            href: href, 
+            cur: doc.curname, 
+            directive : "transform"
+        }
+    );
+
+    
+
+[directive]()
+
+A nice customary directive found.
+
+    directive =  title.slice(0,ind).trim().toLowerCase(); 
+    gcd.emit("directive found:" + 
+        directive +  ":" + file, 
+        {   link : ltext,
+            input : title.slice(ind+1),
+            href: href, 
+            cur: doc.curname, 
+            directive : directive 
+        }
+    );
+
+
+[switch with pipes]()
+
+Switch probably with pipes. This adds an extension in the middle of colon and
+pipe. Really not
+sure why. Probably should remove that. 
+
+    ind = 0;
+    _":before pipe"
+    if (middle) {
+        ltext += "." + middle.toLowerCase();    
+    }
+    gcd.emit("switch found:" + file, [ltext,pipes]);
+
+
 
 [before pipe]()
 
@@ -2727,7 +2768,8 @@ for saving as well.
         "if" : _"dir if",
         "flag" : _"dir flag",
         "version" : _"dir version",
-        "npminfo" : _"dir npminfo"
+        "npminfo" : _"dir npminfo",
+        "transform" : _"dir transform"
     }
 
 
@@ -2937,8 +2979,9 @@ should just be what one wants. But anyway, it is easy to implement.
 
 ### Dir Store
 
-This is the directive for storing some text. 
-    
+This is the directive for storing some text. Key value
+
+`[name](# "store: value")`
 
     function (args) {
         var doc = this;
@@ -2946,8 +2989,51 @@ This is the directive for storing some text.
         var name = doc.colon.escape(args.link);
 
         doc.store(name, value);
+    }
+
+### Dir Transform
+
+This is the directive for manipulating some text. The href hash tag has the
+variable value to retrieve and then it gets sent into the pipes. The stuff
+before the pipes is an options thing which is not currently used, but reserved
+to be in line with other directives, available for the future, and just looks
+a bit better (ha). 
+
+`[](#... ": ..|..")` or transform:
+
+    function (args) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var colon = doc.colon;
+        var title = args.input;
+        var name;
+        
+
+        _":pipe stuff" 
 
     }
+
+[pipe stuff]()
+
+This is the same as out and save. Really need to get a better flavor going. 
+
+    
+       _"save:deal with start"
+        
+        name = doc.colon.escape(start + ":" + title);
+        var emitname = "for transform:" + doc.file + ":" + name;
+
+        gcd.scope(name, options);
+
+        gcd.emit("waiting for:transforming:" + name, 
+            [emitname, name, doc.file, start]  );
+
+        var f = function (data) {
+            gcd.emit(emitname, data);
+        };
+        f._label =  "transform;;" + name;
+        
+        _"save:process"
 
 
 ### Dir Log
@@ -3299,8 +3385,16 @@ This gives the name and version of the program.
         var doc = this;
         var colon = doc.colon;
 
-        doc.store(colon.escape("g::docname"), args.link.trim());
-        doc.store(colon.escape("g::docversion"), args.input.trim());
+        var ind = args.input.indexOf(";");
+        if (ind === -1) { ind = args.input.length +1; }
+
+        doc.store(colon.escape("g::docname"), 
+            args.link.trim());
+        doc.store(colon.escape("g::docversion"),
+            args.input.slice(0, ind).trim());
+        doc.store(colon.escape("g::tagline"), 
+            (args.input.slice(ind+1).trim() || "Tagline needed" ) );
+
     }
 
 ### Dir npminfo
@@ -3478,7 +3572,8 @@ The log array should be cleared between tests.
         "templateexample.md",
         "pushpop.md",
         "if.md",
-        "version.md"
+        "version.md",
+        "store.md"
     ];
 
 
@@ -3572,11 +3667,11 @@ process the inputs.
                 }
             }
 
-          // setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
+           //setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
           //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
-         //  setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+        //   setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
     }
 
@@ -4002,6 +4097,11 @@ Example: Let's say in heading block `### Loopy` we have `[outer loop]()`
 Then it will create a code block that can be referenced by
 `_"Loopy:outer loop"`.
 
+Note: If the switch syntax is `[](#... ":|...")` then this just transforms
+whatever is point to in href using the pipe commands. That is, it is not a
+switch, but fills in a gap for main blocks not having pipe switch syntax. The
+key is the empty link text.
+
  #### Templating
 
 One use of minor blocks is as a templating mechanism.
@@ -4136,13 +4236,17 @@ There are a variety of directives that come built in.
   this as a constant declaration at the beginning of a file. You can use it
   for common bits of static text. If you need more dynamism, consider the
   store command instead. 
+* **Transform** `[](#start "transform:|...)` or `[](#start ":|...")`.
+  This takes the value that start points to and transforms it using the pipe
+  commands. Note one can store the transformed values using the store command
+  (not directive). 
 * **Load** `[alias](url "load:options")` This loads the file, found at the url
   (file name probably) and stores it in the alias scope as well as under the
   url name. We recommend using a short alias and not relying on the filename
   path since the alias is what will be used repeatedly to reference the blocks
   in the loaded file. Options are open, but for the command line client it is
   the encoding string with default utf8. Note there are no pipes since there
-  is no block to act on it. 
+  is no block to act on it.
 * **Define** `[command name](#start "define: async/sync/raw|cmd")` This allows one
   to define commands in a lit pro document. Very handy. Order is irrelevant;
   anything requiring a command will wait for it to be defined. This is
@@ -4204,9 +4308,9 @@ There are a variety of directives that come built in.
   extensive debugging commands involved. 
 * **Flag** `[flag name](# "flag:")` This sets the named flag to true. Note
   there is no way to turn a flag off easily. 
-* **Version** `[name](# "version: number")` This gives the name and version of
-  the program.
-  Saves `g::docname` and `g::docversion`.
+* **Version** `[name](# "version: number ; tagline")` This gives the name and version of
+  the program. Note the semicolon separator.
+  Saves `g::docname`, `g::docversion`, `g::tagline`.
 * **npminfo** `[author name](github/gituser "npminfo: author email; deps: ;
   dev: " )` This takes in a string for some basic author information and
   dependencies used. To add on or modify how it handles the deps, dev, etc.,
@@ -4555,6 +4659,7 @@ final report that gets printed out.
 ## TODO
 
 Check problematic syntax for erroring and reporting. 
+
 
 
 ## NPM package

@@ -378,28 +378,41 @@ Folder.prototype.parse = function (doc) {
                     if ((!href) && (!title)) {
                         gcd.emit("switch found:"+file, [ltext, ""]);
                     } else if (title[0] === ":") {
-                        ind = 0;
-                        pipes = title.indexOf("|");
-                        if (pipes === -1) {
-                            middle = title.slice(ind+1).trim(); 
-                            pipes = '';
+                        if (!ltext) {
+                            gcd.emit("directive found:transform:" + file, 
+                                {   link : '' ,
+                                    input : title.slice(1),
+                                    href: href, 
+                                    cur: doc.curname, 
+                                    directive : "transform"
+                                }
+                            );
                         } else {
-                            middle = title.slice(ind+1, pipes).trim();
-                            pipes = title.slice(pipes+1).trim();
+                            ind = 0;
+                            pipes = title.indexOf("|");
+                            if (pipes === -1) {
+                                middle = title.slice(ind+1).trim(); 
+                                pipes = '';
+                            } else {
+                                middle = title.slice(ind+1, pipes).trim();
+                                pipes = title.slice(pipes+1).trim();
+                            }
+                            if (middle) {
+                                ltext += "." + middle.toLowerCase();    
+                            }
+                            gcd.emit("switch found:" + file, [ltext,pipes]);
                         }
-                        if (middle) {
-                            ltext += "." + middle.toLowerCase();    
-                        }
-                        gcd.emit("switch found:" + file, [ltext,pipes]);
                     } else if ( (ind = title.indexOf(":")) !== -1) {
                         directive =  title.slice(0,ind).trim().toLowerCase(); 
                         gcd.emit("directive found:" + 
-                         directive +  ":" + file, 
-                            { link : ltext,
-                             input : title.slice(ind+1),
-                             href: href, 
-                             cur: doc.curname, 
-                             directive : directive });
+                            directive +  ":" + file, 
+                            {   link : ltext,
+                                input : title.slice(ind+1),
+                                href: href, 
+                                cur: doc.curname, 
+                                directive : directive 
+                            }
+                        );
                     }
                     ltext = false;
                 }
@@ -1033,7 +1046,6 @@ Folder.directives = {   save : function (args) {
                 var name = doc.colon.escape(args.link);
             
                 doc.store(name, value);
-            
             },
         "log" : function (args) {
                 
@@ -1314,8 +1326,16 @@ Folder.directives = {   save : function (args) {
                 var doc = this;
                 var colon = doc.colon;
             
-                doc.store(colon.escape("g::docname"), args.link.trim());
-                doc.store(colon.escape("g::docversion"), args.input.trim());
+                var ind = args.input.indexOf(";");
+                if (ind === -1) { ind = args.input.length +1; }
+            
+                doc.store(colon.escape("g::docname"), 
+                    args.link.trim());
+                doc.store(colon.escape("g::docversion"),
+                    args.input.slice(0, ind).trim());
+                doc.store(colon.escape("g::tagline"), 
+                    (args.input.slice(ind+1).trim() || "Tagline needed" ) );
+            
             },
         "npminfo" : function self (args) {
                 var doc = this;
@@ -1353,6 +1373,77 @@ Folder.directives = {   save : function (args) {
                 });
             
                 doc.store(g + "year", ( new Date() ).getFullYear().toString() );
+            },
+        "transform" : function (args) {
+                var doc = this;
+                var gcd = doc.gcd;
+                var colon = doc.colon;
+                var title = args.input;
+                var name;
+                
+            
+                var options, start, blockhead, ind;
+                if ( args.href[0] === "#") {
+                    start = args.href.slice(1).replace(/-/g, " ");
+                } else {
+                    start = args.href;
+                }
+                start = start.trim().toLowerCase();
+                
+                ind = title.indexOf("|");
+                if (ind === -1) {
+                    options = title.trim();
+                    title = "";
+                } else {
+                    options = title.slice(0,ind).trim();
+                    title = title.slice(ind+1);
+                }
+                
+                if (!start) {
+                    start = args.cur;
+                }
+                
+                if (start[0] === ":") {
+                    start = doc.levels[0] + start;
+                }
+                
+                blockhead = doc.colon.restore(start);
+                
+                if ( (ind = blockhead.indexOf("::")) !== -1)  {
+                    if (  (ind = blockhead.indexOf(":", ind+2 )) !== -1 ) {
+                        blockhead = blockhead.slice(0, ind);
+                    }
+                } else if ( (ind = blockhead.indexOf(":") ) !== -1) {
+                    blockhead = blockhead.slice(0, ind);
+                }
+                
+                start = doc.colon.escape(start);
+                    
+                    name = doc.colon.escape(start + ":" + title);
+                    var emitname = "for transform:" + doc.file + ":" + name;
+                
+                    gcd.scope(name, options);
+                
+                    gcd.emit("waiting for:transforming:" + name, 
+                        [emitname, name, doc.file, start]  );
+                
+                    var f = function (data) {
+                        gcd.emit(emitname, data);
+                    };
+                    f._label =  "transform;;" + name;
+                    
+                     if (title) {
+                         title = title + '"';
+                         gcd.once("text ready:" + emitname, f);
+                        
+                         doc.pipeParsing(title, 0, '"', emitname, blockhead);
+                    
+                     } else {
+                        gcd.once("text ready:" + emitname + colon.v + "0", f); 
+                     }
+                     
+                     doc.retrieve(start, "text ready:" + emitname + colon.v + "0"); 
+            
             }
     };
 

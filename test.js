@@ -123,11 +123,11 @@ var testrunner = function (file) {
                 }
             }
     
-          // setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
+           //setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
     
           //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
-         //  setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+        //   setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
     
     };
 
@@ -181,7 +181,8 @@ var testfiles = [
     "templateexample.md",
     "pushpop.md",
     "if.md",
-    "version.md"
+    "version.md",
+    "store.md"
 ];
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {
