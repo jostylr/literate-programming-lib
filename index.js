@@ -1173,7 +1173,7 @@ Folder.directives = {   save : function (args) {
                 var alias = args.link;
                 var scopename = args.input;
             
-                doc.createLinkedScope(alias, scopename); 
+                doc.createLinkedScope(scopename, alias); 
             
             },
         define : function (args) {

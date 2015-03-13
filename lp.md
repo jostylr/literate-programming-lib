@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.5.1")
+# [literate-programming-lib](# "version:1.5.2")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -2965,14 +2965,14 @@ the global name and a local name. In the link, it goes
 This is a directive that aliases a scope. This is unlikely to be used too
 much; generally one would use the load for a litpro doc and other scopes
 should just be what one wants. But anyway, it is easy to implement. 
-`[alias](# "linkscope:scopename")`
+`[alias](# "link scope:scopename")`
 
     function (args) {
         var doc = this;
         var alias = args.link;
         var scopename = args.input;
 
-        doc.createLinkedScope(alias, scopename); 
+        doc.createLinkedScope(scopename, alias); 
 
     }
 

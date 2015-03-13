@@ -1,6 +1,6 @@
 version -- testing version and npminfo command
 ---
-# [litpro-version-test](# "version: 0.4.2 ; A tagline appears")
+# [litpro-version-test](# "Version: 0.4.2 ; A tagline appears")
 
     _"g::docname"
 
