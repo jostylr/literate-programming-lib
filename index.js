@@ -1147,17 +1147,12 @@ Folder.directives = {   save : function (args) {
                 
                 gcd.scope(urlesc, options);
             
-                if (nickname) {
-                    if (doc.scopes.hasOwnProperty(nickname) ) {
-                        gcd.emit("error:scope name already exists:" + 
-                            doc.colon.escape(nickname) );
-                    } else {
-                        doc.scopes[nickname] = urlesc;
-                        if (!(folder.docs.hasOwnProperty(urlesc) ) ) {
-                            gcd.emit("waiting for:loading for:" + doc.file, 
-                                "need document:" + urlesc);
-                            gcd.emit("need document:" + urlesc, url );
-                        }
+                if (nickname && (nickname !== urlesc) ) {
+                    doc.createLinkedScope(urlesc, nickname);
+                    if (!(folder.docs.hasOwnProperty(urlesc) ) ) {
+                        gcd.emit("waiting for:loading for:" + doc.file, 
+                            "need document:" + urlesc);
+                        gcd.emit("need document:" + urlesc, url );
                     }
                 } else {
                     if (!(folder.docs.hasOwnProperty(urlesc) ) ) {

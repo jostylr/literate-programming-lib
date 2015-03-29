@@ -88,7 +88,7 @@ var testrunner = function (file) {
     
         // gcd.makeLog();
     
-        //gcd.monitor('', function (evt, data) { console.log(evt, data); });
+       // gcd.monitor('', function (evt, data) { console.log(evt, data); });
     
         test(name, function (t) {
             var outs, m, j, out;
@@ -123,11 +123,11 @@ var testrunner = function (file) {
                 }
             }
     
-           //setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
+          // setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
     
-          //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
+         // setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
-        //   setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+          // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
     
     };
 
@@ -147,7 +147,7 @@ var equalizer = function (t, out) {
     };
 
 var testfiles = [ 
-   /**/  
+   /**/
    "first.md",
     "eval.md",
     "sub.md",
@@ -175,14 +175,14 @@ var testfiles = [
     "backslash.md",
     "templating.md",
     "reports.md",
-    "directivesubbing.md",
     "empty.md",
     "switchcmd.md",
     "templateexample.md",
     "pushpop.md",
     "if.md",
     "version.md",
-    "store.md"
+    "store.md",
+    "directivesubbing.md"
 ];
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {

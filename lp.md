@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.5.2")
+# [literate-programming-lib](# "version:1.5.3")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -3105,14 +3105,9 @@ not have been so flexible.
         
         gcd.scope(urlesc, options);
 
-        if (nickname) {
-            if (doc.scopes.hasOwnProperty(nickname) ) {
-                gcd.emit("error:scope name already exists:" + 
-                    doc.colon.escape(nickname) );
-            } else {
-                doc.scopes[nickname] = urlesc;
-                _":load url"
-            }
+        if (nickname && (nickname !== urlesc) ) {
+            doc.createLinkedScope(urlesc, nickname);
+            _":load url"
         } else {
             _":load url"
         }
@@ -3538,7 +3533,7 @@ The log array should be cleared between tests.
     var equalizer = _"equalizer";
 
     var testfiles = [ 
-       /**/  
+       /**/
        "first.md",
         "eval.md",
         "sub.md",
@@ -3566,14 +3561,14 @@ The log array should be cleared between tests.
         "backslash.md",
         "templating.md",
         "reports.md",
-        "directivesubbing.md",
         "empty.md",
         "switchcmd.md",
         "templateexample.md",
         "pushpop.md",
         "if.md",
         "version.md",
-        "store.md"
+        "store.md",
+        "directivesubbing.md"
     ];
 
 
@@ -3632,7 +3627,7 @@ process the inputs.
 
         // gcd.makeLog();
 
-        //gcd.monitor('', function (evt, data) { console.log(evt, data); });
+       // gcd.monitor('', function (evt, data) { console.log(evt, data); });
 
         test(name, function (t) {
             var outs, m, j, out;
@@ -3667,11 +3662,11 @@ process the inputs.
                 }
             }
 
-           //setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
+          // setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
-          //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
+         // setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
-        //   setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+          // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
     }
 
