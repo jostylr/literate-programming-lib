@@ -813,4 +813,4 @@ final report that gets printed out.
 
 ## LICENSE
 
-[MIT-LICENSE](https://github.com/jostylr/literate-programming/blob/master/LICENSE)
+[MIT-LICENSE](https://github.com/jostylr/literate-programming-lib/blob/master/LICENSE-MIT)
