@@ -17,7 +17,8 @@ after a fashion, as it weaves.
 
 * [index.js](#structure-of-the-module "save:  | jshint ") This is the
   compiler.
-* [test.js](#tests "save: | jshint") The test runner. 
+* [test.js](#tests "save: | jshint") The test runner.
+* [lprc.js](#lprc "save:|jshint") The litpro config file. 
 * [README.md](#readme "save:| clean raw") The standard README.
 * [package.json](#npm-package "save: json  | jshint") The requisite package file for a npm project. 
 * [TODO.md](#todo "save: | clean raw") A list of growing and shrinking items todo.
@@ -4655,6 +4656,36 @@ final report that gets printed out.
 
 Check problematic syntax for erroring and reporting. 
 
+Implement some kind of mechanism for an async call to register done. Not
+entirely sure what yet and then a command that can execute after that. The
+idea is something like having to pull in files and compiling them and then
+doing something with that. 
+
+Implement better argument parsing. What something like `md tex($..$, $$..$$),
+log|` to work out. That is, make it so that one can have comma'd arguments.
+Quotes and brackets would switch it to a different mode where it only cares
+about finding the end, ignoring other stuff in there except maybe
+subsitutions.  Also, maybe allowing `tex(_"tex delim")`. That is, having
+subsitutions anywhere in the arguments. 
+
+Process this with itself. It is time.
+
+
+## lprc
+
+This is compiled by litpro and uses the following lprc.js file
+
+    module.exports = function(Folder, args) {
+
+        if (args.file.length === 0) {
+            args.file = ["lp.md"];
+        }
+        // args.build = ".";
+         args.src = ".";
+
+        require('litpro-jshint')(Folder, args);
+
+    };
 
 
 ## NPM package
@@ -4695,7 +4726,8 @@ The requisite npm package file.
         "string.fromcodepoint": "^0.2.1"
       },
       "devDependencies" : {
-        "tape": "^3.5.0"
+        "tape": "^3.5.0",
+        "litpro-jshint": "^0.1.0"
       },
       "scripts" : { 
         "test" : "node ./test.js"

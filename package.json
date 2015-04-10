@@ -30,7 +30,8 @@
     "string.fromcodepoint": "^0.2.1"
   },
   "devDependencies" : {
-    "tape": "^3.5.0"
+    "tape": "^3.5.0",
+    "litpro-jshint": "^0.1.0"
   },
   "scripts" : { 
     "test" : "node ./test.js"
