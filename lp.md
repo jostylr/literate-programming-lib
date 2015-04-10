@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.5.3")
+# [literate-programming-lib](# "version:1.5.3; A literate programming compiler. Write your program in markdown. This is the core library and does not know about files.")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -19,10 +19,10 @@ after a fashion, as it weaves.
   compiler.
 * [test.js](#tests "save: | jshint") The test runner.
 * [lprc.js](#lprc "save:|jshint") The litpro config file. 
-* [README.md](#readme "save:| clean raw") The standard README.
-* [package.json](#npm-package "save: json  | jshint") The requisite package file for a npm project. 
-* [TODO.md](#todo "save: | clean raw") A list of growing and shrinking items todo.
-* [LICENSE-MIT](#license-mit "save: | clean raw") The MIT license as I think that is the standard in the node community. 
+* [README.md](#readme "save:| raw ## README, !---- | sub \n\ #, \n# |trim ") The standard README.
+* [package.json](#npm-package "save: | jshint") The requisite package file for a npm project. 
+* [TODO.md](#todo "save: |raw ## TODO, !----") A list of growing and shrinking items todo.
+* [LICENSE-MIT](#license-mit "save:") The MIT license as I think that is the standard in the node community. 
 * [.npmignore](#npmignore "save: ")
 * [.gitignore](#gitignore "save: ")
 * [.travis.yml](#travis "save: ")
@@ -781,7 +781,7 @@ string together the text.
     }
     
 
-[text] () 
+[text]() 
 
 This simply adds the text to an array if the array is there. We have header
 text and link text. Since links may be in headers, we have two separate text
@@ -1092,6 +1092,8 @@ underscore. Just the first underscore encountered matters. Some cases:
   block run. That is `\1\0_"` is the same as `\1_"` if we had no escaping.
 * `\2_"` will yield `\1_"` and prime it for more escaping.
 * `\\1_"` will yield `\_"` 
+
+And beware lists. 
 
     place = ind-2;
     numstr = '0123456789';
@@ -3507,7 +3509,7 @@ action. The handler has signature data, evObj.
        return ret;
     }
 
-[oa](#on-action "define: command | | now")
+[oa](# "define:")
 
 
 ## Tests
@@ -3828,12 +3830,12 @@ Test list
   test are a different matter. 
 
 
+[off](# "block:")
 
 ## README
 
 
-literate-programming-lib   [![Build Status](https://travis-ci.org/jostylr/literate-programming-lib.png)](https://travis-ci.org/jostylr/literate-programming-lib)
- ====================
+ # literate-programming-lib   [![Build Status](https://travis-ci.org/jostylr/literate-programming-lib.png)](https://travis-ci.org/jostylr/literate-programming-lib)
 
 Write your code anywhere and in any order with as much explanation as you
 like. literate-programming will weave it all together to produce your project.
@@ -3916,18 +3918,18 @@ variable gcd is the event emitter (dispatcher if you will).
    
     gcd.emit("need document:first.md");
 
- This last line should start the whole chain of compilation with first.md being read in
- and then any of its files being called, etc., and then any files to save will
- get saved. 
+This last line should start the whole chain of compilation with first.md being read in
+and then any of its files being called, etc., and then any files to save will
+get saved. 
 
- The reason the lib does not have this natively is that I separated it out
- specifically to avoid requiring file system access. Instead you can use any kind of
- function that provides text, or whatever. It should be fine to also use
- `folder.newdoc` directly on each bit of text as needed; everything will
- patiently wait until the right stuff is ready. I think. 
- 
- Note that live code can be run from a literate program as well. So be
- careful!
+The reason the lib does not have this natively is that I separated it out
+specifically to avoid requiring file system access. Instead you can use any kind of
+function that provides text, or whatever. It should be fine to also use
+`folder.newdoc` directly on each bit of text as needed; everything will
+patiently wait until the right stuff is ready. I think. 
+
+Note that live code can be run from a literate program as well. So be
+careful!
 
  ## Example
 
@@ -4650,7 +4652,7 @@ final report that gets printed out.
 
 [MIT-LICENSE](https://github.com/jostylr/literate-programming/blob/master/LICENSE)
 
-
+!----
 
 ## TODO
 
@@ -4669,6 +4671,10 @@ subsitutions.  Also, maybe allowing `tex(_"tex delim")`. That is, having
 subsitutions anywhere in the arguments. 
 
 Process this with itself. It is time.
+
+!----
+
+[on](# "block:")
 
 
 ## lprc
@@ -4692,42 +4698,39 @@ This is compiled by litpro and uses the following lprc.js file
 
 The requisite npm package file. 
 
-[](# "json") 
+
 
     {
-      "name": "DOCNAME",
-      "description": "A literate programming compiler. Write your program in markdown. This is the core library and does not know about files!",
-      "version": "DOCVERSION",
-      "homepage": "https://github.com/jostylr/literate-programming-lib",
+      "name": "_`g::docname`",
+      "description": "_`g::tagline`",
+      "version": "_`g::docversion`",
+      "homepage": "https://github.com/_`g::gituser`/_`g::docname`",
       "author": {
-        "name": "James Taylor",
-        "email": "jostylr@gmail.com"
+        "name": "_`g::authorname`",
+        "email": "_`g::authoremail`"
       },
       "repository": {
         "type": "git",
-        "url": "git://github.com/jostylr/literate-programming-lib.git"
+        "url": "git://github.com/_`g::gituser`/_`g::docname`.git"
       },
       "bugs": {
-        "url": "https://github.com/jostylr/literate-programming-lib/issues"
+        "url": "https://github.com/_`g::gituser`/_`g::docname`/issues"
       },
       "licenses": [
         {
           "type": "MIT",
-          "url": "https://github.com/jostylr/literate-programming-lib/blob/master/LICENSE-MIT"
+          "url": "https://github.com/_`g::gituser`/_`g::docname`/blob/master/LICENSE-MIT"
         }
       ],
       "main": "index.js",
       "engines": {
         "node": ">=0.10"
       },
-      "dependencies": {
-        "event-when": "^1.0.0",
-        "commonmark": "^0.17.1",
-        "string.fromcodepoint": "^0.2.1"
+      "dependencies":{
+        _"g::npm dependencies"
       },
       "devDependencies" : {
-        "tape": "^3.5.0",
-        "litpro-jshint": "^0.1.0"
+        _"g::npm dev dependencies"
       },
       "scripts" : { 
         "test" : "node ./test.js"
@@ -4740,6 +4743,8 @@ The requisite npm package file.
 
     node_modules
     temp
+    /.checksum
+    /build
 
 ## npmignore
 
@@ -4763,29 +4768,34 @@ A travis.yml file for continuous test integration!
       - "0.12"
 
 
-
 ## LICENSE MIT
 
 
-The MIT License (MIT)
-Copyright (c) 2015 James Taylor
+    The MIT License (MIT)
+    Copyright (c) _"g::year" _"g::authorname"
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
 
-The software is provided "as is", without warranty of any kind, express or
-implied, including but not limited to the warranties of merchantability,
-fitness for a particular purpose and noninfringement. In no event shall the
-authors or copyright holders be liable for any claim, damages or other
-liability, whether in an action of contract, tort or otherwise, arising from,
-out of or in connection with the software or the use or other dealings in the
-software.
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
 
 
+
+
+
+by [James Taylor](https://github.com/jostylr "npminfo: jostylr@gmail.com ; 
+    deps: event-when 1.0.0, commonmark: 0.17.1, string.fromcodepoint 0.2.1;
+    dev: tape 3.5.0, litpro-jshint 0.1.0")

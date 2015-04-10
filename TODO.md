@@ -1,3 +1,4 @@
+
 Check problematic syntax for erroring and reporting. 
 
 Implement some kind of mechanism for an async call to register done. Not
@@ -13,3 +14,4 @@ subsitutions.  Also, maybe allowing `tex(_"tex delim")`. That is, having
 subsitutions anywhere in the arguments. 
 
 Process this with itself. It is time.
+

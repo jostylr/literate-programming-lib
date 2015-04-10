@@ -1,5 +1,4 @@
-literate-programming-lib   [![Build Status](https://travis-ci.org/jostylr/literate-programming-lib.png)](https://travis-ci.org/jostylr/literate-programming-lib)
-====================
+# literate-programming-lib   [![Build Status](https://travis-ci.org/jostylr/literate-programming-lib.png)](https://travis-ci.org/jostylr/literate-programming-lib)
 
 Write your code anywhere and in any order with as much explanation as you
 like. literate-programming will weave it all together to produce your project.
@@ -83,17 +82,17 @@ variable gcd is the event emitter (dispatcher if you will).
     gcd.emit("need document:first.md");
 
 This last line should start the whole chain of compilation with first.md being read in
- and then any of its files being called, etc., and then any files to save will
- get saved. 
+and then any of its files being called, etc., and then any files to save will
+get saved. 
 
 The reason the lib does not have this natively is that I separated it out
- specifically to avoid requiring file system access. Instead you can use any kind of
- function that provides text, or whatever. It should be fine to also use
- `folder.newdoc` directly on each bit of text as needed; everything will
- patiently wait until the right stuff is ready. I think. 
- 
+specifically to avoid requiring file system access. Instead you can use any kind of
+function that provides text, or whatever. It should be fine to also use
+`folder.newdoc` directly on each bit of text as needed; everything will
+patiently wait until the right stuff is ready. I think. 
+
 Note that live code can be run from a literate program as well. So be
- careful!
+careful!
 
 ## Example
 

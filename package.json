@@ -1,6 +1,6 @@
 {
   "name": "literate-programming-lib",
-  "description": "A literate programming compiler. Write your program in markdown. This is the core library and does not know about files!",
+  "description": "A literate programming compiler. Write your program in markdown. This is the core library and does not know about files.",
   "version": "1.5.3",
   "homepage": "https://github.com/jostylr/literate-programming-lib",
   "author": {
@@ -24,14 +24,14 @@
   "engines": {
     "node": ">=0.10"
   },
-  "dependencies": {
-    "event-when": "^1.0.0",
-    "commonmark": "^0.17.1",
-    "string.fromcodepoint": "^0.2.1"
+  "dependencies":{
+    "event-when" : "^1.0.0",
+    "commonmark:" : "^0.17.1",
+    "string.fromcodepoint" : "^0.2.1"
   },
   "devDependencies" : {
-    "tape": "^3.5.0",
-    "litpro-jshint": "^0.1.0"
+    "tape" : "^3.5.0",
+    "litpro-jshint" : "^0.1.0"
   },
   "scripts" : { 
     "test" : "node ./test.js"
