@@ -4796,5 +4796,5 @@ A travis.yml file for continuous test integration!
 
 
 by [James Taylor](https://github.com/jostylr "npminfo: jostylr@gmail.com ; 
-    deps: event-when 1.0.0, commonmark: 0.17.1, string.fromcodepoint 0.2.1;
+    deps: event-when 1.0.0, commonmark 0.17.1, string.fromcodepoint 0.2.1;
     dev: tape 3.5.0, litpro-jshint 0.1.0")
