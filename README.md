@@ -532,6 +532,14 @@ Note commands need to be one word.
 * **If** `flag, cmd, arg1, arg2, ....` If the flag is present (think build
   flag), then the command will execute with the given input text and
   arguments. Otherwise, the input text is passed on.
+* **When** `name1, name2, ...` This takes in the event names and waits for
+  them to be emitted by done or manually with a
+  `doc.parent.done.gcd.once(name, "done")`. That would probably be used in
+  directives. The idea of this setup is to wait to execute a cli command for
+  when everything is setup. It passes through the incoming text. 
+* **Done** `name` This is a command to emit the done event for name. It just
+  passes through the incoming text. The idea is that it would be, say, a
+  filename of somehting that got saved. 
 
 ## h5 and h6
 

@@ -4,7 +4,12 @@ Check problematic syntax for erroring and reporting.
 Implement some kind of mechanism for an async call to register done. Not
 entirely sure what yet and then a command that can execute after that. The
 idea is something like having to pull in files and compiling them and then
-doing something with that. 
+doing something with that. So maybe a command/folder bit that one calls "done"
+with an event name and then use the cmd when to essentially wait until all the
+named events happen. No data transferring; store can be used for that and the
+program already waits for data to be stored if it is needed. This is for
+events that don't require data inside the program. could double up on store,
+but that seems wrong somehow. 
 
 Implement better argument parsing. What something like `md tex($..$, $$..$$),
 log|` to work out. That is, make it so that one can have comma'd arguments.
@@ -13,5 +18,4 @@ about finding the end, ignoring other stuff in there except maybe
 subsitutions.  Also, maybe allowing `tex(_"tex delim")`. That is, having
 subsitutions anywhere in the arguments. 
 
-Process this with itself. It is time.
 

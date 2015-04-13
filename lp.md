@@ -212,6 +212,8 @@ We have a default scope called `g` for global.
         this.plugins = Object.create(Folder.plugins);
         this.flags = {};
         this.Folder = Folder;
+
+        _":done when"
         
         this.maker = _"maker";
 
@@ -258,6 +260,16 @@ closure's sake and ease. Perhaps it will get revised.
     
     _"what is waiting| oa"
 
+
+[done when]()
+
+This creates the done object which is needed for done and when commands. 
+
+    this.done = {
+        gcd : new EvW(),
+        cache : {}
+    };
+    this.done.gcd.action("done", _"cmd done:action", this);
 
 ## Doc constructor
 
@@ -1786,9 +1798,10 @@ regexs and so just stick them in an object and recall them based on quote.
 With just one variable changing over three times, not a big deal. 
 
 For commands, these are non-whitespace character strings that do not include
-the given quote. The regex ignores the initial whitespace returning the word
+the given quote or a pipe. There is no escaping. 
+The regex ignores the initial whitespace returning the word
 in 1 and the next character in 2. A failure to match should mean it is an
-empty string and the passthru can be used.
+empty string and the passthru can be used. 
 
     {
 
@@ -1830,7 +1843,7 @@ And a super simple subname is to chunk up to pipes or quotes.
 
 
 ## Scope
-
+/
 Okay, this is a pretty important part of this whole process. The scope is the
 bit before the double colons. Fundamentally, a new document is put under the
 scope of its path/filename. But it can have other names because using filenames is
@@ -2417,8 +2430,9 @@ Here we have some commands and directives that are of common use
         cat : sync(_"cat", "cat"),
         push : sync(_"push", "push"),
         pop : sync(_"pop", "pop"),
-        "if" : _"cmd if"
-
+        "if" : _"cmd if",
+        "done" : _"cmd done",
+        "when" : _"cmd when"
     }
 
 ### Eval
@@ -2685,7 +2699,7 @@ Bloody spaces and newlines
 ### Cat
 
 Concatenating text together and returning it. If there is only one argument,
-then it just concatenates as is. If there are more than one argument, then the
+then it just concatenates as is. If there is more than one argument, then the
 first argument, which could be empty, is the join separator. 
 
     function (input, args) {
@@ -2747,6 +2761,54 @@ This checks a flag and then runs a command.
         }
         
 
+    }
+
+### Cmd when
+
+This pauses the flow until the argument list of events is done. 
+
+    function (input, args, name) {
+        var folder = this.parent;
+        var gcd = this.gcd;
+        var done = folder.done;
+        var cache = done.cache;
+        var when = [];
+
+        var i, n = args.length
+        for (i = 0; i < n; i +=1) {
+            if (! cache[args[i]]) {
+                when.push(args[i]);
+            }
+        }
+        if (when.length > 0) {
+            done.gcd.once("ready to send:" + name, function () {
+                gcd.emit("text ready:" + name, input);
+            });
+            done.gcd.when(when, "ready to send:" + name);
+        } else {
+            gcd.emit("text ready:" + name, input);
+        }
+    }
+
+### Cmd done
+
+This allows one to issue a command of done. 
+
+    function (input, args, name) {
+        var gcd = this.gcd;
+        this.parent.done.gcd.emit(args[0]);
+        gcd.emit("text ready:" + name, input);
+    }
+
+[action]()
+
+This is the action name to assign for listening to done events. Something like
+`doc.done.gcd.once(str, "done");` where str is the string that is also in the argument
+list, something like `file saved:...`;
+
+    function (data, evObj) {
+        var folder = this;
+        folder.done.cache[evObj.ev] = true;
     }
 
 
@@ -3571,7 +3633,8 @@ The log array should be cleared between tests.
         "if.md",
         "version.md",
         "store.md",
-        "directivesubbing.md"
+        "directivesubbing.md",
+        "done.md"
     ];
 
 
@@ -4369,6 +4432,14 @@ Note commands need to be one word.
 * **If** `flag, cmd, arg1, arg2, ....` If the flag is present (think build
   flag), then the command will execute with the given input text and
   arguments. Otherwise, the input text is passed on.
+* **When** `name1, name2, ...` This takes in the event names and waits for
+  them to be emitted by done or manually with a
+  `doc.parent.done.gcd.once(name, "done")`. That would probably be used in
+  directives. The idea of this setup is to wait to execute a cli command for
+  when everything is setup. It passes through the incoming text. 
+* **Done** `name` This is a command to emit the done event for name. It just
+  passes through the incoming text. The idea is that it would be, say, a
+  filename of somehting that got saved. 
 
  ## h5 and h6
 
@@ -4660,7 +4731,12 @@ Check problematic syntax for erroring and reporting.
 Implement some kind of mechanism for an async call to register done. Not
 entirely sure what yet and then a command that can execute after that. The
 idea is something like having to pull in files and compiling them and then
-doing something with that. 
+doing something with that. So maybe a command/folder bit that one calls "done"
+with an event name and then use the cmd when to essentially wait until all the
+named events happen. No data transferring; store can be used for that and the
+program already waits for data to be stored if it is needed. This is for
+events that don't require data inside the program. could double up on store,
+but that seems wrong somehow. 
 
 Implement better argument parsing. What something like `md tex($..$, $$..$$),
 log|` to work out. That is, make it so that one can have comma'd arguments.
@@ -4669,7 +4745,6 @@ about finding the end, ignoring other stuff in there except maybe
 subsitutions.  Also, maybe allowing `tex(_"tex delim")`. That is, having
 subsitutions anywhere in the arguments. 
 
-Process this with itself. It is time.
 
 !----
 

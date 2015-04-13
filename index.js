@@ -35,6 +35,15 @@ var Folder = function (actions) {
     this.plugins = Object.create(Folder.plugins);
     this.flags = {};
     this.Folder = Folder;
+
+    this.done = {
+        gcd : new EvW(),
+        cache : {}
+    };
+    this.done.gcd.action("done", function (data, evObj) {
+        var folder = this;
+        folder.done.cache[evObj.ev] = true;
+    }, this);
     
     this.maker = {   'emit text ready' : function (doc, name) {
                 var gcd = doc.gcd;
@@ -966,8 +975,34 @@ Folder.commands = {   eval : sync(function ( text, args ) {
         }
         
     
+    },
+    "done" : function (input, args, name) {
+        var gcd = this.gcd;
+        this.parent.done.gcd.emit(args[0]);
+        gcd.emit("text ready:" + name, input);
+    },
+    "when" : function (input, args, name) {
+        var folder = this.parent;
+        var gcd = this.gcd;
+        var done = folder.done;
+        var cache = done.cache;
+        var when = [];
+    
+        var i, n = args.length
+        for (i = 0; i < n; i +=1) {
+            if (! cache[args[i]]) {
+                when.push(args[i]);
+            }
+        }
+        if (when.length > 0) {
+            done.gcd.once("ready to send:" + name, function () {
+                gcd.emit("text ready:" + name, input);
+            });
+            done.gcd.when(when, "ready to send:" + name);
+        } else {
+            gcd.emit("text ready:" + name, input);
+        }
     }
-
 };
 
 Folder.directives = {   save : function (args) {

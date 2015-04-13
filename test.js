@@ -183,7 +183,8 @@ var testfiles = [
     "if.md",
     "version.md",
     "store.md",
-    "directivesubbing.md"
+    "directivesubbing.md",
+    "done.md"
 ];
 
 
