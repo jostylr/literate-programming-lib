@@ -988,7 +988,7 @@ Folder.commands = {   eval : sync(function ( text, args ) {
         var cache = done.cache;
         var when = [];
     
-        var i, n = args.length
+        var i, n = args.length;
         for (i = 0; i < n; i +=1) {
             if (! cache[args[i]]) {
                 when.push(args[i]);
@@ -1080,6 +1080,41 @@ Folder.directives = {   save : function (args) {
       doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
 
 },
+    save : function (args) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var colon = doc.colon;
+        var linkname = colon.escape(args.link);
+        var temp, options, pipes;
+    
+        var start = doc.getBlock(args.href, args.cur);
+        
+        temp = doc.midPipes(args.input);
+        options = temp[0];
+        pipes = temp[1];
+    
+            var emitname = "for save:" + doc.file + ":" + linkname;
+        
+            gcd.scope(linkname, options);
+            
+            gcd.emit("waiting for:saving file:" + linkname + ":from:" + doc.file, 
+                 ["file ready:" + linkname, "save", linkname, doc.file, start]);
+        
+            var f = function (data) {
+                if (data[data.length-1] !== "\n") {
+                   data += "\n";
+                }
+                gcd.emit("file ready:" + linkname, data);
+            };
+            f._label = "save;;" + linkname;
+    
+        
+        doc.pipeDirSetup(pipes, emitname, f, start);
+    
+        doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
+    
+    
+    },
     "new scope" : function (args) {
         var doc = this;
         var scopename = args.link;
@@ -1537,7 +1572,9 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
 
 };
 
-Doc.prototype.retrieve = function (name, cb) {
+var dp = Doc.prototype;
+
+dp.retrieve = function (name, cb) {
     var doc = this;
     var gcd = doc.gcd;
 
@@ -1583,7 +1620,7 @@ Doc.prototype.retrieve = function (name, cb) {
     }
 };
 
-Doc.prototype.getScope = function (name) {
+dp.getScope = function (name) {
     var ind, scope, alias, scopename, varname;
     var doc = this;
     var colon = doc.colon;
@@ -1613,7 +1650,7 @@ Doc.prototype.getScope = function (name) {
     }
 };
 
-Doc.prototype.createLinkedScope = function (name, alias) {
+dp.createLinkedScope = function (name, alias) {
     var doc = this;
     var gcd = doc.gcd;
     var folder = doc.parent;
@@ -1645,7 +1682,7 @@ Doc.prototype.createLinkedScope = function (name, alias) {
 
 };
  
-Doc.prototype.indent = function (text, indent) {
+dp.indent = function (text, indent) {
     var line, ret;
     var i, n;
     
@@ -1659,7 +1696,7 @@ Doc.prototype.indent = function (text, indent) {
     return ret;
 };
 
-Doc.prototype.getIndent = function ( block, place ) {
+dp.getIndent = function ( block, place ) {
     var first, backcount, indent, chr;
     first = place;
     backcount = place-1;
@@ -1677,7 +1714,7 @@ Doc.prototype.getIndent = function ( block, place ) {
     return indent;
 };
 
-Doc.prototype.blockCompiling = function (block, file, bname, mainblock) {
+dp.blockCompiling = function (block, file, bname, mainblock) {
     var doc = this;
     var gcd = doc.gcd;
     var colon = doc.colon;
@@ -1780,7 +1817,7 @@ Doc.prototype.blockCompiling = function (block, file, bname, mainblock) {
     gcd.emit("block substitute parsing done:"+name);
 };
 
-Doc.prototype.substituteParsing = function (text, ind, quote, lname, mainblock ) { 
+dp.substituteParsing = function (text, ind, quote, lname, mainblock ) { 
 
     var doc = this;
     var gcd = doc.gcd;
@@ -1827,7 +1864,7 @@ Doc.prototype.substituteParsing = function (text, ind, quote, lname, mainblock )
 
 };
 
-Doc.prototype.pipeParsing = function (text, ind, quote, name, mainblock) {
+dp.pipeParsing = function (text, ind, quote, name, mainblock) {
     var doc = this;
     var gcd = doc.gcd;
     var colon = doc.colon;
@@ -1965,7 +2002,7 @@ Doc.prototype.pipeParsing = function (text, ind, quote, name, mainblock) {
 
 };
 
-Doc.prototype.regexs = {
+dp.regexs = {
 
     command : {
         "'" : /\s*([^|'\s]*)(.)/g,
@@ -1992,7 +2029,7 @@ Doc.prototype.regexs = {
 
 };
 
-Doc.prototype.backslash = function (text, ind, indicator) {
+dp.backslash = function (text, ind, indicator) {
     var chr, match, num;
     var uni = /[0-9A-F]+/g; 
     
@@ -2029,7 +2066,7 @@ Doc.prototype.backslash = function (text, ind, indicator) {
     }
 };
 
-Doc.prototype.whitespaceEscape = function (text, indicator) {
+dp.whitespaceEscape = function (text, indicator) {
     var n = indicator.length, start, end, rep;
     while ( (start = text.indexOf(indicator) ) !== -1 ) {
         end = text.indexOf(indicator, start + n);
@@ -2043,7 +2080,7 @@ Doc.prototype.whitespaceEscape = function (text, indicator) {
 
 };
 
-Doc.prototype.store = function (name, text) {
+dp.store = function (name, text) {
     var doc = this;
     var gcd = doc.gcd;
     var scope = doc.getScope(name);
@@ -2077,6 +2114,86 @@ Doc.prototype.store = function (name, text) {
     }
     
     gcd.emit("text stored:" + file + ":" + varname, text);
+};
+
+dp.getBlock = function (start, cur) {
+    var doc = this;
+    var colon = doc.colon;
+
+    cur = colon.restore(cur);
+
+    if (start) {
+        if ( start[0] === "#") {
+            start = start.slice(1).replace(/-/g, " ");
+        }
+
+        start = start.trim().toLowerCase();
+
+        if (start[0] === ":") {
+            console.log(start);
+            start = doc.stripSwitch(cur) + start;
+            console.log(start);
+        }
+
+    } 
+    if (!start) {
+        start = cur;
+    }
+
+    return colon.escape(start);
+};
+
+dp.stripSwitch = function (name) {
+    var ind, blockhead;
+
+    blockhead = name;
+
+    if ( (ind = name.indexOf("::")) !== -1)  {
+        if (  (ind = name.indexOf(":", ind+2 )) !== -1 ) {
+            blockhead = name.slice(0, ind);
+        }
+    } else if ( (ind = name.indexOf(":") ) !== -1) {
+        blockhead = name.slice(0, ind);
+    }
+
+    return blockhead;
+
+};
+
+dp.midPipes = function (str) {
+    var ind = str.indexOf("|");
+    var options, pipes;
+
+    ind = str.indexOf("|");
+    if (ind === -1) {
+        options = str.trim();
+        pipes = "";
+    } else {
+        options = str.slice(0,ind).trim();
+        pipes = str.slice(ind+1);
+    }
+
+    return [options, pipes];
+};
+
+dp.pipeDirSetup = function (str, emitname, handler, start) {
+    var doc = this;
+    var gcd = doc.gcd;
+    var colon = doc.colon;
+    var block;
+
+    if (str) {
+        str = str + '"';
+        gcd.once("text ready:" + emitname, handler);
+        
+        block = doc.stripSwitch(colon.restore(start));
+
+        doc.pipeParsing(str, 0, '"', emitname, block);
+
+    } else {
+        gcd.once("text ready:" + emitname + colon.v + "0", handler); 
+    }
+
 };
 
 module.exports = Folder;
