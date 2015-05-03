@@ -575,6 +575,34 @@ Folder.async = function (name, fun) {
     Folder.commands[name] = async(name, fun);
 };
 
+var dirFactory = Folder.prototype.dirFactory = function (namefactory, handlerfactory, other) {
+
+    return function (args) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var colon = doc.colon;
+        var linkname = colon.escape(args.link);
+        var temp, options, pipes;
+        
+        var start = doc.getBlock(args.href, args.cur);
+        
+        temp = doc.midPipes(args.input);
+        options = temp[0];
+        pipes = temp[1];
+        
+        var emitname = namefactory.call(doc, linkname, args);
+        var f = handlerfactory.call(doc, linkname, args);
+
+        other.call(doc, linkname, options, start, args);
+
+        doc.pipeDirSetup(pipes, emitname, f, start);
+        
+        doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
+    };
+    
+
+};
+
 // communication between folders, say for caching read in files
 Folder.fcd = new EvW(); 
 
@@ -1005,7 +1033,7 @@ Folder.commands = {   eval : sync(function ( text, args ) {
     }
 };
 
-Folder.directives = {   save : function (args) {
+Folder.directives = {   save1 : function (args) {
     var doc = this;
     var colon = doc.colon;
     var gcd = doc.gcd;
@@ -1080,7 +1108,7 @@ Folder.directives = {   save : function (args) {
       doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
 
 },
-    save : function (args) {
+    save2 : function (args) {
         var doc = this;
         var gcd = doc.gcd;
         var colon = doc.colon;
@@ -1115,6 +1143,31 @@ Folder.directives = {   save : function (args) {
     
     
     },
+    save : dirFactory(function(linkname) {
+        return  "for save:" + this.file + ":" + linkname;
+    }, function(linkname) {
+        var gcd = this.gcd;
+    
+        var f = function (data) {
+            if (data[data.length-1] !== "\n") {
+               data += "\n";
+            }
+            gcd.emit("file ready:" + linkname, data);
+        };
+        f._label = "save;;" + linkname;
+    
+        return f;
+    
+    }, function (linkname, options, start) {
+        var file = this.file;
+        var gcd = this.gcd;
+    
+        gcd.scope(linkname, options);
+    
+        gcd.emit("waiting for:saving file:" + linkname + ":from:" + file, 
+             ["file ready:" + linkname, "save", linkname, file, start]);
+    
+    }),
     "new scope" : function (args) {
         var doc = this;
         var scopename = args.link;
@@ -1562,6 +1615,7 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
     this.indicator = this.parent.indicator;
     this.wrapAsync = parent.wrapAsync;
     this.wrapSync = parent.wrapSync;
+    this.dirFactory = parent.dirFactory;
     this.plugins = Object.create(parent.plugins);
 
     if (actions) {

@@ -146,6 +146,8 @@ Each doc within a folder shares all the directives and commands.
         Folder.commands[name] = async(name, fun);
     };
 
+    var dirFactory = Folder.prototype.dirFactory = _"dir factory";
+
     // communication between folders, say for caching read in files
     Folder.fcd = new EvW(); 
 
@@ -316,6 +318,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.indicator = this.parent.indicator;
         this.wrapAsync = parent.wrapAsync;
         this.wrapSync = parent.wrapSync;
+        this.dirFactory = parent.dirFactory;
         this.plugins = Object.create(parent.plugins);
     
         if (actions) {
@@ -2828,8 +2831,9 @@ The most basic directive is saving the text.
 For now, just simple saving, but we can implement the pipe parsing a bit later
 for saving as well. 
 
-    {   save : _"save",
-        save : _"Dir option save",
+    {   save1 : _"save",
+        save2 : _"Dir option save",
+        save : _"Dir factory save",
         "new scope" : _"new scope",
         "store" : _"dir store",
         "log" : _"dir log",
@@ -2982,6 +2986,100 @@ directive), and the starting block.
 
     }
 
+
+### Dir Factory
+
+This produces functions that can serve as directives with the pipe parsing
+built in. It takes in an emitname function and a handler creator. 
+
+    function (namefactory, handlerfactory, other) {
+
+        return function (args) {
+            _":init"
+            
+            var emitname = namefactory.call(doc, linkname, args);
+            var f = handlerfactory.call(doc, linkname, args);
+
+            other.call(doc, linkname, options, start, args);
+
+            _":emit"
+        };
+        
+
+    }
+
+[init]()
+
+This sets up the variables and parsing of the incoming arguments. 
+
+    var doc = this;
+    var gcd = doc.gcd;
+    var colon = doc.colon;
+    var linkname = colon.escape(args.link);
+    var temp, options, pipes;
+
+    var start = doc.getBlock(args.href, args.cur);
+    
+    temp = doc.midPipes(args.input);
+    options = temp[0];
+    pipes = temp[1];
+
+
+[emit]()
+
+This setups the pipe processing and then queues/executes it based on whether
+the start value is ready. 
+
+        
+    doc.pipeDirSetup(pipes, emitname, f, start);
+
+    doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
+
+
+#### Dir factory save
+
+Here we write the save function using the factory function. 
+
+    
+    dirFactory(_":emitname", _":handler factory", _":other")
+
+[emitname]()
+
+
+    function(linkname) {
+        return  "for save:" + this.file + ":" + linkname;
+    }
+
+
+[handler factory]()
+
+    function(linkname) {
+        var gcd = this.gcd;
+
+        var f = function (data) {
+            if (data[data.length-1] !== "\n") {
+               data += "\n";
+            }
+            gcd.emit("file ready:" + linkname, data);
+        };
+        f._label = "save;;" + linkname;
+
+        return f;
+
+    }
+
+[other]()
+
+    function (linkname, options, start) {
+        var file = this.file;
+        var gcd = this.gcd;
+
+        gcd.scope(linkname, options);
+
+        gcd.emit("waiting for:saving file:" + linkname + ":from:" + file, 
+             ["file ready:" + linkname, "save", linkname, file, start]);
+
+    }
 
 #### Dir option save
 
