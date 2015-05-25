@@ -1855,7 +1855,7 @@ And a super simple subname is to chunk up to pipes or quotes.
 
 
 ## Scope
-/
+
 Okay, this is a pretty important part of this whole process. The scope is the
 bit before the double colons. Fundamentally, a new document is put under the
 scope of its path/filename. But it can have other names because using filenames is
@@ -2831,15 +2831,15 @@ The most basic directive is saving the text.
 For now, just simple saving, but we can implement the pipe parsing a bit later
 for saving as well. 
 
-    {   save1 : _"save",
-        save2 : _"Dir option save",
-        save : _"Dir factory save",
+    {   
+        "save" : _"save",
         "new scope" : _"new scope",
         "store" : _"dir store",
         "log" : _"dir log",
         "out" : _"out",
         "load" : _"load",
         "link scope" : _"link scope",
+        "transform" : _"dir transform",
         define : _"define directive",
         "block" : _"block",
         "ignore" : _"ignore language",
@@ -2848,11 +2848,11 @@ for saving as well.
         "flag" : _"dir flag",
         "version" : _"dir version",
         "npminfo" : _"dir npminfo",
-        "transform" : _"dir transform"
     }
 
 
- Directives get a single argument object which gets the link, the href, and
+
+Directives get a single argument object which gets the link, the href, and
  the text after the colon. 
  
 ### Dealing with directive pipes
@@ -2891,9 +2891,9 @@ Note start (href) is not expected to have colon escapes, but cur might.
             start = start.trim().toLowerCase();
 
             if (start[0] === ":") {
-                console.log(start);
+                //console.log(start);
                 start = doc.stripSwitch(cur) + start;
-                console.log(start);
+                //console.log(start);
             }
 
         } 
@@ -2937,7 +2937,8 @@ block.
 #### Middle of pipes
 
 This deals with the stuff between the colon and the first pipe. What that
-stuff represents, if anything, depends on the directive. 
+stuff represents, if anything, depends on the directive. Note that the pipe is
+not currently escapable. 
 
 `doc.midPipes(args.title);`
 
@@ -2992,21 +2993,31 @@ directive), and the starting block.
 This produces functions that can serve as directives with the pipe parsing
 built in. It takes in an emitname function and a handler creator. 
 
+This is designed around the state variable holding the state. This is the
+easiest to have flexibility with the functions. So each of the provided
+functions might modify and add to the state. Note that the state starts as the
+arguments parsd from a directive link, but that things get added to it. 
+
+In particular, namefactory should add an emitname and handlerfactory should
+add in handler.
+
     function (namefactory, handlerfactory, other) {
 
-        return function (args) {
+        return function (state) {
             _":init"
             
-            var emitname = namefactory.call(doc, linkname, args);
-            var f = handlerfactory.call(doc, linkname, args);
+            namefactory.call(doc, state);
+            
+            handlerfactory.call(doc, state);
 
-            other.call(doc, linkname, options, start, args);
+            other.call(doc, state);
 
             _":emit"
         };
         
 
     }
+
 
 [init]()
 
@@ -3015,14 +3026,15 @@ This sets up the variables and parsing of the incoming arguments.
     var doc = this;
     var gcd = doc.gcd;
     var colon = doc.colon;
-    var linkname = colon.escape(args.link);
-    var temp, options, pipes;
-
-    var start = doc.getBlock(args.href, args.cur);
     
-    temp = doc.midPipes(args.input);
-    options = temp[0];
-    pipes = temp[1];
+    state.linkname = colon.escape(state.link);
+    var temp;
+
+    state.start =  doc.getBlock(state.href, state.cur);
+    
+    temp = doc.midPipes(state.input);
+    state.options = temp[0];
+    state.pipes = temp[1];
 
 
 [emit]()
@@ -3030,13 +3042,27 @@ This sets up the variables and parsing of the incoming arguments.
 This setups the pipe processing and then queues/executes it based on whether
 the start value is ready. 
 
+Typically, the starting value is found from href. But if during the processing
+we have the `state.start` set to falsy, then we use `state.value` or the empty
+string.
+
+This has to do with the store directive where one can just specify a simple
+value. Also, if state.start is falsy, then we use current location for the
+heading reference (end of pipeDirSetup).
+
         
-    doc.pipeDirSetup(pipes, emitname, f, start);
+    doc.pipeDirSetup(state.pipes, state.emitname, state.handler, 
+        ( state.start ||  state.block) );
 
-    doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
+    var pipeEmitStart = "text ready:" + state.emitname + colon.v + "0";
+    if (! state.value) {
+        doc.retrieve(state.start, pipeEmitStart);
+    } else {
+        gcd.emit(pipeEmitStart, state.value || "" );
+    }
 
 
-#### Dir factory save
+#### Save
 
 Here we write the save function using the factory function. 
 
@@ -3046,15 +3072,17 @@ Here we write the save function using the factory function.
 [emitname]()
 
 
-    function(linkname) {
-        return  "for save:" + this.file + ":" + linkname;
+    function (state) {
+        state.emitname =  "for save:" + this.file + ":" + state.linkname;
     }
 
 
 [handler factory]()
 
-    function(linkname) {
+    function (state) {
+        var doc = this;
         var gcd = this.gcd;
+        var linkname = state.linkname;
 
         var f = function (data) {
             if (data[data.length-1] !== "\n") {
@@ -3064,15 +3092,19 @@ Here we write the save function using the factory function.
         };
         f._label = "save;;" + linkname;
 
-        return f;
+        state.handler = f;
 
     }
 
 [other]()
 
-    function (linkname, options, start) {
+    function (state) {
         var file = this.file;
         var gcd = this.gcd;
+        var linkname = state.linkname;
+        var options = state.options;
+        var start = state.start;
+        // es6 var {linkname, options, start} = state; 
 
         gcd.scope(linkname, options);
 
@@ -3080,200 +3112,6 @@ Here we write the save function using the factory function.
              ["file ready:" + linkname, "save", linkname, file, start]);
 
     }
-
-#### Dir option save
-
-This saves the options 
-
-
-We save it in vars of the document with the name in the link. The href tells
-us where to begin. The title gives us options before the first pipe while
-after the pipe, we get commands to act on the sections. 
-
-This tacks on a newline at the end of the file data to meet convention.
-
-
-    function (args) {
-        var doc = this;
-        var gcd = doc.gcd;
-        var colon = doc.colon;
-        var linkname = colon.escape(args.link);
-        var temp, options, pipes;
-
-        var start = doc.getBlock(args.href, args.cur);
-        
-        temp = doc.midPipes(args.input);
-        options = temp[0];
-        pipes = temp[1];
-
-        _":custom"
-
-        
-        doc.pipeDirSetup(pipes, emitname, f, start);
-
-        doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
-
-
-    }
-
-
-[custom]()
-
-This is the custom section. It needs to generate the emitname and f. The
-emitname probably should involve the directive, the file and the linkname. But
-it can be any unique event identifier for the directive use. 
-
-The handler f should be what happens when everything is ready. Here we make
-sure the data (text to be stored) ends in a newline per file convention. Then
-we emit an evit to say the file is ready. The actually saving is done
-elsewhere as the save command is general and actually saving a file is
-specific to the command line. 
-
-The label on f is optional and is useful for debugging. 
-
-The scope link is how we stash the options for later retrieval. The later
-retrieval is done by using `options = gcdscope(linkname);`
-
-The emit "waiting for" is part of the reporting mechanism. See 
-
-
-
-
-        var emitname = "for save:" + doc.file + ":" + linkname;
-
-        gcd.scope(linkname, options);
-        
-        gcd.emit("waiting for:saving file:" + linkname + ":from:" + doc.file, 
-             ["file ready:" + linkname, "save", linkname, doc.file, start]);
-
-        var f = function (data) {
-            if (data[data.length-1] !== "\n") {
-               data += "\n";
-            }
-            gcd.emit("file ready:" + linkname, data);
-        };
-        f._label = "save;;" + linkname;
-
-
-[reporter]() 
-
-Here we make the function that will give the report when a save does not
-happen. This is very important. 
-
-The args should be `filename to save, section to wait for`. 
-
-    function (args) {
-        var name = this.recording[args[2]] || args[2];
-        return "NOT SAVED: " + args[0] + " AS REQUESTED BY: " + args[1] + 
-            " NEED: " + name;
-    }
-
-
-
-### Save
-
-We save it in vars of the document with the name in the link. The href tells
-us where to begin. The title gives us options before the first pipe while
-after the pipe, we get commands to act on the sections. 
-
-This tacks on a newline at the end of the file data to meet convention.
-
-
-    function (args) {
-        var doc = this;
-        var colon = doc.colon;
-        var gcd = doc.gcd;
-        var savename = doc.colon.escape(args.link);
-        var title = args.input;
-
-        _":deal with start"
-
-        var emitname = "for save:" + doc.file + ":" + savename;
-
-        gcd.scope(savename, options);
-        
-
-        gcd.emit("waiting for:saving file:" + savename + ":from:" + doc.file, 
-             ["file ready:" + savename, "save", savename, doc.file, start]);
-
-         var f = function (data) {
-             // doc.store(savename, data);
-             if (data[data.length-1] !== "\n") {
-                data += "\n";
-             }
-             gcd.emit("file ready:" + savename, data);
-         };
-         f._label = "save;;" + savename;
-        
-         _":process"
-
-    }
-
-[process]() 
-
-     if (title) {
-         title = title + '"';
-         gcd.once("text ready:" + emitname, f);
-        
-         doc.pipeParsing(title, 0, '"', emitname, blockhead);
-
-     } else {
-        gcd.once("text ready:" + emitname + colon.v + "0", f); 
-     }
-     
-     doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
-
-[deal with start]()
-
-This is dealing with where to start, getting the text. It first comes from the
-href, then anything between the first colon and the pipe. 
-
-To get something from another context, one can simply put it after the first
-colon.
-
-
-After the `:` and before the first `|`, that text is trimmed and then sent as options. 
-Also, if the name comes out to nothing, then we use the current
-block being parsed.  
-
-
-    var options, start, blockhead, ind;
-    if ( args.href[0] === "#") {
-        start = args.href.slice(1).replace(/-/g, " ");
-    } else {
-        start = args.href;
-    }
-    start = start.trim().toLowerCase();
-
-    ind = title.indexOf("|");
-    if (ind === -1) {
-        options = title.trim();
-        title = "";
-    } else {
-        options = title.slice(0,ind).trim();
-        title = title.slice(ind+1);
-    }
-    
-    if (!start) {
-        start = args.cur;
-    }
-
-    if (start[0] === ":") {
-        start = doc.levels[0] + start;
-    }
-
-    blockhead = doc.colon.restore(start);
-
-    if ( (ind = blockhead.indexOf("::")) !== -1)  {
-        if (  (ind = blockhead.indexOf(":", ind+2 )) !== -1 ) {
-            blockhead = blockhead.slice(0, ind);
-        }
-    } else if ( (ind = blockhead.indexOf(":") ) !== -1) {
-        blockhead = blockhead.slice(0, ind);
-    }
-
-
-    start = doc.colon.escape(start);
 
 [reporter]() 
 
@@ -3292,35 +3130,48 @@ The args should be `filename to save, section to wait for`.
 
 This is the same as save, except it just ouputs it to the console via doc.log. 
 
-Note I copied the save code which is rather poor form. It would be good to
-abstract this out a bit. Need to just pass along the f and the name of out or
-save, etc. 
 
-    function (args) {
+    dirFactory(_":emitname", _":handler", _":other")
+
+[emitname]() 
+
+    function (state) {
+        state.emitname = "for out:" + this.file + ":" + this.colon.escape(state.linkname);
+    }
+
+[handler]()
+
+    function (state) {
         var doc = this;
-        var colon = doc.colon;
         var gcd = doc.gcd;
-        var outname = args.link;
-        var title = args.input;
-        
-        _"save:deal with start"
-        
-        var emitname = "for out:" + doc.file + ":" + 
-            doc.colon.escape(outname);
+        var linkname = state.linkname;
+        var emitname = state.emitname;
 
-        gcd.scope(outname, options);
-
-        gcd.emit("waiting for:dumping out:" + outname, 
-            [emitname, outname, doc.file, start]  );
 
         var f = function (data) {
             gcd.emit(emitname, data);
-            doc.log(outname + ":\n" + data + "\n~~~\n");
+            doc.log(linkname + ":\n" + data + "\n~~~\n");
         };
-        f._label = "out;;" + outname;
-        
-        _"save:process"
 
+        f._label = "out;;" + linkname;
+
+        state.handler = f;       
+
+    }
+
+[other]() 
+
+    function (state)  {
+        var gcd = this.gcd;
+        var linkname = state.linkname;
+        var emitname = state.emitname;
+        var start = state.start;
+        var options = state.options;
+        
+        gcd.scope(linkname, options);
+
+        gcd.emit("waiting for:dumping out:" + linkname, 
+            [emitname, linkname, this.file, start]  );
     }
 
 
@@ -3372,16 +3223,52 @@ should just be what one wants. But anyway, it is easy to implement.
 
 ### Dir Store
 
-This is the directive for storing some text. Key value
+This is the directive for storing some text. 
 
-`[name](# "store: value")`
+`[name](#start "store: value|...")`
 
-    function (args) {
+We have pipes that either act on value, if defined, or do start. If doing
+value, best to use `#` and not have any code in that block.
+
+    dirFactory(_":emitname", _":handler factory", _":other")
+
+[emitname]()
+
+
+    function (state) {
+        var linkname = state.linkname;
+
+        state.emitname =  "for store:" + this.file + ":" + linkname;
+    }
+
+[handler factory]()
+
+    function (state) {
         var doc = this;
-        var value = args.input;
-        var name = doc.colon.escape(args.link);
+        var gcd = this.gcd;
+        var linkname = state.linkname;
 
-        doc.store(name, value);
+        var f = function (data) {
+             doc.store(linkname, data);
+        };
+        f._label = "storeDir;;" + linkname;
+
+        state.handler = f;
+
+    }
+    
+        
+
+[other]() 
+
+    function (state) {
+
+
+        if (state.options) {
+            state.block = state.start;
+            state.start = '';
+            state.value = state.options;
+        }
     }
 
 ### Dir Transform
@@ -3394,39 +3281,48 @@ a bit better (ha).
 
 `[](#... ": ..|..")` or transform:
 
-    function (args) {
-        var doc = this;
-        var gcd = doc.gcd;
-        var colon = doc.colon;
-        var title = args.input;
-        var name;
-        
+    dirFactory(_":emitname", _":handler factory", _":other")
 
-        _":pipe stuff" 
+[emitname]()
 
+We store the important name in args.name. 
+
+    function (state) {
+        state.name = this.colon.escape(state.start + ":" + state.input);
+        state.emitname =  "for transform:" + this.file + ":" + state.name;
     }
 
-[pipe stuff]()
 
-This is the same as out and save. Really need to get a better flavor going. 
+[handler factory]()
 
-    
-       _"save:deal with start"
+
+    function (state) {
+        var gcd = this.gcd;
+
+
+        var f = function (data) {
+            gcd.emit(state.emitname, data);
+        };
+        f._label =  "transform;;" + state.name;
         
-        name = doc.colon.escape(start + ":" + title);
-        var emitname = "for transform:" + doc.file + ":" + name;
+        state.handler = f;
+    }
 
-        gcd.scope(name, options);
+
+[other]()
+
+
+    function (state) {
+        var doc = this;
+        var gcd = this.gcd;
+        var name = state.name;
+        var start = state.start;
+        var emitname = state.emitname
 
         gcd.emit("waiting for:transforming:" + name, 
             [emitname, name, doc.file, start]  );
+    }
 
-        var f = function (data) {
-            gcd.emit(emitname, data);
-        };
-        f._label =  "transform;;" + name;
-        
-        _"save:process"
 
 
 ### Dir Log
@@ -3529,27 +3425,27 @@ async/sync/raw option to whether it gets wrapped in the convenience async sync
 or just simply taken as is. The default is sync cause that's the easiest to
 understand. 
 
-Commands that are not know when asked for are waited for. 
+Commands that are not known when asked for are waited for. 
 
 The code block should return a function that expects `input, args, name` as an
 input. 
 
 
-    function (args) {
-        var ind; 
+    dirFactory(_":emitname", _":handler factory", _":other")
+
+[emitname]()
+
+    function (state) {
+        state.emitname =  "cmddefine:" + state.linkname;
+    }
+
+[handler factory]() 
+
+    function (state) {
+        var cmdname = state.linkname;
         var doc = this;
-        var colon = doc.colon;
-        var gcd = doc.gcd;
-        var cmdname = args.link;
-        var title = args.input;
-        var wrapper; 
-      
-        _":deal with start"
+        var gcd = this.gcd;
 
-        gcd.emit("waiting for:command definition:" + cmdname, 
-            ["command defined:"+cmdname, cmdname, doc.file, start]  );
-
-       
         var han = function (block) {
             var f; 
             
@@ -3562,7 +3458,7 @@ input.
                 return;
             }
 
-            switch (wrapper) {
+            switch (state.options) {
                 case "raw" :  f._label = cmdname;
                     doc.commands[cmdname] = f;
                 break;
@@ -3576,62 +3472,25 @@ input.
             gcd.emit("command defined:" + cmdname);
         };
         han._label = "cmd define;;" + cmdname;
-       
-        if (title) {
-            title = title + '"';
-            gcd.once("text ready:" + cmdname, han);
-            
-            doc.pipeParsing(title, 0, '"', cmdname, blockhead);
 
-        } else {
-           gcd.once("text ready:" + cmdname + colon.v + "0", han); 
-        }
-        
-        doc.retrieve(start, "text ready:" + cmdname + colon.v + "0");
+        state.handler = han;
+
     }
 
-[deal with start]()
+[other]() 
 
-This is dealing with where to start, getting the text as well as the pre-pipe
-wrapping command. 
+    function (state) {
+        var cmdname = state.linkname;
 
+        var file = this.file;
+        var gcd = this.gcd;
 
-After the `:` and before the first `|`, that text is trimmed and then checked
-for an option.
+        gcd.emit("waiting for:command definition:" + cmdname, 
+            ["command defined:"+cmdname, cmdname, file, state.start]  );
 
-Also, if the name comes out to nothing, then we use the current
-block being parsed.  
-
-
-    var start = args.href.slice(1).replace(/-/g, " ").
-        trim().toLowerCase();
-    ind = title.indexOf("|");
-    if (ind === -1) {
-        wrapper = title.trim();
-        title = '';
-    } else {
-        wrapper = title.slice(0,ind).trim();
-        title = title.slice(ind+1);
-    }
-    
-    if (!start) {
-        start = args.cur;
     }
 
-    if (start[0] === ":") {
-        start = doc.levels[0] + start;
-    }
-    var blockhead = doc.colon.restore(start);
 
-    if ( (ind = blockhead.indexOf("::")) !== -1)  {
-        if (  (ind = blockhead.indexOf(":", ind+2 )) !== -1 ) {
-            blockhead = blockhead.slice(0, ind);
-        }
-    } else if ( (ind = blockhead.indexOf(":") ) !== -1) {
-        blockhead = blockhead.slice(0, ind);
-    }
-
-    start = doc.colon.escape(start);
 
 [reporter]() 
 
@@ -4621,14 +4480,14 @@ There are a variety of directives that come built in.
   into file filename. The options can be used in different ways, but in the
   command client it is an encoding string for saving the file; the default
   encoding is utf8.
-* **Store** `[name](# "store:value")`  This stores the value into name. Think of
-  this as a constant declaration at the beginning of a file. You can use it
-  for common bits of static text. If you need more dynamism, consider the
-  store command instead. 
+* **Store** `[name](#start "store:value|...")`  If the value is present, then
+  it is sent through the pipes. If there is no
+  value, then the `#start` location is used for the value and that gets piped.
+  The name is used to store the value. 
 * **Transform** `[](#start "transform:|...)` or `[](#start ":|...")`.
   This takes the value that start points to and transforms it using the pipe
   commands. Note one can store the transformed values using the store command
-  (not directive). 
+  (not directive).   
 * **Load** `[alias](url "load:options")` This loads the file, found at the url
   (file name probably) and stores it in the alias scope as well as under the
   url name. We recommend using a short alias and not relying on the filename
@@ -5056,7 +4915,11 @@ final report that gets printed out.
 
 Check problematic syntax for erroring and reporting. 
 
-Implement dead simple ways to setup a directive with pipes. 
+Implement dead simple ways to setup a directive with pipes. Done. Document
+them, add store directive options as described in
+new doc version. 
+
+Make pipes escapable in options; write a general escape kind of setup.
 
 Implement better argument parsing. What something like `md tex($..$, $$..$$),
 log|` to work out. That is, make it so that one can have comma'd arguments.
@@ -5064,6 +4927,8 @@ Quotes and brackets would switch it to a different mode where it only cares
 about finding the end, ignoring other stuff in there except maybe
 subsitutions.  Also, maybe allowing `tex(_"tex delim")`. That is, having
 subsitutions anywhere in the arguments. 
+
+
 
 add to docs:  we have long functions or we have short functions. Long
 functions are hard to understand cause they are long. Short functions are
@@ -5086,7 +4951,7 @@ This is compiled by litpro and uses the following lprc.js file
         if (args.file.length === 0) {
             args.file = ["lp.md"];
         }
-        // args.build = ".";
+         args.build = ".";
          args.src = ".";
 
         require('litpro-jshint')(Folder, args);

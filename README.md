@@ -393,14 +393,14 @@ There are a variety of directives that come built in.
   into file filename. The options can be used in different ways, but in the
   command client it is an encoding string for saving the file; the default
   encoding is utf8.
-* **Store** `[name](# "store:value")`  This stores the value into name. Think of
-  this as a constant declaration at the beginning of a file. You can use it
-  for common bits of static text. If you need more dynamism, consider the
-  store command instead. 
+* **Store** `[name](#start "store:value|...")`  If the value is present, then
+  it is sent through the pipes. If there is no
+  value, then the `#start` location is used for the value and that gets piped.
+  The name is used to store the value. 
 * **Transform** `[](#start "transform:|...)` or `[](#start ":|...")`.
   This takes the value that start points to and transforms it using the pipe
   commands. Note one can store the transformed values using the store command
-  (not directive). 
+  (not directive).   
 * **Load** `[alias](url "load:options")` This loads the file, found at the url
   (file name probably) and stores it in the alias scope as well as under the
   url name. We recommend using a short alias and not relying on the filename

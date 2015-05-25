@@ -577,27 +577,35 @@ Folder.async = function (name, fun) {
 
 var dirFactory = Folder.prototype.dirFactory = function (namefactory, handlerfactory, other) {
 
-    return function (args) {
+    return function (state) {
         var doc = this;
         var gcd = doc.gcd;
         var colon = doc.colon;
-        var linkname = colon.escape(args.link);
-        var temp, options, pipes;
         
-        var start = doc.getBlock(args.href, args.cur);
+        state.linkname = colon.escape(state.link);
+        var temp;
         
-        temp = doc.midPipes(args.input);
-        options = temp[0];
-        pipes = temp[1];
+        state.start =  doc.getBlock(state.href, state.cur);
         
-        var emitname = namefactory.call(doc, linkname, args);
-        var f = handlerfactory.call(doc, linkname, args);
+        temp = doc.midPipes(state.input);
+        state.options = temp[0];
+        state.pipes = temp[1];
+        
+        namefactory.call(doc, state);
+        
+        handlerfactory.call(doc, state);
 
-        other.call(doc, linkname, options, start, args);
+        other.call(doc, state);
 
-        doc.pipeDirSetup(pipes, emitname, f, start);
+        doc.pipeDirSetup(state.pipes, state.emitname, state.handler, 
+            ( state.start ||  state.block) );
         
-        doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
+        var pipeEmitStart = "text ready:" + state.emitname + colon.v + "0";
+        if (! state.value) {
+            doc.retrieve(state.start, pipeEmitStart);
+        } else {
+            gcd.emit(pipeEmitStart, state.value || "" );
+        }
     };
     
 
@@ -1033,120 +1041,13 @@ Folder.commands = {   eval : sync(function ( text, args ) {
     }
 };
 
-Folder.directives = {   save1 : function (args) {
-    var doc = this;
-    var colon = doc.colon;
-    var gcd = doc.gcd;
-    var savename = doc.colon.escape(args.link);
-    var title = args.input;
-
-    var options, start, blockhead, ind;
-    if ( args.href[0] === "#") {
-        start = args.href.slice(1).replace(/-/g, " ");
-    } else {
-        start = args.href;
-    }
-    start = start.trim().toLowerCase();
-    
-    ind = title.indexOf("|");
-    if (ind === -1) {
-        options = title.trim();
-        title = "";
-    } else {
-        options = title.slice(0,ind).trim();
-        title = title.slice(ind+1);
-    }
-    
-    if (!start) {
-        start = args.cur;
-    }
-    
-    if (start[0] === ":") {
-        start = doc.levels[0] + start;
-    }
-    
-    blockhead = doc.colon.restore(start);
-    
-    if ( (ind = blockhead.indexOf("::")) !== -1)  {
-        if (  (ind = blockhead.indexOf(":", ind+2 )) !== -1 ) {
-            blockhead = blockhead.slice(0, ind);
-        }
-    } else if ( (ind = blockhead.indexOf(":") ) !== -1) {
-        blockhead = blockhead.slice(0, ind);
-    }
-    
-    
-    start = doc.colon.escape(start);
-
-    var emitname = "for save:" + doc.file + ":" + savename;
-
-    gcd.scope(savename, options);
-    
-
-    gcd.emit("waiting for:saving file:" + savename + ":from:" + doc.file, 
-         ["file ready:" + savename, "save", savename, doc.file, start]);
-
-     var f = function (data) {
-         // doc.store(savename, data);
-         if (data[data.length-1] !== "\n") {
-            data += "\n";
-         }
-         gcd.emit("file ready:" + savename, data);
-     };
-     f._label = "save;;" + savename;
-    
-      if (title) {
-          title = title + '"';
-          gcd.once("text ready:" + emitname, f);
-         
-          doc.pipeParsing(title, 0, '"', emitname, blockhead);
-     
-      } else {
-         gcd.once("text ready:" + emitname + colon.v + "0", f); 
-      }
-      
-      doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
-
-},
-    save2 : function (args) {
+Folder.directives = {   
+    "save" : dirFactory(function (state) {
+        state.emitname =  "for save:" + this.file + ":" + state.linkname;
+    }, function (state) {
         var doc = this;
-        var gcd = doc.gcd;
-        var colon = doc.colon;
-        var linkname = colon.escape(args.link);
-        var temp, options, pipes;
-    
-        var start = doc.getBlock(args.href, args.cur);
-        
-        temp = doc.midPipes(args.input);
-        options = temp[0];
-        pipes = temp[1];
-    
-            var emitname = "for save:" + doc.file + ":" + linkname;
-        
-            gcd.scope(linkname, options);
-            
-            gcd.emit("waiting for:saving file:" + linkname + ":from:" + doc.file, 
-                 ["file ready:" + linkname, "save", linkname, doc.file, start]);
-        
-            var f = function (data) {
-                if (data[data.length-1] !== "\n") {
-                   data += "\n";
-                }
-                gcd.emit("file ready:" + linkname, data);
-            };
-            f._label = "save;;" + linkname;
-    
-        
-        doc.pipeDirSetup(pipes, emitname, f, start);
-    
-        doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
-    
-    
-    },
-    save : dirFactory(function(linkname) {
-        return  "for save:" + this.file + ":" + linkname;
-    }, function(linkname) {
         var gcd = this.gcd;
+        var linkname = state.linkname;
     
         var f = function (data) {
             if (data[data.length-1] !== "\n") {
@@ -1156,11 +1057,15 @@ Folder.directives = {   save1 : function (args) {
         };
         f._label = "save;;" + linkname;
     
-        return f;
+        state.handler = f;
     
-    }, function (linkname, options, start) {
+    }, function (state) {
         var file = this.file;
         var gcd = this.gcd;
+        var linkname = state.linkname;
+        var options = state.options;
+        var start = state.start;
+        // es6 var {linkname, options, start} = state; 
     
         gcd.scope(linkname, options);
     
@@ -1175,13 +1080,31 @@ Folder.directives = {   save1 : function (args) {
         doc.parent.createScope(scopename);
     
     },
-    "store" : function (args) {
-        var doc = this;
-        var value = args.input;
-        var name = doc.colon.escape(args.link);
+    "store" : dirFactory(function (state) {
+        var linkname = state.linkname;
     
-        doc.store(name, value);
-    },
+        state.emitname =  "for store:" + this.file + ":" + linkname;
+    }, function (state) {
+        var doc = this;
+        var gcd = this.gcd;
+        var linkname = state.linkname;
+    
+        var f = function (data) {
+             doc.store(linkname, data);
+        };
+        f._label = "storeDir;;" + linkname;
+    
+        state.handler = f;
+    
+    }, function (state) {
+    
+    
+        if (state.options) {
+            state.block = state.start;
+            state.start = '';
+            state.value = state.options;
+        }
+    }),
     "log" : function (args) {
         
         var doc = this;
@@ -1200,78 +1123,36 @@ Folder.directives = {   save1 : function (args) {
         });
     
     },
-    "out" : function (args) {
+    "out" : dirFactory(function (state) {
+        state.emitname = "for out:" + this.file + ":" + this.colon.escape(state.linkname);
+    }, function (state) {
         var doc = this;
-        var colon = doc.colon;
         var gcd = doc.gcd;
-        var outname = args.link;
-        var title = args.input;
-        
-        var options, start, blockhead, ind;
-        if ( args.href[0] === "#") {
-            start = args.href.slice(1).replace(/-/g, " ");
-        } else {
-            start = args.href;
-        }
-        start = start.trim().toLowerCase();
-        
-        ind = title.indexOf("|");
-        if (ind === -1) {
-            options = title.trim();
-            title = "";
-        } else {
-            options = title.slice(0,ind).trim();
-            title = title.slice(ind+1);
-        }
-        
-        if (!start) {
-            start = args.cur;
-        }
-        
-        if (start[0] === ":") {
-            start = doc.levels[0] + start;
-        }
-        
-        blockhead = doc.colon.restore(start);
-        
-        if ( (ind = blockhead.indexOf("::")) !== -1)  {
-            if (  (ind = blockhead.indexOf(":", ind+2 )) !== -1 ) {
-                blockhead = blockhead.slice(0, ind);
-            }
-        } else if ( (ind = blockhead.indexOf(":") ) !== -1) {
-            blockhead = blockhead.slice(0, ind);
-        }
-        
-        
-        start = doc.colon.escape(start);
-        
-        var emitname = "for out:" + doc.file + ":" + 
-            doc.colon.escape(outname);
+        var linkname = state.linkname;
+        var emitname = state.emitname;
     
-        gcd.scope(outname, options);
-    
-        gcd.emit("waiting for:dumping out:" + outname, 
-            [emitname, outname, doc.file, start]  );
     
         var f = function (data) {
             gcd.emit(emitname, data);
-            doc.log(outname + ":\n" + data + "\n~~~\n");
+            doc.log(linkname + ":\n" + data + "\n~~~\n");
         };
-        f._label = "out;;" + outname;
-        
-         if (title) {
-             title = title + '"';
-             gcd.once("text ready:" + emitname, f);
-            
-             doc.pipeParsing(title, 0, '"', emitname, blockhead);
-        
-         } else {
-            gcd.once("text ready:" + emitname + colon.v + "0", f); 
-         }
-         
-         doc.retrieve(start, "text ready:" + emitname + colon.v + "0");
     
-    },
+        f._label = "out;;" + linkname;
+    
+        state.handler = f;       
+    
+    }, function (state)  {
+        var gcd = this.gcd;
+        var linkname = state.linkname;
+        var emitname = state.emitname;
+        var start = state.start;
+        var options = state.options;
+        
+        gcd.scope(linkname, options);
+    
+        gcd.emit("waiting for:dumping out:" + linkname, 
+            [emitname, linkname, this.file, start]  );
+    }),
     "load" : function (args) {
         var doc = this;
         var gcd = doc.gcd;
@@ -1307,49 +1188,36 @@ Folder.directives = {   save1 : function (args) {
         doc.createLinkedScope(scopename, alias); 
     
     },
-    define : function (args) {
-        var ind; 
+    "transform" : dirFactory(function (state) {
+        state.name = this.colon.escape(state.start + ":" + state.input);
+        state.emitname =  "for transform:" + this.file + ":" + state.name;
+    }, function (state) {
+        var gcd = this.gcd;
+    
+    
+        var f = function (data) {
+            gcd.emit(state.emitname, data);
+        };
+        f._label =  "transform;;" + state.name;
+        
+        state.handler = f;
+    }, function (state) {
         var doc = this;
-        var colon = doc.colon;
-        var gcd = doc.gcd;
-        var cmdname = args.link;
-        var title = args.input;
-        var wrapper; 
-      
-        var start = args.href.slice(1).replace(/-/g, " ").
-            trim().toLowerCase();
-        ind = title.indexOf("|");
-        if (ind === -1) {
-            wrapper = title.trim();
-            title = '';
-        } else {
-            wrapper = title.slice(0,ind).trim();
-            title = title.slice(ind+1);
-        }
-        
-        if (!start) {
-            start = args.cur;
-        }
-        
-        if (start[0] === ":") {
-            start = doc.levels[0] + start;
-        }
-        var blockhead = doc.colon.restore(start);
-        
-        if ( (ind = blockhead.indexOf("::")) !== -1)  {
-            if (  (ind = blockhead.indexOf(":", ind+2 )) !== -1 ) {
-                blockhead = blockhead.slice(0, ind);
-            }
-        } else if ( (ind = blockhead.indexOf(":") ) !== -1) {
-            blockhead = blockhead.slice(0, ind);
-        }
-        
-        start = doc.colon.escape(start);
+        var gcd = this.gcd;
+        var name = state.name;
+        var start = state.start;
+        var emitname = state.emitname
     
-        gcd.emit("waiting for:command definition:" + cmdname, 
-            ["command defined:"+cmdname, cmdname, doc.file, start]  );
+        gcd.emit("waiting for:transforming:" + name, 
+            [emitname, name, doc.file, start]  );
+    }),
+    define : dirFactory(function (state) {
+        state.emitname =  "cmddefine:" + state.linkname;
+    }, function (state) {
+        var cmdname = state.linkname;
+        var doc = this;
+        var gcd = this.gcd;
     
-       
         var han = function (block) {
             var f; 
             
@@ -1362,7 +1230,7 @@ Folder.directives = {   save1 : function (args) {
                 return;
             }
     
-            switch (wrapper) {
+            switch (state.options) {
                 case "raw" :  f._label = cmdname;
                     doc.commands[cmdname] = f;
                 break;
@@ -1376,19 +1244,19 @@ Folder.directives = {   save1 : function (args) {
             gcd.emit("command defined:" + cmdname);
         };
         han._label = "cmd define;;" + cmdname;
-       
-        if (title) {
-            title = title + '"';
-            gcd.once("text ready:" + cmdname, han);
-            
-            doc.pipeParsing(title, 0, '"', cmdname, blockhead);
     
-        } else {
-           gcd.once("text ready:" + cmdname + colon.v + "0", han); 
-        }
-        
-        doc.retrieve(start, "text ready:" + cmdname + colon.v + "0");
-    },
+        state.handler = han;
+    
+    }, function (state) {
+        var cmdname = state.linkname;
+    
+        var file = this.file;
+        var gcd = this.gcd;
+    
+        gcd.emit("waiting for:command definition:" + cmdname, 
+            ["command defined:"+cmdname, cmdname, file, state.start]  );
+    
+    }),
     "block" : function (args) {
         var doc = this;
         
@@ -1506,78 +1374,6 @@ Folder.directives = {   save1 : function (args) {
     
         doc.store(g + "year", ( new Date() ).getFullYear().toString() );
     },
-    "transform" : function (args) {
-        var doc = this;
-        var gcd = doc.gcd;
-        var colon = doc.colon;
-        var title = args.input;
-        var name;
-        
-    
-           var options, start, blockhead, ind;
-           if ( args.href[0] === "#") {
-               start = args.href.slice(1).replace(/-/g, " ");
-           } else {
-               start = args.href;
-           }
-           start = start.trim().toLowerCase();
-           
-           ind = title.indexOf("|");
-           if (ind === -1) {
-               options = title.trim();
-               title = "";
-           } else {
-               options = title.slice(0,ind).trim();
-               title = title.slice(ind+1);
-           }
-           
-           if (!start) {
-               start = args.cur;
-           }
-           
-           if (start[0] === ":") {
-               start = doc.levels[0] + start;
-           }
-           
-           blockhead = doc.colon.restore(start);
-           
-           if ( (ind = blockhead.indexOf("::")) !== -1)  {
-               if (  (ind = blockhead.indexOf(":", ind+2 )) !== -1 ) {
-                   blockhead = blockhead.slice(0, ind);
-               }
-           } else if ( (ind = blockhead.indexOf(":") ) !== -1) {
-               blockhead = blockhead.slice(0, ind);
-           }
-           
-           
-           start = doc.colon.escape(start);
-            
-            name = doc.colon.escape(start + ":" + title);
-            var emitname = "for transform:" + doc.file + ":" + name;
-        
-            gcd.scope(name, options);
-        
-            gcd.emit("waiting for:transforming:" + name, 
-                [emitname, name, doc.file, start]  );
-        
-            var f = function (data) {
-                gcd.emit(emitname, data);
-            };
-            f._label =  "transform;;" + name;
-            
-             if (title) {
-                 title = title + '"';
-                 gcd.once("text ready:" + emitname, f);
-                
-                 doc.pipeParsing(title, 0, '"', emitname, blockhead);
-            
-             } else {
-                gcd.once("text ready:" + emitname + colon.v + "0", f); 
-             }
-             
-             doc.retrieve(start, "text ready:" + emitname + colon.v + "0"); 
-    
-    }
 };
 
 
@@ -2184,9 +1980,9 @@ dp.getBlock = function (start, cur) {
         start = start.trim().toLowerCase();
 
         if (start[0] === ":") {
-            console.log(start);
+            //console.log(start);
             start = doc.stripSwitch(cur) + start;
-            console.log(start);
+            //console.log(start);
         }
 
     } 
