@@ -368,6 +368,19 @@ the block name instead of quotes and it worked fine. Be flexible.
   particular data and then transform it into JSON. It's all good. 
 * This brings DSL and grunt power, written in the same place as your code. It
   is really about coding up an entire project. 
+* Getting the length of functions right is difficult. Too short functions,
+  and boilerplate and redirection becomes quite the bother. Too long, and it
+  is hard to understand what all a function is doing. Too long and we lose
+  composability. Too short, the chain of composing them becomes too long.
+  Literate programming can help somewhat in that we can have longer functions
+  and still have it understood. We could also potentially use the litpro
+  blocks again allowing for some composability though that that should be
+  rare. I think the rule of thumb is that if breaking it up seems good from a
+  usability stance, do it. If breaking it up is more about keeping a function
+  to a readable length, use litpro blocks. Another advantage of using litpro
+  blocks is that we get the benefit of small parts when coding, but when
+  debugging, we can see a much larger flow of code all at once in the compiled
+  version. 
 
 I also like to use it to compile an entire project from a single file, pulling
 in other literate program files as needed. That is, one can have a
