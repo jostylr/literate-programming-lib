@@ -22,7 +22,7 @@ after a fashion, as it weaves.
 * [README.md](#readme "save:| raw ## README, !---- | sub \n\ #, \n# |trim ") The standard README.
 * [package.json](#npm-package "save: | jshint") The requisite package file for a npm project. 
 * [TODO.md](#todo "save: |raw ## TODO, !----") A list of growing and shrinking items todo.
-* [LICENSE-MIT](#license-mit "save:") The MIT license as I think that is the standard in the node community. 
+* [LICENSE](#license-mit "save:") The MIT license as I think that is the standard in the node community. 
 * [.npmignore](#npmignore "save: ")
 * [.gitignore](#gitignore "save: ")
 * [.travis.yml](#travis "save: ")
@@ -4987,12 +4987,7 @@ The requisite npm package file.
       "bugs": {
         "url": "https://github.com/_`g::gituser`/_`g::docname`/issues"
       },
-      "licenses": [
-        {
-          "type": "MIT",
-          "url": "https://github.com/_`g::gituser`/_`g::docname`/blob/master/LICENSE-MIT"
-        }
-      ],
+      "license": "MIT",
       "main": "index.js",
       "engines": {
         "node": ">=0.10"
