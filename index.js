@@ -203,7 +203,9 @@ var Folder = function (actions) {
             doc.levels[0] = text;
             doc.levels[1] = '';
             doc.levels[2] = '';
-            doc.blocks[curname] = doc.blocks[curname] || '';
+            if ( ! doc.blocks.hasOwnProperty(curname) ) {
+                doc.blocks[curname] = '';
+            }
         }
     );
     
@@ -217,7 +219,9 @@ var Folder = function (actions) {
             doc.levels[1] = text;
             doc.levels[2] = '';
             var curname = doc.heading = doc.curname = doc.levels[0]+'/'+text;
-            doc.blocks[curname] = doc.blocks[curname] || '';
+            if ( ! doc.blocks.hasOwnProperty(curname) ) {
+                doc.blocks[curname] = '';
+            }
             evObj.stop = true;
         }
     );
@@ -231,7 +235,9 @@ var Folder = function (actions) {
             var text = data.trim().toLowerCase();
             doc.levels[2] = text;
             var curname = doc.heading = doc.curname = doc.levels[0]+'/'+doc.levels[1]+'/'+text;
-            doc.blocks[curname] = doc.blocks[curname] || '';
+            if ( ! doc.blocks.hasOwnProperty(curname) ) {
+                doc.blocks[curname] = '';
+            }
             evObj.stop = true;
         }
     );
@@ -246,7 +252,9 @@ var Folder = function (actions) {
             var text = data[0].trim().toLowerCase();
             
             var curname = doc.curname = doc.heading+colon.v+text;
-            doc.blocks[curname] = doc.blocks[curname] || '';
+            if ( ! doc.blocks.hasOwnProperty(curname) ) {
+                doc.blocks[curname] = '';
+            }
             
             
             var title = data[1];
@@ -848,7 +856,7 @@ Folder.commands = {   eval : sync(function ( text, args ) {
         for (j = 0; j < k; j += 1) {
             index = 0;
             old = keys[j];
-            newstr = obj[keys[j]] || '';
+            newstr = obj.hasOwnProperty(keys[j]) ? obj[keys[j]] : '';
             while (index < str.length ) {
                     i = str.indexOf(old, index);
                 
@@ -861,6 +869,7 @@ Folder.commands = {   eval : sync(function ( text, args ) {
                     }
             }
         }
+    
     
         gcd.emit("text ready:" + name, str);
     },
@@ -1437,7 +1446,7 @@ dp.retrieve = function (name, cb) {
     scope = scope[0];
     var f;
     if (scope) {
-        if (typeof scope[varname] !== "undefined") {
+        if (scope.hasOwnProperty(varname) ) {
             if (typeof cb === "function") {
                 cb(scope[varname]);
             } else if (typeof cb === "string") {

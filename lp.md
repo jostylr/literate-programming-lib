@@ -425,7 +425,9 @@ is best form not to have the same block name twice and concatenating it up,
 there may be use cases for it and this might also help track down accidental
 double blocking (you get the code of both blocks to search for!).
 
-    doc.blocks[curname] = doc.blocks[curname] || '';
+    if ( ! doc.blocks.hasOwnProperty(curname) ) {
+        doc.blocks[curname] = '';
+    }
 
 
 [heading]()
@@ -1964,7 +1966,7 @@ Returning undefined is good and normal.
         scope = scope[0];
         var f;
         if (scope) {
-            if (typeof scope[varname] !== "undefined") {
+            if (scope.hasOwnProperty(varname) ) {
                 _":callback handling"
                 return ;
             } else {
@@ -2615,11 +2617,12 @@ of code.
         for (j = 0; j < k; j += 1) {
             index = 0;
             old = keys[j];
-            newstr = obj[keys[j]] || '';
+            newstr = obj.hasOwnProperty(keys[j]) ? obj[keys[j]] : '';
             while (index < str.length ) {
                 _":replace"
             }
         }
+
 
         gcd.emit("text ready:" + name, str);
     }
@@ -3821,7 +3824,8 @@ The log array should be cleared between tests.
         "version.md",
         "store.md",
         "directivesubbing.md",
-        "done.md"
+        "done.md", 
+        "constructor.md"
     ];
 
 
@@ -3878,7 +3882,7 @@ process the inputs.
         
         var log = td.log; 
 
-        // gcd.makeLog();
+       // gcd.makeLog();
 
        // gcd.monitor('', function (evt, data) { console.log(evt, data); });
 
@@ -3917,9 +3921,9 @@ process the inputs.
 
           // setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
-         // setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
+          // setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
-          // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+           // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
     }
 
