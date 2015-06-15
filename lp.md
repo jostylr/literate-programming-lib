@@ -870,7 +870,7 @@ in the heading then.
     } else {
         href = node.destination;
         title = node.title;
-        ltext = ltext.join('');
+        ltext = ltext.join('').trim();
         
         if (title) {
             title = title.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
@@ -878,7 +878,7 @@ in the heading then.
         if ((!href) && (!title)) {
             gcd.emit("switch found:"+file, [ltext, ""]);
         } else if (title[0] === ":") {
-            if (!ltext) {
+            if ( (ltext[0] === "|") || ( ltext.length === 0) ) {
                 _":transform"
             } else {
                 _":switch with pipes"
@@ -894,10 +894,14 @@ in the heading then.
 This becomes a directive, but looks a lot like a switch. It kind of fills in
 the gap of main blocks not having pipes that can act on them. The idea is that
 this can transform the text and do something with it, maybe just log or eval'd
-or stored in a different variable. 
+or stored in a different variable.
+
+It is triggered by having a pipe at the beginning of the link text; one can
+then write a descriptive for the rest of the link text. One can also have
+empty link text though that becomes entirely hidden to the reader and is best not done. 
 
     gcd.emit("directive found:transform:" + file, 
-        {   link : '' ,
+        {   link : ltext.slice(1),
             input : title.slice(1),
             href: href, 
             cur: doc.curname, 
@@ -3825,7 +3829,8 @@ The log array should be cleared between tests.
         "store.md",
         "directivesubbing.md",
         "done.md", 
-        "constructor.md"
+        "constructor.md",
+        "transform.md"
     ];
 
 
@@ -3919,11 +3924,11 @@ process the inputs.
                 }
             }
 
-          // setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
+         // setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
-          // setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
+         // setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
-           // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+         //   setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
     }
 
@@ -4501,10 +4506,13 @@ There are a variety of directives that come built in.
   it is sent through the pipes. If there is no
   value, then the `#start` location is used for the value and that gets piped.
   The name is used to store the value. 
-* **Transform** `[](#start "transform:|...)` or `[](#start ":|...")`.
+* **Transform** `[des](#start "transform:|...)` or `[|des](#start ":|...")`.
   This takes the value that start points to and transforms it using the pipe
   commands. Note one can store the transformed values using the store command
-  (not directive).   
+  (not directive). The description of link text has no role. For the syntax
+  with no transform, it can be link text that starts with a pipe or it can be
+  completely empty. Note that if it is empty, then it does not appear and is
+  completely obscure to the reader. 
 * **Load** `[alias](url "load:options")` This loads the file, found at the url
   (file name probably) and stores it in the alias scope as well as under the
   url name. We recommend using a short alias and not relying on the filename
@@ -5063,5 +5071,5 @@ A travis.yml file for continuous test integration!
 
 
 by [James Taylor](https://github.com/jostylr "npminfo: jostylr@gmail.com ; 
-    deps: event-when 1.0.0, commonmark 0.17.1, string.fromcodepoint 0.2.1;
-    dev: tape 3.5.0, litpro-jshint 0.1.0")
+    deps: event-when 1.0.0, commonmark 0.20.0, string.fromcodepoint 0.2.1;
+    dev: tape 4.0.0, litpro-jshint 0.1.0")

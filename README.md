@@ -410,10 +410,13 @@ There are a variety of directives that come built in.
   it is sent through the pipes. If there is no
   value, then the `#start` location is used for the value and that gets piped.
   The name is used to store the value. 
-* **Transform** `[](#start "transform:|...)` or `[](#start ":|...")`.
+* **Transform** `[des](#start "transform:|...)` or `[|des](#start ":|...")`.
   This takes the value that start points to and transforms it using the pipe
   commands. Note one can store the transformed values using the store command
-  (not directive).   
+  (not directive). The description of link text has no role. For the syntax
+  with no transform, it can be link text that starts with a pipe or it can be
+  completely empty. Note that if it is empty, then it does not appear and is
+  completely obscure to the reader. 
 * **Load** `[alias](url "load:options")` This loads the file, found at the url
   (file name probably) and stores it in the alias scope as well as under the
   url name. We recommend using a short alias and not relying on the filename

@@ -391,7 +391,7 @@ Folder.prototype.parse = function (doc) {
             } else {
                 href = node.destination;
                 title = node.title;
-                ltext = ltext.join('');
+                ltext = ltext.join('').trim();
                 
                 if (title) {
                     title = title.replace(/&#39;/g, "'").replace(/&quot;/g, '"');
@@ -399,9 +399,9 @@ Folder.prototype.parse = function (doc) {
                 if ((!href) && (!title)) {
                     gcd.emit("switch found:"+file, [ltext, ""]);
                 } else if (title[0] === ":") {
-                    if (!ltext) {
+                    if ( (ltext[0] === "|") || ( ltext.length === 0) ) {
                         gcd.emit("directive found:transform:" + file, 
-                            {   link : '' ,
+                            {   link : ltext.slice(1),
                                 input : title.slice(1),
                                 href: href, 
                                 cur: doc.curname, 
