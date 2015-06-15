@@ -21,11 +21,11 @@
   },
   "dependencies":{
     "event-when" : "^1.0.0",
-    "commonmark" : "^0.17.1",
+    "commonmark" : "^0.20.0",
     "string.fromcodepoint" : "^0.2.1"
   },
   "devDependencies" : {
-    "tape" : "^3.5.0",
+    "tape" : "^4.0.0",
     "litpro-jshint" : "^0.1.0"
   },
   "scripts" : { 
