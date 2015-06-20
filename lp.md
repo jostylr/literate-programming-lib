@@ -1582,7 +1582,256 @@ This is split off for convenience.
     doc.parent.recording[nextname] = text.slice(orig, ind);
     gcd.emit("command parsed:" + comname, [doc.file, command, nextname]);
 
-    
+
+### log bap
+
+    _"Basic argument processing | log"
+
+### Basic argument processing
+
+This is the basic argument processor. It chunks along looking for commas to
+separate the arguments, it replaces substitute strings, has escapes with a unicode gobbler,
+looks for an end quote or a pipe. This the default for any command that does
+not specify a different argument processor. This also allows for `name(.. ,
+..., ..)` constructs embedded as arguments. That is, parentheses next to a
+word generates a function type of call. It is expected that these commands are
+recognized by the function, which is part of the command's properties
+("commands" property). We also allow square bracket and curly brackets to make
+commas not be arguments, but nothing else is used about it; we simply track
+the stack. The same is true about quotes, except for the needed quote unless
+already in a stack. 
+
+The input into this is the block of text, starting position, name to build on
+and call when done, and the special quote, and the command name and the
+mainblock to use in the case of switch. The context
+is doc, as usual.  The output is the new position pointing to whatever
+terminated the argument processing (pipe or quote). 
+
+The start variable tracks the start of the argument. It starts as the
+beginning index, but for each next argument, it changes. 
+
+The args array holds the bits that will be passed. These are mostly strings,
+but for the parenthetical commands, it will be an array whose first entry is
+the command and the arguments fill the rest. Note that the command arguments
+themselves might have commands. These should be resolved first and the output
+is then the argument into the outer command. 
+
+The breaks will lead to an index + 1; continues mean the index is adjusted
+within the case which is pretty much the escaping.
+
+The commas are arguments only if the current mode (stack) is nothing or a
+command parenthesis. Any other and commas are treated as text. This is
+remembered with the flag variable.  
+
+We return the index at the end. If we hit a terminating character, such as a
+pipe, we finish the argument, if any, and then return. 
+
+Underscores only trigger substitution if it is first in an argument, after
+whitespace. 
+
+We advance start until the first non-whitespace character.
+
+
+    function (text, ind, quote, topname, command, mainblock) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var n = text.length;
+        coms = [];
+        var stack = [];
+        var start = ind;
+        var temp;
+        var cp = "c\u0028";  // c parentheses
+        
+        var wsreg = /\S/g;
+
+        _":fast forward to non-whitespace"
+
+        
+        
+        while ( ind < n ) {
+            if ( (start === ind) &&  (text[ind].search(/\s/)) !== -1 ) { 
+                //whitespace at beginning
+                ind += 1;
+                start = ind;
+                continue;
+            }
+
+            switch (text[ind]) {
+
+                case "\u005F" :  // underscore
+                    if (start === ind) {
+                        _":argument substitution"
+                        _":fast forward to non-whitespace"
+                    }
+                continue;
+               
+                case "," : 
+                    if ( (stack.length === 0 ) || (stack[0] === cp) ) {
+                        _":arg done"
+                    }
+                break;
+                
+                case "\u005c" :  //backslash unicode
+                    _":escaping"
+                continue;
+
+                case "|" :
+                    if (stack.length === 0) {
+                        _":arg done"
+                        return ind;
+                    }
+                break;
+
+
+                _":groupings"
+
+                _":quote"
+
+To avoid the quotes as arguments from being caught in what I am doing here, I
+use unicode sequences. The double quote, however, I don't want to sub directly
+because I use double quotes as the quoting. So the unicode substitution is
+being done in the code itself, not the litpro compiling for the double quote
+itself.
+
+                _":quote| sub \u0027, \\u0022"
+
+                _":quote | sub \u0027, \u0060"
+
+
+
+
+
+            }
+
+            ind +=1;
+
+        }
+        
+        return ind;
+
+    }
+
+
+[arg done]() 
+
+    ind 
+
+
+[argument substitution]()
+
+    hey
+
+
+[escaping]()
+
+[shift]()
+
+This is just dealing with the popping. It emits an error if the stacks
+mismatch.
+
+    temp = stack.shift();
+    if (temp !== CHR) {
+        gcd.emit("error:bad stack", [text, CHR, ind]);
+    }
+
+
+[groupings]()
+
+This deals with the grouping characters (brackets ...)  The parentheses can be
+grouping unless it matches the command syntax. 
+
+        case "[" : 
+            stack.unshift("[");
+        break;
+
+        case "]":
+            _`:shift | sub CHR, "["`
+        break;
+
+        case "(" :
+           _":check for cparen" 
+        break;
+        
+        case ")" :
+            if (stack[0] === cp) {
+                _":close cparen"
+            } else {
+                _`:shift | sub CHR, "("`
+            }
+        break;
+
+        case "{" :
+            stack.unshift("{");
+        break;
+
+        case "}" :
+            _`:shift | sub CHR, "{"`
+        break;
+
+[check for cparen]()
+
+We want to ensure that there is a command (one word) associated with the parentheses. If
+there is no command, then it is just 
+
+
+[close cparen]()
+
+
+[quote]()
+
+Quoted passages are very simple. Once a quote is found, we regex to the next
+quote of that kind. There are no escapes. In particular, a quote cannot be
+embedded in its own quote style. The return includes the quotes. 
+
+If a quote is found when stack has length 0, then it is checked to see if it
+matches the sub quote. If stack has stuff on it, it will not close the
+substitution. 
+
+Each quote is the same except which character is under consideration. So we
+will write this once and use the sub.  
+
+
+    case "'" :
+        if ( (stack.length === 0) && (quote === "'") ) {
+                _":arg done"
+                return ind;
+        } else {
+            // start after current place, get quote position
+            temp = text.indexOf("'", ind+1); 
+            if (temp === -1 ) { 
+                _":report error | sub MSG, non-terminating quote"
+                ind = text.length;
+                return;
+            } else {
+                ind = temp;
+            }
+        }
+    break;
+
+
+[fast forward to non-whitespace]()
+
+This little snippet advances start and ind to the first non-whitespace
+character. This should always be found. 
+
+
+        wsreg.lastIndex = start;
+        if (wsreg.test(text) ) {
+            start = ind = wsreg.lastIndex - 1;
+        } else {
+            ind = text.length;
+            _":report error | sub MSG, 
+                argument is just whitespace with no terminating"
+            return;
+        }
+
+
+[report error]() 
+
+This reports the error. 
+
+    gcd.emit("error:" + name, [start, ind, "MSG"]);
+
 
 ### Get arguments for command parsing
 
