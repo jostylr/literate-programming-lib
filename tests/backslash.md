@@ -35,7 +35,7 @@ This tests the backslashing numbering scheme.
 
 ## Oops
 
-    \2_"awesome | sub oo, \2_"self" "
+    \2_"awesome | sub oo, _"self" | sub \", ' "
 
 ## awesome
 
@@ -46,8 +46,8 @@ This tests the backslashing numbering scheme.
     irt
 
 ---
-\1_"awesome | sub oo, \1_"self" "
-\0_"awesome | sub oo, \0_"self" "
+\1_"awesome | sub oo, _"self" | sub \", ' "
+\0_"awesome | sub oo, _"self" | sub \", ' "
 shirt
 
 hi

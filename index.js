@@ -1625,8 +1625,10 @@ dp.blockCompiling = function (block, file, bname, mainblock) {
                         slashcount -= 1;
                         frags[loc] = block.slice(last, place) + "\\" +
                              slashcount + "\u005F";
+                        last = doc.findMatchQuote(block, quote, ind+1); //+1 to get past quote
+                        frags[loc] += block.slice(ind, last);
+                        ind = last;
                         loc += 1;
-                        last = ind; 
                         continue;
                     } else {
                         frags[loc] = block.slice(last, place);
@@ -1904,7 +1906,7 @@ dp.backslash = function (text, ind, indicator) {
     case "n" : return [indicator + "n" + indicator, ind+1];
     case " " : return [indicator + " " + indicator, ind+1];
     //case "\n" : return [" ", ind+1];
-    case "`" : return ["|", ind+1];
+    case "|" : return ["|", ind+1];
     case "," : return [",", ind+1];
     case "u" :  uni.lastIndex = ind;
     match = uni.exec(text);
@@ -2053,6 +2055,36 @@ dp.pipeDirSetup = function (str, emitname, handler, start) {
         gcd.once("text ready:" + emitname + colon.v + "0", handler); 
     }
 
+};
+
+dp.findMatchQuote = function (text, quote, ind) {
+    var char;
+    var n = text.length;
+    var level = 0;
+
+    while ( ind < n) {
+        char = text[ind];
+        ind += 1;
+        if (char === quote) {
+            if ( level === 0)   {
+                break;
+            } else {
+                level -= 1;
+            }
+        } else if (char === '\u005F') {
+            if (text[ind] === quote) {
+                level += 1;
+                ind += 1;
+            }
+
+        } else if (char === "\\") {
+            if ( text[ind] === quote) {
+                ind += 1;  // skip over the quote
+            }
+        }
+    }
+
+    return ind;
 };
 
 module.exports = Folder;

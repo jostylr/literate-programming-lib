@@ -366,6 +366,8 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
 
     dp.pipeDirSetup = _"Pipe processing for directives";
 
+    dp.findMatchQuote = _"Find match quote";
+
 
 
 
@@ -1107,23 +1109,35 @@ backtick.
 
 [check for escaped]()
 
-Index was already incremented past the underscore. So we subtract. 
+This implements a countdown escape for getting substitution blocks past early
+compiles. For example, if one is using jade for html structure and then has a
+block to insert htmlified markdown, one probably wants to have the markdown
+inserted after the jade is converted to html. This allows that to happen
+smoothly.
 
-Note that any escaping of the leading substitution should be followed by
-escaping any underscores in the commands to the same level. 
+Index was already incremented past the underscore, capturing the quote. So we subtract. 
 
-This will determine whether
-the underscore is escaped. This is done by looking backwards for a digit or an
-underscore. Just the first underscore encountered matters. Some cases:
+This will determine whether the underscore is escaped. This is done by looking
+backwards for a digit or an underscore. Just the first underscore encountered
+matters. Some cases:
 
-* `\1_"`  is the same as `\_"` and the block is not seen, yielding `_"`
+* `\1_"`  is similar to `\_"` and the block is not seen, yielding `\0_"`
 * `\0_"` is the same as `_"` and the block will be run. This is good if you
   actually want `\1?` where the question mark is what is returned from the
   block run. That is `\1\0_"` is the same as `\1_"` if we had no escaping.
 * `\2_"` will yield `\1_"` and prime it for more escaping.
 * `\\1_"` will yield `\_"` 
 
-And beware lists. 
+And beware lists? No idea what that means. 
+
+When an underscore-quote is found with a numbered escape, then we chunk along
+to the next quote, keeping track of further undersscore-quote parts (stack) or
+backslash-quote (don't stack). Note that, for now at least, we are ignoring
+some more edge cases such as using the given quote within another
+underscore-different quote setup or other command stuff. We may revisit this
+decision, but remember one can use the unicode insertion within  arguments for
+the quote in question so it should still allow for full expression. 
+
 
     place = ind-2;
     numstr = '0123456789';
@@ -1155,8 +1169,10 @@ including 0.
                 slashcount -= 1;
                 frags[loc] = block.slice(last, place) + "\\" +
                      slashcount + "\u005F";
+                last = doc.findMatchQuote(block, quote, ind+1); //+1 to get past quote
+                frags[loc] += block.slice(ind, last);
+                ind = last;
                 loc += 1;
-                last = ind; 
                 continue;
 
 So with slashcount 0, this is not escaping except for the escape. 
@@ -1216,6 +1232,42 @@ then we need to run the commands if applicable after the stitching.
             doc.maker['stitch store emit'](doc, bname, name, frags));
     }
 
+
+### Find match quote
+
+We need to find the matching quote to an escaped underscore. We need to take
+into account underscore-quote pairs and backslash-quotes. This is currently
+leaving open some edge cases, but maybe that's okay. 
+
+    function (text, quote, ind) {
+        var char;
+        var n = text.length;
+        var level = 0;
+
+        while ( ind < n) {
+            char = text[ind];
+            ind += 1;
+            if (char === quote) {
+                if ( level === 0)   {
+                    break;
+                } else {
+                    level -= 1;
+                }
+            } else if (char === '\u005F') {
+                if (text[ind] === quote) {
+                    level += 1;
+                    ind += 1;
+                }
+
+            } else if (char === "\\") {
+                if ( text[ind] === quote) {
+                    ind += 1;  // skip over the quote
+                }
+            }
+        }
+
+        return ind;
+    }
 
 
 ## Figure out indent
@@ -1999,7 +2051,6 @@ actually escape the underscore, we need to use two backslashes: `\\_`.
         case "n" : return [indicator + "n" + indicator, ind+1];
         case " " : return [indicator + " " + indicator, ind+1];
         //case "\n" : return [" ", ind+1];
-        case "`" : return ["|", ind+1];
         case "," : return [",", ind+1];
         case "u" :  _":unicode"
         break;
@@ -4066,11 +4117,11 @@ The log array should be cleared between tests.
         "subindent.md",
         "linkquotes.md",
         "cycle.md",
-        "backslash.md",
         "templating.md",
         "reports.md",
         "empty.md",
         "switchcmd.md",
+        "backslash.md",
         "templateexample.md",
         "pushpop.md",
         "if.md",
