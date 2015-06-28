@@ -20,7 +20,7 @@
     "node": ">=0.10"
   },
   "dependencies":{
-    "event-when" : "^1.0.0",
+    "event-when" : "^1.1.0",
     "commonmark" : "^0.20.0",
     "string.fromcodepoint" : "^0.2.1"
   },

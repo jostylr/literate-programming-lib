@@ -23,6 +23,9 @@ var Folder = function (actions) {
     actions = actions || Folder.actions;
 
     var gcd = this.gcd = new EvW();
+    //.when will preserve initial, not emitted order
+    gcd.initialOrdering = true; 
+    
     this.docs = {};
     this.scopes = { g:{} };
     

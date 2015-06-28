@@ -202,6 +202,9 @@ We have a default scope called `g` for global.
         actions = actions || Folder.actions;
 
         var gcd = this.gcd = new EvW();
+        //.when will preserve initial, not emitted order
+        gcd.initialOrdering = true; 
+        
         this.docs = {};
         this.scopes = { g:{} };
         
@@ -5515,5 +5518,5 @@ A travis.yml file for continuous test integration!
 
 
 by [James Taylor](https://github.com/jostylr "npminfo: jostylr@gmail.com ; 
-    deps: event-when 1.0.0, commonmark 0.20.0, string.fromcodepoint 0.2.1;
+    deps: event-when 1.1.0, commonmark 0.20.0, string.fromcodepoint 0.2.1;
     dev: tape 4.0.0, litpro-jshint 0.1.0")

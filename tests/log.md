@@ -37,7 +37,7 @@ COOL
 !EVENT: block needs compiling:hi:start⫶cool DATA: undefined
 !EVENT: command parsed:hi:start⫶1⫶0 DATA: hi,log,hi:start⫶1⫶1
 !EVENT: block substitute parsing done:hi:start⫶cool DATA: undefined
-!EVENT: ready to stitch:hi:start⫶cool DATA: 
+!EVENT: ready to stitch:hi:start⫶cool DATA: block substitute parsing done:hi:start⫶cool,
 !EVENT: text ready:hi:start⫶1⫶0⫶0 DATA: dude
 !EVENT: text ready:hi:start⫶1⫶0⫶1 DATA: to
 !EVENT: waiting for:minor:hi:start⫶cool DATA: minor ready:hi:start⫶cool,minor,hi:start⫶cool
@@ -45,7 +45,7 @@ COOL
 !EVENT: text stored:hi:start⫶cool DATA: COOL
 !EVENT: text ready:hi:start⫶cool DATA: COOL
 !EVENT: text ready:hi:start⫶1⫶0 DATA: COOL
-!EVENT: arguments ready:hi:start⫶1⫶0 DATA: text ready:hi:start⫶1⫶0⫶0,dude,text ready:hi:start⫶1⫶0⫶1,to,command parsed:hi:start⫶1⫶0,hi,log,hi:start⫶1⫶1,text ready:hi:start⫶1⫶0,COOL
+!EVENT: arguments ready:hi:start⫶1⫶0 DATA: command parsed:hi:start⫶1⫶0,hi,log,hi:start⫶1⫶1,text ready:hi:start⫶1⫶0,COOL,text ready:hi:start⫶1⫶0⫶0,dude,text ready:hi:start⫶1⫶0⫶1,to
 !COOL
 ~~~
 dude
