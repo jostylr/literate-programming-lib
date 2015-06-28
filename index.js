@@ -1906,7 +1906,6 @@ dp.backslash = function (text, ind, indicator) {
     case "n" : return [indicator + "n" + indicator, ind+1];
     case " " : return [indicator + " " + indicator, ind+1];
     //case "\n" : return [" ", ind+1];
-    case "|" : return ["|", ind+1];
     case "," : return [",", ind+1];
     case "u" :  uni.lastIndex = ind;
     match = uni.exec(text);

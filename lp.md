@@ -1653,6 +1653,19 @@ commas not be arguments, but nothing else is used about it; we simply track
 the stack. The same is true about quotes, except for the needed quote unless
 already in a stack. 
 
+Example:  `great, jack(hello, _"goodbye", "7,7"), [3, 4, jane("bye, Joe")]`
+leads to argument array `['great', jack's return with hello, the subsitute
+goodbye, and "7,7" stuck in it, and then the third bit is the literal
+argument; no arguments or commands put in`. In particular, jane is not
+considered a command. Is that reasonable? Presumably that should reduce
+unintentional conflicts and allow for passing in stuff to another level. 
+
+In terms of what ths function would do immediately, it would emit the first
+and third arguments immediately. For the jack command, it would first setup
+waiting for the substitute to callback. After its arguments are assembled, it
+would hook evaluate jack in the command's context, passing in the return
+value. The subcommands can be async as well as defined later. It all waits. 
+
 The input into this is the block of text, starting position, name to build on
 and call when done, and the special quote, and the command name and the
 mainblock to use in the case of switch. The context
@@ -1672,8 +1685,10 @@ The breaks will lead to an index + 1; continues mean the index is adjusted
 within the case which is pretty much the escaping.
 
 The commas are arguments only if the current mode (stack) is nothing or a
-command parenthesis. Any other and commas are treated as text. This is
-remembered with the flag variable.  
+command parenthesis. 
+
+The space after an argument and before the comma will be part of the argument
+string. But the whitespace in the beginning is not. 
 
 We return the index at the end. If we hit a terminating character, such as a
 pipe, we finish the argument, if any, and then return. 
@@ -1683,30 +1698,36 @@ whitespace.
 
 We advance start until the first non-whitespace character.
 
+The argdone flag is set true after a command parenthesis finishes or a
+substitution. If true, when an argument finishes (pipe, comma, substitute end
+quote), then it does not add an argument; if there is something, it emits an
+error. 
+
+We have coming into this a .when that is waiting for the parsing to be done.
+For each argument, we add to this .when parsing starting at the index. When
+done with an argument, we emit that it is ready if it was just a string. If it
+is not so simple, then we emit the ready when it is ready. 
 
     function (text, ind, quote, topname, command, mainblock) {
         var doc = this;
         var gcd = doc.gcd;
         var n = text.length;
-        coms = [];
         var stack = [];
-        var start = ind;
+        var argstr = '';
+        var err;
         var temp;
+        var start = ind;
         var cp = "c\u0028";  // c parentheses
+        var argdone = false;
         
         var wsreg = /\S/g;
 
         _":fast forward to non-whitespace"
 
+
         
         
         while ( ind < n ) {
-            if ( (start === ind) &&  (text[ind].search(/\s/)) !== -1 ) { 
-                //whitespace at beginning
-                ind += 1;
-                start = ind;
-                continue;
-            }
 
             switch (text[ind]) {
 
@@ -1714,24 +1735,34 @@ We advance start until the first non-whitespace character.
                     if (start === ind) {
                         _":argument substitution"
                         _":fast forward to non-whitespace"
+                        continue;
+                    } else {
+                        argstring += "\u005F";
                     }
-                continue;
+                break;
                
                 case "," : 
                     if ( (stack.length === 0 ) || (stack[0] === cp) ) {
                         _":arg done"
+                        continue;
+                    } else {
+                        argstring += ",";
                     }
                 break;
                 
-                case "\u005c" :  //backslash unicode
-                    _":escaping"
+                case "\\" :  
+                    temp = doc.escapeArg(text, ind);
+                    argstring += temp[0];
+                    ind = temp[1];
                 continue;
 
                 case "|" :
                     if (stack.length === 0) {
                         _":arg done"
                         return ind;
-                    }
+                    } else {
+                        argstring += "|";
+                    }   
                 break;
 
 
@@ -1749,8 +1780,11 @@ itself.
 
                 _":quote | sub \u0027, \u0060"
 
+If not otherwise used, the text gets added to argstr. 
 
-
+                default: 
+                    argstr += text[ind];
+                    
 
 
             }
@@ -1766,15 +1800,42 @@ itself.
 
 [arg done]() 
 
-    ind 
+Here we have an argument terminating character. If the argument was already
+done (command parentheses, substitution), then the argdone is true and we
+simply move on, checking to see if argstring is empty. 
+
+If argdone is false, then we have a simple string and we emit it. 
+
+    if (argdone) {
+        if (argstring !== '') {
+            err = [argstring, start, ind];
+            _:"error | sub MSG, stuff found after argument finsihed"
+            argstring = '';
+        }
+        argdone = false;
+        start = ind+1;
+        
+    } else {
+        
+
+    }
+    
 
 
 [argument substitution]()
 
-    hey
+Need to call in the substituion process;
+
+    ind = sub..
+    if ( ind = text.length) {
+        //error
+        return ind;
+    }
+
+    argstring = '';
+    argdone = true;
 
 
-[escaping]()
 
 [shift]()
 
@@ -1785,6 +1846,7 @@ mismatch.
     if (temp !== CHR) {
         gcd.emit("error:bad stack", [text, CHR, ind]);
     }
+    argstring += temp;
 
 
 [groupings]()
@@ -1794,6 +1856,7 @@ grouping unless it matches the command syntax.
 
         case "[" : 
             stack.unshift("[");
+            argstring += "[";
         break;
 
         case "]":
@@ -1806,7 +1869,8 @@ grouping unless it matches the command syntax.
         
         case ")" :
             if (stack[0] === cp) {
-                _":close cparen"
+                stack.shift();
+                _":arg done"
             } else {
                 _`:shift | sub CHR, "("`
             }
@@ -1814,6 +1878,7 @@ grouping unless it matches the command syntax.
 
         case "{" :
             stack.unshift("{");
+            argstring += "{";
         break;
 
         case "}" :
@@ -1823,10 +1888,12 @@ grouping unless it matches the command syntax.
 [check for cparen]()
 
 We want to ensure that there is a command (one word) associated with the parentheses. If
-there is no command, then it is just 
+there is no command, then it is just parentheses. Also no space between
+parenthees. 
 
+It needs to either be the top level or in a command plus argstring is made of
+non-whitespace and at least one character. If so, then it is a command. 
 
-[close cparen]()
 
 
 [quote]()
@@ -1851,11 +1918,13 @@ will write this once and use the sub.
             // start after current place, get quote position
             temp = text.indexOf("'", ind+1); 
             if (temp === -1 ) { 
+                err = [start, ind, temp];
                 _":report error | sub MSG, non-terminating quote"
-                ind = text.length;
-                return;
+                argstring += "'";
             } else {
+                argstring += text.slice(ind, temp);    
                 ind = temp;
+                continue;
             }
         }
     break;
@@ -1867,11 +1936,12 @@ This little snippet advances start and ind to the first non-whitespace
 character. This should always be found. 
 
 
-        wsreg.lastIndex = start;
+        wsreg.lastIndex = ind;
         if (wsreg.test(text) ) {
             start = ind = wsreg.lastIndex - 1;
         } else {
             ind = text.length;
+            err = [stat, ind];
             _":report error | sub MSG, 
                 argument is just whitespace with no terminating"
             return;
@@ -1882,7 +1952,81 @@ character. This should always be found.
 
 This reports the error. 
 
-    gcd.emit("error:" + name, [start, ind, "MSG"]);
+    gcd.emit("error:" + topname, [err, "MSG"]);
+
+
+### Escaping
+
+This is a function that does the escaping. It is attached to doc as
+`doc.escaping`
+
+It takes in a text and an index to examine. This default function escapes
+backslashes, underscores, pipes, quotes and
+
+* u leads to unicode sucking up. This uses fromCodePoint
+* n converted to a new line. 
+
+There is no need to escape whitespace as whitespace is preserved now. 
+
+If none of those are present a backslash is returned. 
+
+We return an object with the post end index in ind and the string to replace
+as chr.
+
+Note that with commonmark, `\_` will be reported as `_` to the lit pro doc.
+That is in commonmark, backslash underscore translates to underscore. So to
+actually escape the underscore, we need to use two backslashes: `\\_`.
+
+
+    function (text, ind ) {
+        var chr, match, num;
+        var uni = /[0-9A-F]+/g; 
+        
+
+        chr = text[ind];
+        switch (chr) {
+        case "|" : return ["|", ind+1];
+        case '\u005F' : return ['\u005F', ind+1];
+        case "\\" : return ["\\", ind+1];
+        case "'" : return ["'", ind+1];
+        case "`" : return ["`", ind+1];
+        case '"' : return ['"', ind+1];
+        case "n" : return ["\n", ind+1];
+        case "," : return [",", ind+1];
+        case "u" :  _":unicode"
+        break;
+        default : return ["\\", ind];
+
+        }
+    }
+
+
+
+[unicode]()
+
+This handles the unicode processing in argument strings. After the u should be
+a hexadecimal number. If not, then a backslash is return and processing starts
+at u. 
+
+If it cannot be converted into a unicode, then the backslash is returned and
+we move on. No warning emitted. 
+
+    uni.lastIndex = ind;
+    match = uni.exec(text);
+    if (match) {
+        num = parseInt(match[0], 16);
+        try {
+            chr = String.fromCodePoint(num);
+            return [chr, uni.lastIndex];
+        } catch (e)  {
+            return ["\\", ind];
+        }
+    } else {
+        return ["\\", ind];
+    }
+
+
+
 
 
 ### Get arguments for command parsing
