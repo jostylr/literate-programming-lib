@@ -371,7 +371,11 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
 
     dp.findMatchQuote = _"Find match quote";
 
+    dp.argHandlerMaker = _"Basic argument processing:handler maker";
 
+    dp.argEscaping = _"Basic argument processing:escaping";
+
+    dp.argProcessing = _"Basic argument processing";
 
 
 ### Example of folder constructor use
@@ -1638,9 +1642,6 @@ This is split off for convenience.
     gcd.emit("command parsed:" + comname, [doc.file, command, nextname]);
 
 
-### log bap
-
-    _"Basic argument processing | log"
 
 ### Basic argument processing
 
@@ -1709,33 +1710,47 @@ error.
 We have coming into this a .when that is waiting for the parsing to be done.
 For each argument, we add to this .when parsing starting at the index. When
 done with an argument, we emit that it is ready if it was just a string. If it
-is not so simple, then we emit the ready when it is ready. 
+is not so simple, then we emit the ready when it is ready.
 
-    function (text, ind, quote, topname, command, mainblock) {
+This should return an index pointing to a pipe (another command) or to a
+matching quote from the substitution. 
+
+This is linked to in doc prototype under name argProcessing
+
+    function (text, ind, quote, topname, mainblock) {
         var doc = this;
         var gcd = doc.gcd;
         var n = text.length;
         var stack = [];
         var argstr = '';
+        var name = [topname];
+        var emitname = topname;
+        var colon = doc.colon;
+        var argstring = '';
+        var curname;
         var err;
         var temp;
         var start = ind;
         var cp = "c\u0028";  // c parentheses
         var argdone = false;
-        
+       
+        var handlerMaker = doc.argHandlerMaker;
+        var escaping = doc.argEscaping; 
+
         var wsreg = /\S/g;
 
         _":fast forward to non-whitespace"
 
-
-        
+        name.push(ind);
+         
         
         while ( ind < n ) {
 
             switch (text[ind]) {
 
                 case "\u005F" :  // underscore
-                    if (start === ind) {
+                    if ( (start === ind) &&
+                         ( "\"'`".indexOf(text[ind+1]) !== -1 ) ) {
                         _":argument substitution"
                         _":fast forward to non-whitespace"
                         continue;
@@ -1754,15 +1769,19 @@ is not so simple, then we emit the ready when it is ready.
                 break;
                 
                 case "\\" :  
-                    temp = doc.escapeArg(text, ind);
+                    temp = escaping(text, ind);
                     argstring += temp[0];
                     ind = temp[1];
                 continue;
 
                 case "|" :
                     if (stack.length === 0) {
-                        _":arg done"
+                        // make sure there is an argument
+                        if (argstring.trim()) {
+                            _":arg done"
+                        }
                         return ind;
+                        
                     } else {
                         argstring += "|";
                     }   
@@ -1810,29 +1829,41 @@ simply move on, checking to see if argstring is empty.
 If argdone is false, then we have a simple string and we emit it. 
 
     if (argdone) {
-        if (argstring !== '') {
+        if (argstring !== "") {
             err = [argstring, start, ind];
-            _:"error | sub MSG, stuff found after argument finsihed"
-            argstring = '';
+            _":report error | sub MSG, stuff found after argument finsihed"
+            argstring = "";
         }
         argdone = false;
         start = ind+1;
         
-    } else {
-        
-
+    } else { // simple string
+        curname = name.join(colon.v);
+        gcd.when("text ready:" + curname , "arguments ready:" + emitname);
+        gcd.emit("text ready:" + curname, argstring);
+        argstring = "";
+        start = ind +1;
     }
     
 
 
 [argument substitution]()
 
-Need to call in the substituion process;
+Need to call in the substituion process. It will lead to the emitting of a
+text ready event which will contain the text to be put into the emitname's
+arguments.  
 
-    ind = sub..
-    if ( ind = text.length) {
+    curname = name.join(colon.v);
+    gcd.when("text ready:" + curname, "arguments ready:" + emitname);
+    temp =  doc.substituteParsing(text, ind+2, text[ind+1], curname, mainblock);
+    
+    if ( temp === text.length) {
         //error
-        return ind;
+        err = [curname];
+        _":report error | sub MSG, substitution consumed rest of block"
+        return temp;
+    } else {
+        ind = temp;
     }
 
     argstring = '';
@@ -1872,8 +1903,7 @@ grouping unless it matches the command syntax.
         
         case ")" :
             if (stack[0] === cp) {
-                stack.shift();
-                _":arg done"
+                _":close cparen"
             } else {
                 _`:shift | sub CHR, "("`
             }
@@ -1891,12 +1921,68 @@ grouping unless it matches the command syntax.
 [check for cparen]()
 
 We want to ensure that there is a command (one word) associated with the parentheses. If
-there is no command, then it is just parentheses. Also no space between
-parenthees. 
+there is no command, then it is just parentheses. Space is allowed between
+word and parentheses. 
 
 It needs to either be the top level or in a command plus argstring is made of
-non-whitespace and at least one character. If so, then it is a command. 
+non-whitespace and at least one character. If so, then it is a command.
 
+We need to setup a .when to execute when the command is all assembled. But we
+also need to add to the .when for the current emitname.
+
+The .when data stream to the next argument should be of the form 
+`[[command parsed, null], [command is, command name], [text ready, string for
+arg1 || command array ], ....]` In the handler, we unpack this to emit
+`[cmdname, arg1, arg2, ....]` 
+
+    //make sure no whitespace to be a command
+    // also make sure either top level or in cp
+    if ( ( (stack.length ===0) || (stack[0] === cp) ) && 
+         (argstring.search(/^\S+\s*$/) !== -1) ) {
+        
+        stack.unshift(cp);
+        name.push(ind);
+        curname = name.join(colon.v);
+        gcd.once("arguments ready:" + curname, handlerMaker(curname, gcd));
+        gcd.when("arg command ready:" + curname, "arguments ready:" + emitname);
+        gcd.when(["arg command parsed:" + curname, "command is:" + curname], "arguments ready:" + curname);
+        gcd.emit("arg command is:" + curname, argstring);
+        argstring = '';
+        emitname = curname;
+    } else {
+        stack.unshift("(");
+        argstring += "(";
+    }
+
+[handler maker]()
+
+This makes a handler with emitname embedded in it. 
+
+        function (curname, gcd) {
+            var f = function (data) {
+                var ret = [data[1][1]]; //cmd name
+                var args = data.slice(2);
+                args.forEach(function (el) {
+                    ret.push(el[1]);
+                });
+                gcd.emit("arg command ready:" + curname, ret);
+            };
+            f._label = "arg command processing;;"+curname;
+            return f;
+        }
+
+
+[close cparen]()
+
+We have a closing parentheses that was started by a command. So we finish the
+argument and then we emit that the command was done being parsed. And then we
+restore the emitname to the previous level. 
+
+    stack.shift();
+    _":arg done"
+    gcd.emit("command parsed:" + emitname);
+    name.pop();
+    emitname = name.join(colon.v);
 
 
 [quote]()
@@ -1915,8 +2001,10 @@ will write this once and use the sub.
 
     case "'" :
         if ( (stack.length === 0) && (quote === "'") ) {
+            if (argstring.trim()) {
                 _":arg done"
-                return ind;
+            }
+            return ind;
         } else {
             // start after current place, get quote position
             temp = text.indexOf("'", ind+1); 
@@ -1944,7 +2032,7 @@ character. This should always be found.
             start = ind = wsreg.lastIndex - 1;
         } else {
             ind = text.length;
-            err = [stat, ind];
+            err = [start, ind];
             _":report error | sub MSG, 
                 argument is just whitespace with no terminating"
             return;
@@ -1958,10 +2046,10 @@ This reports the error.
     gcd.emit("error:" + topname, [err, "MSG"]);
 
 
-### Escaping
+[escaping]()
 
 This is a function that does the escaping. It is attached to doc as
-`doc.escaping`
+`doc.argEscaping`
 
 It takes in a text and an index to examine. This default function escapes
 backslashes, underscores, pipes, quotes and
@@ -3771,7 +3859,7 @@ We store the important name in args.name.
         var gcd = this.gcd;
         var name = state.name;
         var start = state.start;
-        var emitname = state.emitname
+        var emitname = state.emitname;
 
         gcd.emit("waiting for:transforming:" + name, 
             [emitname, name, doc.file, start]  );

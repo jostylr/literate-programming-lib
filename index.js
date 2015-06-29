@@ -1218,7 +1218,7 @@ Folder.directives = {
         var gcd = this.gcd;
         var name = state.name;
         var start = state.start;
-        var emitname = state.emitname
+        var emitname = state.emitname;
     
         gcd.emit("waiting for:transforming:" + name, 
             [emitname, name, doc.file, start]  );
@@ -2087,6 +2087,383 @@ dp.findMatchQuote = function (text, quote, ind) {
     }
 
     return ind;
+};
+
+dp.argHandlerMaker =     function (curname, gcd) {
+        var f = function (data) {
+            var ret = [data[1][1]]; //cmd name
+            var args = data.slice(2);
+            args.forEach(function (el) {
+                ret.push(el[1]);
+            });
+            gcd.emit("arg command ready:" + curname, ret);
+        };
+        f._label = "arg command processing;;"+curname;
+        return f;
+    };
+
+dp.argEscaping = function (text, ind ) {
+    var chr, match, num;
+    var uni = /[0-9A-F]+/g; 
+    
+
+    chr = text[ind];
+    switch (chr) {
+    case "|" : return ["|", ind+1];
+    case '\u005F' : return ['\u005F', ind+1];
+    case "\\" : return ["\\", ind+1];
+    case "'" : return ["'", ind+1];
+    case "`" : return ["`", ind+1];
+    case '"' : return ['"', ind+1];
+    case "n" : return ["\n", ind+1];
+    case "," : return [",", ind+1];
+    case "u" :  uni.lastIndex = ind;
+    match = uni.exec(text);
+    if (match) {
+        num = parseInt(match[0], 16);
+        try {
+            chr = String.fromCodePoint(num);
+            return [chr, uni.lastIndex];
+        } catch (e)  {
+            return ["\\", ind];
+        }
+    } else {
+        return ["\\", ind];
+    }
+    break;
+    default : return ["\\", ind];
+
+    }
+};
+
+dp.argProcessing = function (text, ind, quote, topname, mainblock) {
+    var doc = this;
+    var gcd = doc.gcd;
+    var n = text.length;
+    var stack = [];
+    var argstr = '';
+    var name = [topname];
+    var emitname = topname;
+    var colon = doc.colon;
+    var argstring = '';
+    var curname;
+    var err;
+    var temp;
+    var start = ind;
+    var cp = "c\u0028";  // c parentheses
+    var argdone = false;
+   
+    var handlerMaker = doc.argHandlerMaker;
+    var escaping = doc.argEscaping; 
+
+    var wsreg = /\S/g;
+
+        wsreg.lastIndex = ind;
+        if (wsreg.test(text) ) {
+            start = ind = wsreg.lastIndex - 1;
+        } else {
+            ind = text.length;
+            err = [start, ind];
+            gcd.emit("error:" + topname, [err, "argument is just whitespace with no terminating"]);
+            return;
+        }
+
+    name.push(ind);
+     
+    
+    while ( ind < n ) {
+
+        switch (text[ind]) {
+
+            case "\u005F" :  // underscore
+                if ( (start === ind) &&
+                     ( "\"'`".indexOf(text[ind+1]) !== -1 ) ) {
+                    curname = name.join(colon.v);
+                    gcd.when("text ready:" + curname, "arguments ready:" + emitname);
+                    temp =  doc.substituteParsing(text, ind+2, text[ind+1], curname, mainblock);
+                    
+                    if ( temp === text.length) {
+                        //error
+                        err = [curname];
+                        gcd.emit("error:" + topname, [err, "substitution consumed rest of block"]);
+                        return temp;
+                    } else {
+                        ind = temp;
+                    }
+                    
+                    argstring = '';
+                    argdone = true;
+                        wsreg.lastIndex = ind;
+                        if (wsreg.test(text) ) {
+                            start = ind = wsreg.lastIndex - 1;
+                        } else {
+                            ind = text.length;
+                            err = [start, ind];
+                            gcd.emit("error:" + topname, [err, "argument is just whitespace with no terminating"]);
+                            return;
+                        }
+                    continue;
+                } else {
+                    argstring += "\u005F";
+                }
+            break;
+           
+            case "," : 
+                if ( (stack.length === 0 ) || (stack[0] === cp) ) {
+                    if (argdone) {
+                        if (argstring !== "") {
+                            err = [argstring, start, ind];
+                            gcd.emit("error:" + topname, [err, "stuff found after argument finsihed"]);
+                            argstring = "";
+                        }
+                        argdone = false;
+                        start = ind+1;
+                        
+                    } else { // simple string
+                        curname = name.join(colon.v);
+                        gcd.when("text ready:" + curname , "arguments ready:" + emitname);
+                        gcd.emit("text ready:" + curname, argstring);
+                        argstring = "";
+                        start = ind +1;
+                    }
+                    continue;
+                } else {
+                    argstring += ",";
+                }
+            break;
+            
+            case "\\" :  
+                temp = escaping(text, ind);
+                argstring += temp[0];
+                ind = temp[1];
+            continue;
+
+            case "|" :
+                if (stack.length === 0) {
+                    // make sure there is an argument
+                    if (argstring.trim()) {
+                        if (argdone) {
+                            if (argstring !== "") {
+                                err = [argstring, start, ind];
+                                gcd.emit("error:" + topname, [err, "stuff found after argument finsihed"]);
+                                argstring = "";
+                            }
+                            argdone = false;
+                            start = ind+1;
+                            
+                        } else { // simple string
+                            curname = name.join(colon.v);
+                            gcd.when("text ready:" + curname , "arguments ready:" + emitname);
+                            gcd.emit("text ready:" + curname, argstring);
+                            argstring = "";
+                            start = ind +1;
+                        }
+                    }
+                    return ind;
+                    
+                } else {
+                    argstring += "|";
+                }   
+            break;
+
+
+                case "[" : 
+                    stack.unshift("[");
+                    argstring += "[";
+                break;
+            
+                case "]":
+                    temp = stack.shift();
+                    if (temp !== "[") {
+                        gcd.emit("error:bad stack", [text, "[", ind]);
+                    }
+                    argstring += temp;
+                break;
+            
+                case "(" :
+                   //make sure no whitespace to be a command
+                   // also make sure either top level or in cp
+                   if ( ( (stack.length ===0) || (stack[0] === cp) ) && 
+                        (argstring.search(/^\S+\s*$/) !== -1) ) {
+                       
+                       stack.unshift(cp);
+                       name.push(ind);
+                       curname = name.join(colon.v);
+                       gcd.once("arguments ready:" + curname, handlerMaker(curname, gcd));
+                       gcd.when("arg command ready:" + curname, "arguments ready:" + emitname);
+                       gcd.when(["arg command parsed:" + curname, "command is:" + curname], "arguments ready:" + curname);
+                       gcd.emit("arg command is:" + curname, argstring);
+                       argstring = '';
+                       emitname = curname;
+                   } else {
+                       stack.unshift("(");
+                       argstring += "(";
+                   } 
+                break;
+                
+                case ")" :
+                    if (stack[0] === cp) {
+                        stack.shift();
+                        if (argdone) {
+                            if (argstring !== "") {
+                                err = [argstring, start, ind];
+                                gcd.emit("error:" + topname, [err, "stuff found after argument finsihed"]);
+                                argstring = "";
+                            }
+                            argdone = false;
+                            start = ind+1;
+                            
+                        } else { // simple string
+                            curname = name.join(colon.v);
+                            gcd.when("text ready:" + curname , "arguments ready:" + emitname);
+                            gcd.emit("text ready:" + curname, argstring);
+                            argstring = "";
+                            start = ind +1;
+                        }
+                        gcd.emit("command parsed:" + emitname);
+                        name.pop();
+                        emitname = name.join(colon.v);
+                    } else {
+                        temp = stack.shift();
+                        if (temp !== "(") {
+                            gcd.emit("error:bad stack", [text, "(", ind]);
+                        }
+                        argstring += temp;
+                    }
+                break;
+            
+                case "{" :
+                    stack.unshift("{");
+                    argstring += "{";
+                break;
+            
+                case "}" :
+                    temp = stack.shift();
+                    if (temp !== "{") {
+                        gcd.emit("error:bad stack", [text, "{", ind]);
+                    }
+                    argstring += temp;
+                break;
+
+            case "'" :
+                if ( (stack.length === 0) && (quote === "'") ) {
+                    if (argstring.trim()) {
+                        if (argdone) {
+                            if (argstring !== "") {
+                                err = [argstring, start, ind];
+                                gcd.emit("error:" + topname, [err, "stuff found after argument finsihed"]);
+                                argstring = "";
+                            }
+                            argdone = false;
+                            start = ind+1;
+                            
+                        } else { // simple string
+                            curname = name.join(colon.v);
+                            gcd.when("text ready:" + curname , "arguments ready:" + emitname);
+                            gcd.emit("text ready:" + curname, argstring);
+                            argstring = "";
+                            start = ind +1;
+                        }
+                    }
+                    return ind;
+                } else {
+                    // start after current place, get quote position
+                    temp = text.indexOf("'", ind+1); 
+                    if (temp === -1 ) { 
+                        err = [start, ind, temp];
+                        gcd.emit("error:" + topname, [err, "non-terminating quote"]);
+                        argstring += "'";
+                    } else {
+                        argstring += text.slice(ind, temp);    
+                        ind = temp;
+                        continue;
+                    }
+                }
+            break;
+            case "\u0022" :
+                if ( (stack.length === 0) && (quote === "\u0022") ) {
+                    if (argstring.trim()) {
+                        if (argdone) {
+                            if (argstring !== "") {
+                                err = [argstring, start, ind];
+                                gcd.emit("error:" + topname, [err, "stuff found after argument finsihed"]);
+                                argstring = "";
+                            }
+                            argdone = false;
+                            start = ind+1;
+                            
+                        } else { // simple string
+                            curname = name.join(colon.v);
+                            gcd.when("text ready:" + curname , "arguments ready:" + emitname);
+                            gcd.emit("text ready:" + curname, argstring);
+                            argstring = "";
+                            start = ind +1;
+                        }
+                    }
+                    return ind;
+                } else {
+                    // start after current place, get quote position
+                    temp = text.indexOf("\u0022", ind+1); 
+                    if (temp === -1 ) { 
+                        err = [start, ind, temp];
+                        gcd.emit("error:" + topname, [err, "non-terminating quote"]);
+                        argstring += "\u0022";
+                    } else {
+                        argstring += text.slice(ind, temp);    
+                        ind = temp;
+                        continue;
+                    }
+                }
+            break;
+
+            case "`" :
+                if ( (stack.length === 0) && (quote === "`") ) {
+                    if (argstring.trim()) {
+                        if (argdone) {
+                            if (argstring !== "") {
+                                err = [argstring, start, ind];
+                                gcd.emit("error:" + topname, [err, "stuff found after argument finsihed"]);
+                                argstring = "";
+                            }
+                            argdone = false;
+                            start = ind+1;
+                            
+                        } else { // simple string
+                            curname = name.join(colon.v);
+                            gcd.when("text ready:" + curname , "arguments ready:" + emitname);
+                            gcd.emit("text ready:" + curname, argstring);
+                            argstring = "";
+                            start = ind +1;
+                        }
+                    }
+                    return ind;
+                } else {
+                    // start after current place, get quote position
+                    temp = text.indexOf("`", ind+1); 
+                    if (temp === -1 ) { 
+                        err = [start, ind, temp];
+                        gcd.emit("error:" + topname, [err, "non-terminating quote"]);
+                        argstring += "`";
+                    } else {
+                        argstring += text.slice(ind, temp);    
+                        ind = temp;
+                        continue;
+                    }
+                }
+            break;
+            default: 
+                argstr += text[ind];
+                
+
+
+        }
+
+        ind +=1;
+
+    }
+    
+    return ind;
+
 };
 
 module.exports = Folder;
