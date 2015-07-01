@@ -9,7 +9,7 @@ So we want to eval some stuff. Let's write some code to do that.
 ## Code
 
     We want to compute the sum _"sum". We add the numbers up and get 
-    _"sum|eval text=eval(text)".
+    _"sum|eval text = eval(text)".
 
 ## sum
 

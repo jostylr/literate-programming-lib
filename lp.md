@@ -245,7 +245,6 @@ closure's sake and ease. Perhaps it will get revised.
 
     _"Action compiling block | oa"
 
-    _"Action for argument finishing | oa"
 
     _"Parsing events:heading | oa"
 
@@ -376,6 +375,8 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
     dp.argEscaping = _"Basic argument processing:escaping";
 
     dp.argProcessing = _"Basic argument processing";
+    
+    dp.argFinishingHandler = _"Action for argument finishing";
 
 
 ### Example of folder constructor use
@@ -1056,26 +1057,47 @@ name to store it. This is another way to do multiple substitution runs.
 
 The variable last is where to start from the last match. 
 
-We create a stitch handler for the closures here. 
+We create a stitch handler for the closures here.
+
+!! REWRITING:  going to eliminate location and frags. Instead, will use
+gcd.when ordering to eliminate the need. The first will be the done parsing
+event, but after that each one is a text ready keyed to the index. Whenever we
+find a substitution block, we emit the indexed string from before, and pass on
+the emitname for the block of text. Easy as pi :) If a block substitution is
+given, then we also pass an indent as second argument.
+
+Make note of the stitcher function. It has side effects. It sets stitchfrag
+and sets up the .when listener. 
 
     function (block, file, bname, mainblock) {
         var doc = this;
         var gcd = doc.gcd;
         var colon = doc.colon;
         
-        var  quote, place, lname, slashcount, numstr, chr;
+        var  quote, place, lname, slashcount, numstr, chr, indent;
         var name = file + ":" + bname;
         var ind = 0;
-        var loc = 0; // location in fragment array 
-        var frags = [];
-        var indents = [];
-        var last = 0; 
-        gcd.when("block substitute parsing done:"+name, "ready to stitch:"+name);
-        while (true) {
+        var start = 0; 
+        var stitchfrag;
+        var stitchend = "ready to stitch:" + name;
+        gcd.when("block substitute parsing done:"+name, stitchend);
+        var n = block.length;
+
+        _"stitching"
+              
+        var stitcher = function (start) {
+            if (start < n) {
+                stitchfrag = "stitch fragment:" + name + colon.v + start;
+                gcd.when(stitchfrag, stitchend);
+            }
+        };
+
+        stitcher(0);
+        
+        while (ind < n) {
             ind = block.indexOf("\u005F", ind);
             if (ind === -1) {
-                frags[loc] = block.slice(last);
-                loc += 1;
+                gcd.emit(stitchfrag, block.slice(start) );
                 break;
             } else {
                 ind += 1;
@@ -1086,17 +1108,17 @@ We create a stitch handler for the closures here.
 
                 _":we are a go"
             
-
-                last = doc.substituteParsing(block, ind+1, quote, lname,
-                mainblock);
+                start = doc.substituteParsing(block, ind+1, quote, lname,
+                         mainblock);
                
-                doc.parent.recording[lname] = block.slice(ind-1, last);
-
-                ind = last;
+                doc.parent.recording[lname] = block.slice(ind-1, start);
+                
+                stitcher(start);
+                ind = start ;
 
             }
         }
-        _":stitching"
+
 
         gcd.emit("block substitute parsing done:"+name);
     }
@@ -1150,10 +1172,10 @@ the quote in question so it should still allow for full expression.
     numstr = '0123456789';
     slashcount = '';
     chr = block[place];
-    if (chr === '\\' ) {
-        frags[loc] = block.slice(last, place) + "\u005F";
-        loc += 1;
-        last = ind;  
+    if (chr === '\\' ) { //escaped underscore; no escaping backslash!
+        gcd.emit(stitchfrag, block.slice(start, place) + "\u005F" );
+        start = ind;  
+        stitcher(start);
         continue;
     } else if ( numstr.indexOf(chr) !== -1 ) {
         slashcount += chr;
@@ -1166,28 +1188,38 @@ the quote in question so it should still allow for full expression.
         }
 
 
-We are defnitely in the stage of an escape situation. The number needs to be
+We are defnitely in the stage of an escape situation if we have a number
+preceded by a backslash. The number needs to be
 positive. It will then decrement and print out a backslash and number escape,
-including 0. 
+including 0.
+
+We emit two string blocks if the count is positive, one before the slash, and
+one after the underscore to the matching quote for the escaped underscore quote.
 
         if (chr === '\\') {
             slashcount = parseInt(slashcount, 10);
             if (slashcount > 0) {
                 slashcount -= 1;
-                frags[loc] = block.slice(last, place) + "\\" +
-                     slashcount + "\u005F";
-                last = doc.findMatchQuote(block, quote, ind+1); //+1 to get past quote
-                frags[loc] += block.slice(ind, last);
-                ind = last;
-                loc += 1;
+
+                gcd.emit(stitchfrag, block.slice(start, place) + "\\" +
+                     slashcount + "\u005F");
+
+                stitcher(place); 
+                start = doc.findMatchQuote(block, quote, ind+1); //+1 to get past quote
+                // yes this is supposed to be reversed (from quote to quote,
+                // start is just beyond quote 
+                gcd.emit(stitchfrag, block.slice(ind, start)); 
+                
+                stitcher(start); 
+                ind = start;
                 continue;
 
 So with slashcount 0, this is not escaping except for the escape. 
 
             } else {
-                frags[loc] = block.slice(last, place);
-                loc += 1;
-                last = ind-1;
+                gcd.emit(stitchfrag, block.slice(start, place));  
+                start = ind-1; // underscore
+                stitcher(start-2); //to point to where the escape sequence 
             }
         }
     }
@@ -1207,36 +1239,63 @@ Note that name contains the file name, but after event parsing, the file gets
 split off.
 
     place = ind-1;
-    if (last !== place ) {
-        frags[loc] = block.slice(last, place);
-        loc += 1;
-        last = place;
+    if (start !== place ) { // \0 could have happened
+        gcd.emit(stitchfrag, block.slice(start, place)); 
+        start = place; // underscore
+        stitcher(start);
     }
-    lname = name + colon.v + loc;
-    gcd.once("text ready:" + lname, 
-        doc.maker['location filled'](doc, lname, loc, frags, indents));
-    gcd.when("location filled:" + lname, 
-        "ready to stitch:" + name
-    );
+    lname = name + colon.v + start;
+    gcd.flatWhen("text ready:" + lname, stitchfrag);  
+
     if (place > 0) {
-        indents[loc] = doc.getIndent(block, place);
-    } else {
-       indents[loc] = 0;
+        indent = doc.getIndent(block, place);
+        if ( indent > 0 ) {
+            gcd.when("indent for prior:" + lname, stitchend);
+            gcd.emit("indent for prior:" + lname, doc.getIndent(block, place));
+        }
     }
-    loc += 1;
 
 
-[stitching]()
+
+### Stitching
 
 Here we stitch it all together. Seems simple, but if this is a minor block,
 then we need to run the commands if applicable after the stitching. 
 
-    if (bname.indexOf(colon.v) !== -1) {
-        gcd.once("ready to stitch:" + name, 
-            doc.maker['stitch emit'](doc, name, frags));
-    } else {
-        gcd.once("ready to stitch:"+name,
-            doc.maker['stitch store emit'](doc, bname, name, frags));
+
+
+    gcd.once(stitchend, function (data) {
+        
+        var text = '', insert, i, n = data.length;
+        var indent = doc.indent;
+
+        _":unpack and stitch"         
+
+        if (bname.indexOf(colon.v) !== -1) {
+            gcd.emit("minor ready:" + name, text);
+        } else {
+            doc.store(bname, text);
+            gcd.emit("text ready:" + name);
+        }
+    });
+
+[unpack and stitch]()
+
+The data should have the first one be ignored (just done parsing), then the
+next ones will be string to insert. It is possible to have the indents
+following it, which we need to check. We can see by the event name. 
+
+We start at `i=1` to skip over the first irrelevant data.
+
+
+    for (i = 1; i < n; i += 1) {
+        insert = data[i][1];
+        if ( (i+1 < n) && ( data[i+1][0].slice(0,6) === "indent") ) {
+            text += indent(insert, data[i+1][1], gcd);
+        } else {
+            text += insert;
+        }
+
     }
 
 
@@ -1310,14 +1369,10 @@ Our goal is to line up the later lines with the first non blank character
 
 ### Indent
 
-We need a simple indenting function. It takes a text to indent and a
-two-element array giving the leading indent and the rest.
+We need a simple indenting function. It takes a text to indent and returns
+text indented (after first line).
 
-Note: Dropped the beginning indent since the leading text should just go
-wherever the substitute is located (duh). It is the other lines whose
-indentation needs to be managed. 
-
-    function (text, indent) {
+    function (text, indent, gcd) {
         var line, ret;
         var i, n;
         
@@ -1325,6 +1380,11 @@ indentation needs to be managed.
         line = '';
         for (i = 0; i <n; i += 1) {
             line += ' ';
+        }
+        
+        if (typeof text !== "string") {
+            gcd.emit("error:indent does not see a text item", text);
+            return ret;
         }
 
         ret = text.replace(/\n/g, "\n"+line);
@@ -1364,6 +1424,15 @@ The numbering of the commands is the input into that command number, not the
 output. So we use subname to get the text from that location and then feed
 it into command 0. If there are no commands, then command 0 is the done bit. 
 
+!!! REWRITING, using index for placements. This is a sequential stepping through
+of the texts, but it is still good to do .whens, I think. This allows one to
+inspect the whole transformation and to see which part stopped the process. So
+we need to create an event that will be .when'd and then it will emit the last
+text as being ready. 
+
+Also realizing that the .whens are being tracked (gcd.whens) and so we can use
+that in our reporting instead of yet another mechanism for it. 
+
     function (text, ind, quote, lname, mainblock ) { 
 
         var doc = this;
@@ -1373,23 +1442,30 @@ it into command 0. If there are no commands, then command 0 is the done bit.
         var match, subname, chr, subtext;
         var subreg = doc.regexs.subname[quote];
 
+        var doneEmit = "text ready:" + lname; 
+        var textEmit = doneEmit + colon.v + ind;
+        var subEmit = "substitution chain done:" + lname; 
 
+        gcd.when(textEmit, subEmit);
+
+        gcd.once(subEmit, _":subemit handler");
 
         subreg.lastIndex = ind;
         
         match = subreg.exec(text);
         if (match) {
             _":got subname"
+            _":past subname"
         } else {
             gcd.emit("failure in parsing:" + lname, ind);
             return ind;
         }
-      
+     
 
-        if (subname === '') {
-            gcd.emit("text ready:"  + lname + colon.v + "0", '');
+        if (subname === '') { // no incoming text, just commands acting
+            gcd.emit(textEmit, '');
         } else {
-            subtext = doc.retrieve(subname, "text ready:"  + lname + colon.v + "0" );
+            subtext = doc.retrieve(subname, textEmit);
         }
 
         return ind;
@@ -1405,17 +1481,37 @@ it into command 0. If there are no commands, then command 0 is the done bit.
     subname = match[1].trim().toLowerCase();
     subname = doc.subnameTransform(subname, lname, mainblock);
     subname = colon.escape(subname);
+
+[past subname]()
+
+If there is a pipe, process out commands. If a quote, we're done. Otherwise,
+we have a problem. 
+
+
     if (chr === "|") {
-        ind = doc.pipeParsing(text, ind, quote, lname, mainblock);
-    } else if (chr === quote) { 
-        //index already points at after quote so do not increment
-        gcd.once("text ready:" + lname + colon.v + "0",
-            doc.maker['emit text ready'](doc, lname));
-        doc.parent.recording[ lname + colon.v + "0"] = match[1];
+        ind = doc.pipeParsing(text, ind, quote, lname, mainblock, subEmit,
+            textEmit );
+    } else if (chr === quote) {
+        // nothing to do; it should automatically work !!!
     } else {
         gcd.emit("failure in parsing:" + lname, ind);
         return ind;
     }
+
+
+[subemit handler]()
+
+The data will be a series of steps in the process and we just want the last
+one. To debug, one might want to attach a listener for this event and get the
+full train of transformations.
+
+!!! We could check that it is text at this stage. 
+
+    function (data) { 
+        gcd.emit(doneEmit, data[data.length-1][1] || '');
+    } 
+
+
 
 ### Subname Transform
 
@@ -1549,11 +1645,12 @@ so we are passed in that quote as well.
 
 We need to track the command numbering for the event emitting. 
 
-    function (text, ind, quote, name, mainblock) {
+    function (text, ind, quote, name, mainblock, toEmit, textEmit) {
         var doc = this;
         var gcd = doc.gcd;
         var colon = doc.colon;
        
+        var incomingEmit = textEmit;
 
         var chr, argument, argnum, match, command, 
             comname, nextname, aname, result, start, orig=ind ;
@@ -1568,14 +1665,22 @@ We need to track the command numbering for the event emitting.
 
             _":get command"
 
-            _"get arguments for command parsing"
+            gcd.emit("command parsed:" + comname, 
+                [doc.file, command, "text ready:" + comname ]);
 
-            gcd.emit("command parsed:" + comname);
+            if (text[ind] === quote) {
+                break;
+            } else if (text[ind] === "|") {
+                start = ind;
+            } else {
+                gcd.emit("error:bad terminating character in command" + 
+                    name, [ind, text[ind]]);
+            }
 
         }
         
 
-        return ind;
+        return ind+1;
 
     }
 
@@ -1593,9 +1698,14 @@ name being parsed emission, we send along the doc, command and the nextname to
 be sent along. 
 
 Commands are case-insensitive just as block names are as well as being
-trimmed. 
+trimmed.
+
+This generates having the input text first, the file and command name second,
+and then the rest of the arguments. The next one in the line will
+automatically receive the previous bit as the incoming text. 
 
     comreg.lastIndex = ind;
+    start = ind; 
 
     match = comreg.exec(text);
     if (match) {
@@ -1606,41 +1716,44 @@ trimmed.
             command = "passthru";    
         }
         command = colon.escape(command);
-        comname = name + colon.v + comnum;
-        comnum += 1;
-        nextname = name + colon.v + comnum;
-        gcd.when(["command parsed:" + comname, 
-            "text ready:" + comname],
+        comname = name + colon.v + start;
+        
+        gcd.once("arguments ready:" + comname, 
+            doc.argFinishingHandler(comname));
+
+        gcd.when([incomingEmit, 
+                  "command parsed:" + comname ],
             "arguments ready:"  + comname );
-        if (chr === quote) {
-            _"ending a command substitution"
-            break;
-        } else if (chr === "|") {
-            _"ending a command substitution:com parse"
-            continue;
-        }
+
+        gcd.when("text ready:" + comname, toEmit);
+
+        incomingEmit = "text ready:" + comname;
+
+        _":post command"
+
     } else {
-        _"Get arguments for command parsing:failure"
+        gcd.emit("error:command parsing:" + name + colon.v + ind);
+        return ind+1;
     }
 
-### ending a command substitution
+[post command]() 
 
-The command number that is beyond the inputs represents the end of the chain.
-At that point, we emit the text ready for the previous level. 
+We either see a terminating quote, a pipe for the next command, or we need to
+process arguments. 
 
+    if (chr === quote) {
+        gcd.emit("command parsed:" + comname, 
+            [doc.file, command, "text ready:" + comname ]);
+        break;
 
-    gcd.once("text ready:" + nextname, 
-        doc.maker['emit text ready'](doc, name));
-    doc.parent.recording[nextname] = name;
-    _":com parse"
+    } else if (chr === "|") {
+        // nothing to do; just done. 
+    } else { 
 
-[com parse]()
-
-This is split off for convenience. 
-
-    doc.parent.recording[nextname] = text.slice(orig, ind);
-    gcd.emit("command parsed:" + comname, [doc.file, command, nextname]);
-
+       ind = doc.argProcessing(text, ind, quote, comname, mainblock );
+       gcd.emit("command parsed:" + comname, 
+            [doc.file, command, "text ready:" + comname ]);
+    }
 
 
 ### Basic argument processing
@@ -1746,6 +1859,8 @@ This is linked to in doc prototype under name argProcessing
         
         while ( ind < n ) {
 
+            //console.log(ind, " : ", argstring, text[ind], " --- ", stack); 
+
             switch (text[ind]) {
 
                 case "\u005F" :  // underscore
@@ -1805,7 +1920,7 @@ itself.
 If not otherwise used, the text gets added to argstr. 
 
                 default: 
-                    argstr += text[ind];
+                    argstring += text[ind];
                     
 
 
@@ -1876,11 +1991,10 @@ arguments.
 This is just dealing with the popping. It emits an error if the stacks
 mismatch.
 
-    temp = stack.shift();
-    if (temp !== CHR) {
-        gcd.emit("error:bad stack", [text, CHR, ind]);
+    if (stack[0] === String.fromCharCode(CHR.charCodeAt(0)-1)) {
+        stack.shift();
     }
-    argstring += temp;
+    argstring += CHR ;
 
 
 [groupings]()
@@ -1894,7 +2008,7 @@ grouping unless it matches the command syntax.
         break;
 
         case "]":
-            _`:shift | sub CHR, "["`
+            _`:shift | sub CHR, "]"`
         break;
 
         case "(" :
@@ -1905,7 +2019,7 @@ grouping unless it matches the command syntax.
             if (stack[0] === cp) {
                 _":close cparen"
             } else {
-                _`:shift | sub CHR, "("`
+                _`:shift | sub CHR, ")"`
             }
         break;
 
@@ -1915,7 +2029,7 @@ grouping unless it matches the command syntax.
         break;
 
         case "}" :
-            _`:shift | sub CHR, "{"`
+            _`:shift | sub CHR, "}"`
         break;
 
 [check for cparen]()
@@ -2175,10 +2289,10 @@ it should be evaluated.
             argnum += 1;
             continue;
         } else if (chr === "|") {
-            _"ending a command substitution:com parse"
+            \_"ending a command substitution:com parse"
             break;
         } else if (chr === quote) {
-            _"ending a command substitution"
+            \_"ending a command substitution"
             return ind;
         } else {
            _":failure" 
@@ -2496,7 +2610,7 @@ Returning undefined is good and normal.
         var doc = this;
         var gcd = doc.gcd;
 
-
+        console.log("~~", cb);
         var scope = doc.getScope(name);
 
 
@@ -2820,8 +2934,76 @@ And this is simple enough.
 
 Commands are bound to doc by applying the arguments. The first argument is the
 pipe input. The second argument is an array containing all the other
-arguments. The third argument is the name to emit when all is done. 
+arguments. The third argument is the name to emit when all is done.
 
+REWRITING   
+
+We extract the data and then we check for the existence of the command. If it
+exists, we execute it and any subcommands. If it does not exist, we wait for
+it to exist and then use a handler to run it. But if it is still not a
+property on the needed doc, then we wait some more. 
+
+Subcommands are dealt with inside the command itself. This allows those
+commands to modify the environment of the function.
+
+    function (comname) {
+        var doc = this;
+        var gcd = this.gcd;
+
+        var f = _":handler";
+        f._label = "waiting for arguments:" + comname; 
+        return f;
+    }
+
+[handler]() 
+
+    function (data) {
+        var input, args, name, command, subs;
+
+        _":extract data"
+
+        var fun = doc.commands[command];
+        
+
+        if (fun) {
+            fun.apply(doc, [input, args, comname, command]);
+        } else {
+            han = function () {
+                fun = doc.commands[command];
+                if (fun) {
+                    fun.apply(doc, [input, args, name, command]);
+                } else { // wait some more
+                    gcd.once("command defined:" + command, han);
+                }
+            };
+            han._label = "delayed command:" + command + ":" + name; 
+            gcd.once("command defined:" +  command, han); 
+        }
+
+
+    }
+
+
+
+
+[extract data]()
+
+The data is of the form and order: 
+`[text ready, input text], [command parsed, [file, command]], [tr,
+[arg1]],...`
+
+The arguments should be strings unless they are subcommands. They have the
+form ....
+
+    input = data[0][1];
+    command = data[1][1][1];
+    args = data.slice(2).map(function (el) {
+        return el[1];
+    });
+
+
+
+[old]() 
     arguments ready --> run command
     var doc, input, name, cur, command, min = [Infinity,-1], han;
     var args = [];
@@ -2850,7 +3032,8 @@ arguments. The third argument is the name to emit when all is done.
     }
 
 
-[extract data]()
+
+[extract data old]()
 
 We first run through, teasing out the command parsed event and its data while
 also finding the minimum length of the text ready events.
@@ -4327,9 +4510,9 @@ The log array should be cleared between tests.
     var equalizer = _"equalizer";
 
     var testfiles = [ 
-       /**/
+       
        "first.md",
-        "eval.md",
+        "eval.md"/*,
         "sub.md",
         "async.md",
         "scope.md", 
@@ -4365,7 +4548,7 @@ The log array should be cleared between tests.
         "directivesubbing.md",
         "done.md", 
         "constructor.md",
-        "transform.md"
+        "transform.md"*/
     ];
 
 
@@ -4422,9 +4605,9 @@ process the inputs.
         
         var log = td.log; 
 
-       // gcd.makeLog();
+       gcd.makeLog();
 
-       // gcd.monitor('', function (evt, data) { console.log(evt, data); });
+       gcd.monitor('', function (evt, data) { console.log(evt, data); });
 
         test(name, function (t) {
             var outs, m, j, out;
@@ -4459,9 +4642,17 @@ process the inputs.
                 }
             }
 
+            setTimeout( function () {
+                var key;
+                for (key in gcd.whens) {
+                    console.log("NOT EMITTING: " + key + " BECAUSE OF " +
+                        Object.keys(gcd.whens[key].events).join(" ; "));
+                }
+            });
+
          // setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
-         // setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
+        //  setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
          //   setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
@@ -5606,5 +5797,5 @@ A travis.yml file for continuous test integration!
 
 
 by [James Taylor](https://github.com/jostylr "npminfo: jostylr@gmail.com ; 
-    deps: event-when 1.1.0, commonmark 0.20.0, string.fromcodepoint 0.2.1;
+    deps: event-when 1.2.0, commonmark 0.20.0, string.fromcodepoint 0.2.1;
     dev: tape 4.0.0, litpro-jshint 0.1.0")

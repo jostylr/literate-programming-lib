@@ -141,59 +141,6 @@ var Folder = function (actions) {
         }
     );
     
-    gcd.on("arguments ready", "run command");
-    
-    gcd.action("run command", function (data, evObj) {
-            var gcd = evObj.emitter;
-            var doc, input, name, cur, command, min = [Infinity,-1], han;
-            var args = [];
-            
-            
-            var i, j, k, m, n=data.length;
-            for (i = 0; i < n; i += 1) {
-                cur = data[i];
-                if (data[i][0].indexOf("command parsed") === 0 ) {
-                    doc = gcd.parent.docs[data[i][1][0]];
-                    command = data[i][1][1];
-                    name = data[i][1][2];
-                } else { // should only be text ready
-                    j = i;
-                    if ( ( m = data[i][0].length ) < min[0] ) {
-                        j = min[1];
-                        min = [m, i];
-                    }
-                    if (j !== -1) {
-                        k = data[j][0].match(/([0-9]+)$/);
-                        if (k) {
-                            args[k[1]] = data[j][1];
-                        }
-                    }
-                }
-            }
-            
-            input = data[min[1]][1];
-            
-            var fun = doc.commands[command];
-            
-            if (fun) {
-                fun.apply(doc, [input, args, name, command]);
-            } else {
-                gcd.emit("waiting for:command:" + command, 
-                    ["command defined:" + command, "cmd", command, name]);
-                han = function () {
-                    fun = doc.commands[command];
-                    if (fun) {
-                        fun.apply(doc, [input, args, name, command]);
-                    } else {
-                        gcd.emit("error:commmand defined but not:" + doc.file +
-                            ":" + command);
-                    }
-                };
-                han._label = "delayed command:" + command + ":" + name; 
-                gcd.once("command defined:" +  command, han);
-            }
-        }
-    );
     
     gcd.on("heading found", "add block");
     
@@ -1440,7 +1387,7 @@ dp.retrieve = function (name, cb) {
     var doc = this;
     var gcd = doc.gcd;
 
-
+    console.log("~~", cb);
     var scope = doc.getScope(name);
 
 
@@ -1544,7 +1491,7 @@ dp.createLinkedScope = function (name, alias) {
 
 };
  
-dp.indent = function (text, indent) {
+dp.indent = function (text, indent, gcd) {
     var line, ret;
     var i, n;
     
@@ -1552,6 +1499,11 @@ dp.indent = function (text, indent) {
     line = '';
     for (i = 0; i <n; i += 1) {
         line += ' ';
+    }
+    
+    if (typeof text !== "string") {
+        gcd.emit("error:indent does not see a text item", text);
+        return ret;
     }
 
     ret = text.replace(/\n/g, "\n"+line);
@@ -1581,19 +1533,51 @@ dp.blockCompiling = function (block, file, bname, mainblock) {
     var gcd = doc.gcd;
     var colon = doc.colon;
     
-    var  quote, place, lname, slashcount, numstr, chr;
+    var  quote, place, lname, slashcount, numstr, chr, indent;
     var name = file + ":" + bname;
     var ind = 0;
-    var loc = 0; // location in fragment array 
-    var frags = [];
-    var indents = [];
-    var last = 0; 
-    gcd.when("block substitute parsing done:"+name, "ready to stitch:"+name);
-    while (true) {
+    var start = 0; 
+    var stitchfrag;
+    var stitchend = "ready to stitch:" + name;
+    gcd.when("block substitute parsing done:"+name, stitchend);
+    var n = block.length;
+
+    gcd.once(stitchend, function (data) {
+        
+        var text = '', insert, i, n = data.length;
+        var indent = doc.indent;
+    
+        for (i = 1; i < n; i += 1) {
+            insert = data[i][1];
+            if ( (i+1 < n) && ( data[i+1][0].slice(0,6) === "indent") ) {
+                text += indent(insert, data[i+1][1], gcd);
+            } else {
+                text += insert;
+            }
+        
+        }         
+    
+        if (bname.indexOf(colon.v) !== -1) {
+            gcd.emit("minor ready:" + name, text);
+        } else {
+            doc.store(bname, text);
+            gcd.emit("text ready:" + name);
+        }
+    });
+          
+    var stitcher = function (start) {
+        if (start < n) {
+            stitchfrag = "stitch fragment:" + name + colon.v + start;
+            gcd.when(stitchfrag, stitchend);
+        }
+    };
+
+    stitcher(0);
+    
+    while (ind < n) {
         ind = block.indexOf("\u005F", ind);
         if (ind === -1) {
-            frags[loc] = block.slice(last);
-            loc += 1;
+            gcd.emit(stitchfrag, block.slice(start) );
             break;
         } else {
             ind += 1;
@@ -1608,10 +1592,10 @@ dp.blockCompiling = function (block, file, bname, mainblock) {
             numstr = '0123456789';
             slashcount = '';
             chr = block[place];
-            if (chr === '\\' ) {
-                frags[loc] = block.slice(last, place) + "\u005F";
-                loc += 1;
-                last = ind;  
+            if (chr === '\\' ) { //escaped underscore; no escaping backslash!
+                gcd.emit(stitchfrag, block.slice(start, place) + "\u005F" );
+                start = ind;  
+                stitcher(start);
                 continue;
             } else if ( numstr.indexOf(chr) !== -1 ) {
                 slashcount += chr;
@@ -1626,57 +1610,55 @@ dp.blockCompiling = function (block, file, bname, mainblock) {
                     slashcount = parseInt(slashcount, 10);
                     if (slashcount > 0) {
                         slashcount -= 1;
-                        frags[loc] = block.slice(last, place) + "\\" +
-                             slashcount + "\u005F";
-                        last = doc.findMatchQuote(block, quote, ind+1); //+1 to get past quote
-                        frags[loc] += block.slice(ind, last);
-                        ind = last;
-                        loc += 1;
+            
+                        gcd.emit(stitchfrag, block.slice(start, place) + "\\" +
+                             slashcount + "\u005F");
+            
+                        stitcher(place); 
+                        start = doc.findMatchQuote(block, quote, ind+1); //+1 to get past quote
+                        // yes this is supposed to be reversed (from quote to quote,
+                        // start is just beyond quote 
+                        gcd.emit(stitchfrag, block.slice(ind, start)); 
+                        
+                        stitcher(start); 
+                        ind = start;
                         continue;
                     } else {
-                        frags[loc] = block.slice(last, place);
-                        loc += 1;
-                        last = ind-1;
+                        gcd.emit(stitchfrag, block.slice(start, place));  
+                        start = ind-1; // underscore
+                        stitcher(start-2); //to point to where the escape sequence 
                     }
                 }
             } 
 
             place = ind-1;
-            if (last !== place ) {
-                frags[loc] = block.slice(last, place);
-                loc += 1;
-                last = place;
+            if (start !== place ) { // \0 could have happened
+                gcd.emit(stitchfrag, block.slice(start, place)); 
+                start = place; // underscore
+                stitcher(start);
             }
-            lname = name + colon.v + loc;
-            gcd.once("text ready:" + lname, 
-                doc.maker['location filled'](doc, lname, loc, frags, indents));
-            gcd.when("location filled:" + lname, 
-                "ready to stitch:" + name
-            );
+            lname = name + colon.v + start;
+            gcd.flatWhen("text ready:" + lname, stitchfrag);  
+            
             if (place > 0) {
-                indents[loc] = doc.getIndent(block, place);
-            } else {
-               indents[loc] = 0;
+                indent = doc.getIndent(block, place);
+                if ( indent > 0 ) {
+                    gcd.when("indent for prior:" + lname, stitchend);
+                    gcd.emit("indent for prior:" + lname, doc.getIndent(block, place));
+                }
             }
-            loc += 1;
         
-
-            last = doc.substituteParsing(block, ind+1, quote, lname,
-            mainblock);
+            start = doc.substituteParsing(block, ind+1, quote, lname,
+                     mainblock);
            
-            doc.parent.recording[lname] = block.slice(ind-1, last);
-
-            ind = last;
+            doc.parent.recording[lname] = block.slice(ind-1, start);
+            
+            stitcher(start);
+            ind = start ;
 
         }
     }
-    if (bname.indexOf(colon.v) !== -1) {
-        gcd.once("ready to stitch:" + name, 
-            doc.maker['stitch emit'](doc, name, frags));
-    } else {
-        gcd.once("ready to stitch:"+name,
-            doc.maker['stitch store emit'](doc, bname, name, frags));
-    }
+
 
     gcd.emit("block substitute parsing done:"+name);
 };
@@ -1690,7 +1672,15 @@ dp.substituteParsing = function (text, ind, quote, lname, mainblock ) {
     var match, subname, chr, subtext;
     var subreg = doc.regexs.subname[quote];
 
+    var doneEmit = "text ready:" + lname; 
+    var textEmit = doneEmit + colon.v + ind;
+    var subEmit = "substitution chain done:" + lname; 
 
+    gcd.when(textEmit, subEmit);
+
+    gcd.once(subEmit, function (data) { 
+        gcd.emit(doneEmit, data[data.length-1][1] || '');
+    } );
 
     subreg.lastIndex = ind;
     
@@ -1702,12 +1692,10 @@ dp.substituteParsing = function (text, ind, quote, lname, mainblock ) {
         subname = doc.subnameTransform(subname, lname, mainblock);
         subname = colon.escape(subname);
         if (chr === "|") {
-            ind = doc.pipeParsing(text, ind, quote, lname, mainblock);
-        } else if (chr === quote) { 
-            //index already points at after quote so do not increment
-            gcd.once("text ready:" + lname + colon.v + "0",
-                doc.maker['emit text ready'](doc, lname));
-            doc.parent.recording[ lname + colon.v + "0"] = match[1];
+            ind = doc.pipeParsing(text, ind, quote, lname, mainblock, subEmit,
+                textEmit );
+        } else if (chr === quote) {
+            // nothing to do; it should automatically work !!!
         } else {
             gcd.emit("failure in parsing:" + lname, ind);
             return ind;
@@ -1716,23 +1704,24 @@ dp.substituteParsing = function (text, ind, quote, lname, mainblock ) {
         gcd.emit("failure in parsing:" + lname, ind);
         return ind;
     }
-  
+ 
 
-    if (subname === '') {
-        gcd.emit("text ready:"  + lname + colon.v + "0", '');
+    if (subname === '') { // no incoming text, just commands acting
+        gcd.emit(textEmit, '');
     } else {
-        subtext = doc.retrieve(subname, "text ready:"  + lname + colon.v + "0" );
+        subtext = doc.retrieve(subname, textEmit);
     }
 
     return ind;
 
 };
 
-dp.pipeParsing = function (text, ind, quote, name, mainblock) {
+dp.pipeParsing = function (text, ind, quote, name, mainblock, toEmit, textEmit) {
     var doc = this;
     var gcd = doc.gcd;
     var colon = doc.colon;
    
+    var incomingEmit = textEmit;
 
     var chr, argument, argnum, match, command, 
         comname, nextname, aname, result, start, orig=ind ;
@@ -1746,6 +1735,7 @@ dp.pipeParsing = function (text, ind, quote, name, mainblock) {
     while (ind < n) { // command processing loop
 
         comreg.lastIndex = ind;
+        start = ind; 
         
         match = comreg.exec(text);
         if (match) {
@@ -1756,113 +1746,54 @@ dp.pipeParsing = function (text, ind, quote, name, mainblock) {
                 command = "passthru";    
             }
             command = colon.escape(command);
-            comname = name + colon.v + comnum;
-            comnum += 1;
-            nextname = name + colon.v + comnum;
-            gcd.when(["command parsed:" + comname, 
-                "text ready:" + comname],
+            comname = name + colon.v + start;
+            
+            gcd.once("arguments ready:" + comname, 
+                doc.argFinishingHandler(comname));
+        
+            gcd.when([incomingEmit, 
+                      "command parsed:" + comname ],
                 "arguments ready:"  + comname );
+        
+            gcd.when("text ready:" + comname, toEmit);
+        
+            incomingEmit = "text ready:" + comname;
+        
             if (chr === quote) {
-                gcd.once("text ready:" + nextname, 
-                    doc.maker['emit text ready'](doc, name));
-                doc.parent.recording[nextname] = name;
-                doc.parent.recording[nextname] = text.slice(orig, ind);
-                gcd.emit("command parsed:" + comname, [doc.file, command, nextname]);
+                gcd.emit("command parsed:" + comname, 
+                    [doc.file, command, "text ready:" + comname ]);
                 break;
+            
             } else if (chr === "|") {
-                doc.parent.recording[nextname] = text.slice(orig, ind);
-                gcd.emit("command parsed:" + comname, [doc.file, command, nextname]);
-                continue;
+                // nothing to do; just done. 
+            } else { 
+            
+               ind = doc.argProcessing(text, ind, quote, comname, mainblock );
+               gcd.emit("command parsed:" + comname, 
+                    [doc.file, command, "text ready:" + comname ]);
             }
+        
         } else {
-            gcd.emit("failure in parsing:" + name, text.slice(orig, ind));
+            gcd.emit("error:command parsing:" + name + colon.v + ind);
             return ind+1;
         }
 
-        argnum = 0;
-        while (ind < n) { // each argument loop
-            aname = comname + colon.v + argnum;
-            gcd.when("text ready:" +aname,
-                "arguments ready:"+comname );
-            wsreg.lastIndex = ind;
-            wsreg.exec(text);
-            ind = wsreg.lastIndex;
-        
-            if ( (text[ind] === "\u005F") && 
-                (['"', "'", "`"].indexOf(text[ind+1]) !== -1) )  {
-                    start = ind;
-                    ind = doc.substituteParsing(text, ind+2, text[ind+1], aname, mainblock);
-                    doc.parent.recording[aname] =  text.slice(start, ind);
-                    wsreg.lastIndex = ind;
-                    wsreg.exec(text);
-                    ind = wsreg.lastIndex;
-                    chr = text[ind];
-                    ind += 1;
-            } else if ( (text.slice(ind, ind+3) === "\\0\u005F")   && 
-                (['"', "'", "`"].indexOf(text[ind+3]) !== -1) )  {
-                    ind += 2;
-                        start = ind;
-                        ind = doc.substituteParsing(text, ind+2, text[ind+1], aname, mainblock);
-                        doc.parent.recording[aname] =  text.slice(start, ind);
-                        wsreg.lastIndex = ind;
-                        wsreg.exec(text);
-                        ind = wsreg.lastIndex;
-                        chr = text[ind];
-                        ind += 1;
-            } else {
-                // no substitute, just an argument. 
-                argument = '';
-                while (ind < n) {
-                    argreg.lastIndex = ind;
-                    match = argreg.exec(text);
-                    if (match) {
-                        ind = argreg.lastIndex;
-                        argument += match[1];
-                        chr = match[2];
-                        if (chr === "\\") {
-                           result = doc.backslash(text, ind, doc.indicator );
-                           ind = result[1];
-                           argument += result[0];
-                           continue;
-                        } else {
-                            argument = argument.trim();
-                            argument = doc.whitespaceEscape(argument, doc.indicator);
-                            gcd.emit("text ready:" + aname, argument);
-                            break;
-                        }
-                    } else {
-                        gcd.emit("failure in parsing:" + name, text.slice(orig, ind));
-                        return ind+1;
-                    }
-                }
-                doc.parent.recording[aname] = command + colon.v + argnum + colon.v + argument;
-            }
-            if (chr === ",") {
-                argnum += 1;
-                continue;
-            } else if (chr === "|") {
-                doc.parent.recording[nextname] = text.slice(orig, ind);
-                gcd.emit("command parsed:" + comname, [doc.file, command, nextname]);
-                break;
-            } else if (chr === quote) {
-                gcd.once("text ready:" + nextname, 
-                    doc.maker['emit text ready'](doc, name));
-                doc.parent.recording[nextname] = name;
-                doc.parent.recording[nextname] = text.slice(orig, ind);
-                gcd.emit("command parsed:" + comname, [doc.file, command, nextname]);
-                return ind;
-            } else {
-               gcd.emit("failure in parsing:" + name, text.slice(orig, ind));
-               return ind+1; 
-            }
-        }
+        gcd.emit("command parsed:" + comname, 
+            [doc.file, command, "text ready:" + comname ]);
 
-        gcd.emit("command parsed:" + comname);
+        if (text[ind] === quote) {
+            break;
+        } else if (text[ind] === "|") {
+            start = ind;
+        } else {
+            gcd.emit("error:bad terminating character in command" + 
+                name, [ind, text[ind]]);
+        }
 
     }
     
 
-    return ind;
+    return ind+1;
 
 };
 
@@ -2173,6 +2104,8 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
     
     while ( ind < n ) {
 
+        //console.log(ind, " : ", argstring, text[ind], " --- ", stack); 
+
         switch (text[ind]) {
 
             case "\u005F" :  // underscore
@@ -2273,11 +2206,10 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                 break;
             
                 case "]":
-                    temp = stack.shift();
-                    if (temp !== "[") {
-                        gcd.emit("error:bad stack", [text, "[", ind]);
+                    if (stack[0] === String.fromCharCode("]".charCodeAt(0)-1)) {
+                        stack.shift();
                     }
-                    argstring += temp;
+                    argstring += "]" ;
                 break;
             
                 case "(" :
@@ -2324,11 +2256,10 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                         name.pop();
                         emitname = name.join(colon.v);
                     } else {
-                        temp = stack.shift();
-                        if (temp !== "(") {
-                            gcd.emit("error:bad stack", [text, "(", ind]);
+                        if (stack[0] === String.fromCharCode(")".charCodeAt(0)-1)) {
+                            stack.shift();
                         }
-                        argstring += temp;
+                        argstring += ")" ;
                     }
                 break;
             
@@ -2338,11 +2269,10 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                 break;
             
                 case "}" :
-                    temp = stack.shift();
-                    if (temp !== "{") {
-                        gcd.emit("error:bad stack", [text, "{", ind]);
+                    if (stack[0] === String.fromCharCode("}".charCodeAt(0)-1)) {
+                        stack.shift();
                     }
-                    argstring += temp;
+                    argstring += "}" ;
                 break;
 
             case "'" :
@@ -2452,7 +2382,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                 }
             break;
             default: 
-                argstr += text[ind];
+                argstring += text[ind];
                 
 
 
@@ -2464,6 +2394,43 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
     
     return ind;
 
+};
+
+dp.argFinishingHandler = function (comname) {
+    var doc = this;
+    var gcd = this.gcd;
+
+    var f = function (data) {
+        var input, args, name, command, subs;
+    
+        input = data[0][1];
+        command = data[1][1][1];
+        args = data.slice(2).map(function (el) {
+            return el[1];
+        });
+    
+        var fun = doc.commands[command];
+        
+    
+        if (fun) {
+            fun.apply(doc, [input, args, comname, command]);
+        } else {
+            han = function () {
+                fun = doc.commands[command];
+                if (fun) {
+                    fun.apply(doc, [input, args, name, command]);
+                } else { // wait some more
+                    gcd.once("command defined:" + command, han);
+                }
+            };
+            han._label = "delayed command:" + command + ":" + name; 
+            gcd.once("command defined:" +  command, han); 
+        }
+    
+    
+    };
+    f._label = "waiting for arguments:" + comname; 
+    return f;
 };
 
 module.exports = Folder;
