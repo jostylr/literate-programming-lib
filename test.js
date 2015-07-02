@@ -165,7 +165,10 @@ var testfiles = [
     "sub.md",
     "async.md",
     "scope.md", 
-    "switch.md"
+    "switch.md",
+    "codeblocks.md",
+    "indents.md",
+    "savepipe.md",  
    /*
    "first.md",
     "eval.md",

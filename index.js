@@ -573,7 +573,7 @@ var dirFactory = Folder.prototype.dirFactory = function (namefactory, handlerfac
         doc.pipeDirSetup(state.pipes, state.emitname, state.handler, 
             ( state.start ||  state.block) );
         
-        var pipeEmitStart = "text ready:" + state.emitname + colon.v + "0";
+        var pipeEmitStart = "text ready:" + state.emitname + colon.v + "sp";
         if (! state.value) {
             doc.retrieve(state.start, pipeEmitStart);
         } else {
@@ -1564,6 +1564,7 @@ dp.blockCompiling = function (block, file, bname, mainblock) {
             insert = data[i][1];
             if ( (i+1 < n) && ( data[i+1][0].slice(0,6) === "indent") ) {
                 text += indent(insert, data[i+1][1], gcd);
+                i += 1; 
             } else {
                 text += insert;
             }
@@ -1781,10 +1782,7 @@ dp.pipeParsing = function (text, ind, quote, name, mainblock, toEmit, textEmit) 
             } else if (chr === "|") {
                 // nothing to do; just done. 
             } else { 
-            
                ind = doc.argProcessing(text, ind, quote, comname, mainblock );
-               gcd.emit("command parsed:" + comname, 
-                    [doc.file, command, "text ready:" + comname ]);
             }
         
         } else {
@@ -1990,16 +1988,30 @@ dp.pipeDirSetup = function (str, emitname, handler, start) {
     var colon = doc.colon;
     var block;
 
+    var subEmit, textEmit, doneEmit;
+
     if (str) {
         str = str + '"';
-        gcd.once("text ready:" + emitname, handler);
+        doneEmit = "text ready:" + emitname;
+        textEmit = "text ready:" + emitname + colon.v + "sp";
+        subEmit = "pipe chain ready:" + emitname + colon.v + "sp";
+        gcd.once(doneEmit, handler);
         
+        gcd.when(textEmit, subEmit);
+        
+        gcd.once(subEmit, function (data) {
+            var text = data[data.length-1][1] || '';
+            gcd.emit(doneEmit, text);
+        });
+        
+
         block = doc.stripSwitch(colon.restore(start));
 
-        doc.pipeParsing(str, 0, '"', emitname, block);
+        doc.pipeParsing(str, 0, '"', emitname + colon.v + "sp", block,
+            subEmit, textEmit);
 
     } else {
-        gcd.once("text ready:" + emitname + colon.v + "0", handler); 
+        gcd.once("text ready:" + emitname + colon.v + "sp", handler); 
     }
 
 };
