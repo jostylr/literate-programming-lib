@@ -201,6 +201,8 @@ var Folder = function (actions) {
             var colon = doc.colon;
             var text = data[0].trim().toLowerCase();
             
+            var subEmit, textEmit, doneEmit;
+            
             var curname = doc.curname = doc.heading+colon.v+text;
             if ( ! doc.blocks.hasOwnProperty(curname) ) {
                 doc.blocks[curname] = '';
@@ -209,19 +211,32 @@ var Folder = function (actions) {
             
             var title = data[1];
             var fname = evObj.pieces[0] + ":" + curname;
+            doneEmit = "text ready:" + fname; 
             var pipename;
             if (title) { // need piping
                 title = title.trim()+'"';
                 pipename = fname + colon.v + "sp";
-                doc.pipeParsing(title, 0, '"' , pipename);
+                textEmit = "text ready:" + pipename;
+                subEmit = "switch chain done:" + pipename; 
                 
-                gcd.once("minor ready:" + fname, 
-                    doc.maker['emit text ready'](doc, pipename + colon.v + "0" ));
-                gcd.once("text ready:" + pipename, 
-                    doc.maker.store(doc, curname, fname));
+                gcd.when(textEmit, subEmit);
+            
+                gcd.once(subEmit, function (data) {
+                    var text = data[data.length-1][1] || '';
+                    doc.store(curname, text);
+                    gcd.emit(doneEmit, text);
+                });
+                
+                gcd.flatWhen("minor ready:" + fname, textEmit);
+            
+                doc.pipeParsing(title, 0, '"' , pipename, doc.heading,
+                  subEmit, textEmit ); 
             } else { //just go
-                gcd.once("minor ready:" + fname, 
-                    doc.maker['store emit'](doc, curname, fname));
+                gcd.once("minor ready:" + fname, function (text) {
+                    doc.store(curname, text);
+                });
+                gcd.flatWhen("minor ready:" + fname, "text ready:" + fname);
+            
             }
         }
     );
@@ -820,7 +835,6 @@ Folder.commands = {   eval : sync(function ( text, args ) {
             }
         }
     
-    
         gcd.emit("text ready:" + name, str);
     },
     store: sync(function (input, args) {
@@ -1387,7 +1401,6 @@ dp.retrieve = function (name, cb) {
     var doc = this;
     var gcd = doc.gcd;
 
-    console.log("~~", cb);
     var scope = doc.getScope(name);
 
 
@@ -1743,6 +1756,7 @@ dp.pipeParsing = function (text, ind, quote, name, mainblock, toEmit, textEmit) 
             chr = match[2];
             ind = comreg.lastIndex;
             if (command === '') {
+                console.log(text, start, ind);
                 command = "passthru";    
             }
             command = colon.escape(command);
@@ -1784,7 +1798,7 @@ dp.pipeParsing = function (text, ind, quote, name, mainblock, toEmit, textEmit) 
         if (text[ind] === quote) {
             break;
         } else if (text[ind] === "|") {
-            start = ind;
+            start = ind += 1;
         } else {
             gcd.emit("error:bad terminating character in command" + 
                 name, [ind, text[ind]]);
@@ -2159,6 +2173,16 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                         argstring = "";
                         start = ind +1;
                     }
+                    ind +=1;
+                        wsreg.lastIndex = ind;
+                        if (wsreg.test(text) ) {
+                            start = ind = wsreg.lastIndex - 1;
+                        } else {
+                            ind = text.length;
+                            err = [start, ind];
+                            gcd.emit("error:" + topname, [err, "argument is just whitespace with no terminating"]);
+                            return;
+                        }
                     continue;
                 } else {
                     argstring += ",";

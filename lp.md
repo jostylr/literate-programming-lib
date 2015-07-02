@@ -514,25 +514,40 @@ problem.
     var colon = doc.colon;
     var text = data[0].trim().toLowerCase();
 
+    var subEmit, textEmit, doneEmit;
+
     var curname = doc.curname = doc.heading+colon.v+text;
     _":init block"
 
 
     var title = data[1];
     var fname = evObj.pieces[0] + ":" + curname;
+    doneEmit = "text ready:" + fname; 
     var pipename;
     if (title) { // need piping
         title = title.trim()+'"';
         pipename = fname + colon.v + "sp";
-        doc.pipeParsing(title, 0, '"' , pipename);
+        textEmit = "text ready:" + pipename;
+        subEmit = "switch chain done:" + pipename; 
         
-        gcd.once("minor ready:" + fname, 
-            doc.maker['emit text ready'](doc, pipename + colon.v + "0" ));
-        gcd.once("text ready:" + pipename, 
-            doc.maker.store(doc, curname, fname));
+        gcd.when(textEmit, subEmit);
+
+        gcd.once(subEmit, function (data) {
+            var text = data[data.length-1][1] || '';
+            doc.store(curname, text);
+            gcd.emit(doneEmit, text);
+        });
+        
+        gcd.flatWhen("minor ready:" + fname, textEmit);
+
+        doc.pipeParsing(title, 0, '"' , pipename, doc.heading,
+          subEmit, textEmit ); 
     } else { //just go
-        gcd.once("minor ready:" + fname, 
-            doc.maker['store emit'](doc, curname, fname));
+        gcd.once("minor ready:" + fname, function (text) {
+            doc.store(curname, text);
+        });
+        gcd.flatWhen("minor ready:" + fname, "text ready:" + fname);
+
     }
 
 
@@ -1671,7 +1686,7 @@ We need to track the command numbering for the event emitting.
             if (text[ind] === quote) {
                 break;
             } else if (text[ind] === "|") {
-                start = ind;
+                start = ind += 1;
             } else {
                 gcd.emit("error:bad terminating character in command" + 
                     name, [ind, text[ind]]);
@@ -1713,6 +1728,7 @@ automatically receive the previous bit as the incoming text.
         chr = match[2];
         ind = comreg.lastIndex;
         if (command === '') {
+            console.log(text, start, ind);
             command = "passthru";    
         }
         command = colon.escape(command);
@@ -1877,6 +1893,8 @@ This is linked to in doc prototype under name argProcessing
                 case "," : 
                     if ( (stack.length === 0 ) || (stack[0] === cp) ) {
                         _":arg done"
+                        ind +=1;
+                        _":fast forward to non-whitespace"
                         continue;
                     } else {
                         argstring += ",";
@@ -2233,230 +2251,6 @@ we move on. No warning emitted.
 
 
 
-
-### Get arguments for command parsing
-
-Here it gets a bit trickier. We have one loop for going over the arguments.
-
-For each argument, After an initial white space purge, we need to check for the substitution
-block. After the sub block is done, we expect optional space, followed by a
-comma, pipe, or quote. Otherwise, an error message is alerted and we assume it
-was an ignored comment. 
-
-If it is not a substitution block, then we chunk along until a backslash, comma, pipe or quote.
-For a backslash, it will escape the following by default: 
-backslashes, underscores, pipes, commas, quotes, and it turns u
-into a unicode gobbler (4 characters) while turning n into a newline and
-turning an embedded newline into a space (that is, if you are wrapping place
-slash at the end of the line). We check the doc for something before
-referencing the built in one. 
-
-To assemble a text with embedded stuff, you can do 
-`"|cmd _"|+ the, _"awe", right"` would produce for arg1 `the great right`
-if `awe` had great. Can also have it that commas are unnecessary with subs,
-but I think that leads to uncertainty. Bad enough not having parentheses.  
-
-    
-    argnum = 0;
-    while (ind < n) { // each argument loop
-        aname = comname + colon.v + argnum;
-        gcd.when("text ready:" +aname,
-            "arguments ready:"+comname );
-        wsreg.lastIndex = ind;
-        wsreg.exec(text);
-        ind = wsreg.lastIndex;
-
-        if ( (text[ind] === "\u005F") && 
-            (['"', "'", "`"].indexOf(text[ind+1]) !== -1) )  {
-            _":deal with substitute text"
-
-The next one deals with an escaped argument in subbing, that is `\0_"` means
-it should be evaluated. 
-
-        } else if ( (text.slice(ind, ind+3) === "\\0\u005F")   && 
-            (['"', "'", "`"].indexOf(text[ind+3]) !== -1) )  {
-                ind += 2;
-                _":deal with substitute text"
-        } else {
-            // no substitute, just an argument. 
-            argument = '';
-            while (ind < n) {
-                _":get full argument"
-            }
-            doc.parent.recording[aname] = command + colon.v + argnum + colon.v + argument;
-        }
-        if (chr === ",") {
-            argnum += 1;
-            continue;
-        } else if (chr === "|") {
-            \_"ending a command substitution:com parse"
-            break;
-        } else if (chr === quote) {
-            \_"ending a command substitution"
-            return ind;
-        } else {
-           _":failure" 
-        }
-    }
-
-
-
-
-
-[deal with substitute text]()
-
-
-So if there is a quote after an underscore, then we chunk along the substitue.
-It should return the index right after the end of the subsitution part. After
-that, we chunk along to the next non-whitespace character. It should be a
-comma, a pipe, or a matching quote. Anything else is an error. 
-
-        start = ind;
-        ind = doc.substituteParsing(text, ind+2, text[ind+1], aname, mainblock);
-        doc.parent.recording[aname] =  text.slice(start, ind);
-        wsreg.lastIndex = ind;
-        wsreg.exec(text);
-        ind = wsreg.lastIndex;
-        chr = text[ind];
-        ind += 1;
-
-[get full argument]()
-
-Here we are mainly dealing with looking for a backslash. If it is stopped
-without a backslash then we quit the loop and deal it with it elsewhere.
-
-For the backslash, we look at the next character and see if we have anything
-we can do. 
-
-We trim each arugment as well so we need not worry about spaces in commands. 
-
-    argreg.lastIndex = ind;
-    match = argreg.exec(text);
-    if (match) {
-        ind = argreg.lastIndex;
-        argument += match[1];
-        chr = match[2];
-        if (chr === "\\") {
-           result = doc.backslash(text, ind, doc.indicator );
-           ind = result[1];
-           argument += result[0];
-           continue;
-        } else {
-            argument = argument.trim();
-            argument = doc.whitespaceEscape(argument, doc.indicator);
-            gcd.emit("text ready:" + aname, argument);
-            break;
-        }
-    } else {
-        _":failure"
-    }
-
-
-[failure]()
-
-For failure, we just emit there is a failure and exit where we left off. Not a
-good state. Maybe with some testing and experiments, this could be done
-better. Incrementing index prevent possible endless loop. 
-
-    gcd.emit("failure in parsing:" + name, text.slice(orig, ind));
-    return ind+1;
- 
-
-### Backslash
-
-The backslash is a function on the doc prototype that can be overwritten if
-need be. 
-
-It takes in a text and an index to examine. This default function escapes
-backslashes, underscores, pipes, quotes and
-
-* u leads to unicode sucking up. This uses fromCodePoint
-* n converted to a new line. 
-* a whitespace will be preserved.
-
-If none of those are present a backslash is returned. 
-
-We return an object with the post end index in ind and the string to replace
-as chr.
-
-Note that with commonmark, `\_` will be reported as `_` to the lit pro doc.
-That is in commonmark, backslash underscore translates to underscore. So to
-actually escape the underscore, we need to use two backslashes: `\\_`.
-
-
-    function (text, ind, indicator) {
-        var chr, match, num;
-        var uni = /[0-9A-F]+/g; 
-        
-
-        chr = text[ind];
-        switch (chr) {
-        case "|" : return ["|", ind+1];
-        case '\u005F' : return ['\u005F', ind+1];
-        case "\\" : return ["\\", ind+1];
-        case "'" : return ["'", ind+1];
-        case "`" : return ["`", ind+1];
-        case '"' : return ['"', ind+1];
-        case "n" : return [indicator + "n" + indicator, ind+1];
-        case " " : return [indicator + " " + indicator, ind+1];
-        //case "\n" : return [" ", ind+1];
-        case "," : return [",", ind+1];
-        case "u" :  _":unicode"
-        break;
-        default : return ["\\", ind];
-
-        }
-    }
-
-
-
-[unicode]()
-
-This handles the unicode processing in argument strings. After the u should be
-a hexadecimal number. If not, then a backslash is return and processing starts
-at u. 
-
-If it cannot be converted into a unicode, then the backslash is returned and
-we move on. No warning emitted. 
-
-    uni.lastIndex = ind;
-    match = uni.exec(text);
-    if (match) {
-        num = parseInt(match[0], 16);
-        try {
-            chr = String.fromCodePoint(num);
-            return [chr, uni.lastIndex];
-        } catch (e)  {
-            return ["\\", ind];
-        }
-    } else {
-        return ["\\", ind];
-    }
-
-
-### Whitespace Escape
-
-This escapes whitespace. It looks for indicator something indicator and
-inserts. 
-
-    function (text, indicator) {
-        var n = indicator.length, start, end, rep;
-        while ( (start = text.indexOf(indicator) ) !== -1 ) {
-            end = text.indexOf(indicator, start + n);
-            rep = text.slice(start+n, end);
-            if (rep === "n") {
-                rep = "\n";
-            }
-            text = text.slice(0, start) + rep + text.slice(end+n);
-        }
-        return text;
-
-    }
-
-    
-
-
-
 ### Command Regexs
 
 We have an object that has the different flavors of gobbling regexs that we
@@ -2610,7 +2404,6 @@ Returning undefined is good and normal.
         var doc = this;
         var gcd = doc.gcd;
 
-        console.log("~~", cb);
         var scope = doc.getScope(name);
 
 
@@ -3344,7 +3137,6 @@ of code.
                 _":replace"
             }
         }
-
 
         gcd.emit("text ready:" + name, str);
     }
@@ -4510,9 +4302,15 @@ The log array should be cleared between tests.
     var equalizer = _"equalizer";
 
     var testfiles = [ 
-       
        "first.md",
-        "eval.md"/*,
+        "eval.md",
+        "sub.md",
+        "async.md",
+        "scope.md", 
+        "switch.md"
+       /*
+       "first.md",
+        "eval.md",
         "sub.md",
         "async.md",
         "scope.md", 
@@ -4605,9 +4403,9 @@ process the inputs.
         
         var log = td.log; 
 
-       gcd.makeLog();
+       //gcd.makeLog();
 
-       gcd.monitor('', function (evt, data) { console.log(evt, data); });
+       //gcd.monitor('', function (evt, data) { console.log(evt, data); });
 
         test(name, function (t) {
             var outs, m, j, out;
@@ -4642,13 +4440,17 @@ process the inputs.
                 }
             }
 
-            setTimeout( function () {
-                var key;
-                for (key in gcd.whens) {
-                    console.log("NOT EMITTING: " + key + " BECAUSE OF " +
-                        Object.keys(gcd.whens[key].events).join(" ; "));
-                }
-            });
+            var notEmit = function () { 
+                setTimeout( function () {
+                    var key;
+                    for (key in gcd.whens) {
+                        console.log("NOT EMITTING: " + key + " BECAUSE OF " +
+                            Object.keys(gcd.whens[key].events).join(" ; "));
+                    }
+                });
+            };
+
+            //notEmit();
 
          // setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
@@ -5799,3 +5601,231 @@ A travis.yml file for continuous test integration!
 by [James Taylor](https://github.com/jostylr "npminfo: jostylr@gmail.com ; 
     deps: event-when 1.2.0, commonmark 0.20.0, string.fromcodepoint 0.2.1;
     dev: tape 4.0.0, litpro-jshint 0.1.0")
+
+
+
+
+
+
+### Get arguments for command parsing
+
+Here it gets a bit trickier. We have one loop for going over the arguments.
+
+For each argument, After an initial white space purge, we need to check for the substitution
+block. After the sub block is done, we expect optional space, followed by a
+comma, pipe, or quote. Otherwise, an error message is alerted and we assume it
+was an ignored comment. 
+
+If it is not a substitution block, then we chunk along until a backslash, comma, pipe or quote.
+For a backslash, it will escape the following by default: 
+backslashes, underscores, pipes, commas, quotes, and it turns u
+into a unicode gobbler (4 characters) while turning n into a newline and
+turning an embedded newline into a space (that is, if you are wrapping place
+slash at the end of the line). We check the doc for something before
+referencing the built in one. 
+
+To assemble a text with embedded stuff, you can do 
+`"|cmd _"|+ the, _"awe", right"` would produce for arg1 `the great right`
+if `awe` had great. Can also have it that commas are unnecessary with subs,
+but I think that leads to uncertainty. Bad enough not having parentheses.  
+
+    
+    argnum = 0;
+    while (ind < n) { // each argument loop
+        aname = comname + colon.v + argnum;
+        gcd.when("text ready:" +aname,
+            "arguments ready:"+comname );
+        wsreg.lastIndex = ind;
+        wsreg.exec(text);
+        ind = wsreg.lastIndex;
+
+        if ( (text[ind] === "\u005F") && 
+            (['"', "'", "`"].indexOf(text[ind+1]) !== -1) )  {
+            _":deal with substitute text"
+
+The next one deals with an escaped argument in subbing, that is `\0_"` means
+it should be evaluated. 
+
+        } else if ( (text.slice(ind, ind+3) === "\\0\u005F")   && 
+            (['"', "'", "`"].indexOf(text[ind+3]) !== -1) )  {
+                ind += 2;
+                _":deal with substitute text"
+        } else {
+            // no substitute, just an argument. 
+            argument = '';
+            while (ind < n) {
+                _":get full argument"
+            }
+            doc.parent.recording[aname] = command + colon.v + argnum + colon.v + argument;
+        }
+        if (chr === ",") {
+            argnum += 1;
+            continue;
+        } else if (chr === "|") {
+            \_"ending a command substitution:com parse"
+            break;
+        } else if (chr === quote) {
+            \_"ending a command substitution"
+            return ind;
+        } else {
+           _":failure" 
+        }
+    }
+
+
+
+
+
+[deal with substitute text]()
+
+
+So if there is a quote after an underscore, then we chunk along the substitue.
+It should return the index right after the end of the subsitution part. After
+that, we chunk along to the next non-whitespace character. It should be a
+comma, a pipe, or a matching quote. Anything else is an error. 
+
+        start = ind;
+        ind = doc.substituteParsing(text, ind+2, text[ind+1], aname, mainblock);
+        doc.parent.recording[aname] =  text.slice(start, ind);
+        wsreg.lastIndex = ind;
+        wsreg.exec(text);
+        ind = wsreg.lastIndex;
+        chr = text[ind];
+        ind += 1;
+
+[get full argument]()
+
+Here we are mainly dealing with looking for a backslash. If it is stopped
+without a backslash then we quit the loop and deal it with it elsewhere.
+
+For the backslash, we look at the next character and see if we have anything
+we can do. 
+
+We trim each arugment as well so we need not worry about spaces in commands. 
+
+    argreg.lastIndex = ind;
+    match = argreg.exec(text);
+    if (match) {
+        ind = argreg.lastIndex;
+        argument += match[1];
+        chr = match[2];
+        if (chr === "\\") {
+           result = doc.backslash(text, ind, doc.indicator );
+           ind = result[1];
+           argument += result[0];
+           continue;
+        } else {
+            argument = argument.trim();
+            argument = doc.whitespaceEscape(argument, doc.indicator);
+            gcd.emit("text ready:" + aname, argument);
+            break;
+        }
+    } else {
+        _":failure"
+    }
+
+
+[failure]()
+
+For failure, we just emit there is a failure and exit where we left off. Not a
+good state. Maybe with some testing and experiments, this could be done
+better. Incrementing index prevent possible endless loop. 
+
+    gcd.emit("failure in parsing:" + name, text.slice(orig, ind));
+    return ind+1;
+ 
+
+### Backslash
+
+The backslash is a function on the doc prototype that can be overwritten if
+need be. 
+
+It takes in a text and an index to examine. This default function escapes
+backslashes, underscores, pipes, quotes and
+
+* u leads to unicode sucking up. This uses fromCodePoint
+* n converted to a new line. 
+* a whitespace will be preserved.
+
+If none of those are present a backslash is returned. 
+
+We return an object with the post end index in ind and the string to replace
+as chr.
+
+Note that with commonmark, `\_` will be reported as `_` to the lit pro doc.
+That is in commonmark, backslash underscore translates to underscore. So to
+actually escape the underscore, we need to use two backslashes: `\\_`.
+
+
+    function (text, ind, indicator) {
+        var chr, match, num;
+        var uni = /[0-9A-F]+/g; 
+        
+
+        chr = text[ind];
+        switch (chr) {
+        case "|" : return ["|", ind+1];
+        case '\u005F' : return ['\u005F', ind+1];
+        case "\\" : return ["\\", ind+1];
+        case "'" : return ["'", ind+1];
+        case "`" : return ["`", ind+1];
+        case '"' : return ['"', ind+1];
+        case "n" : return [indicator + "n" + indicator, ind+1];
+        case " " : return [indicator + " " + indicator, ind+1];
+        //case "\n" : return [" ", ind+1];
+        case "," : return [",", ind+1];
+        case "u" :  _":unicode"
+        break;
+        default : return ["\\", ind];
+
+        }
+    }
+
+
+
+[unicode]()
+
+This handles the unicode processing in argument strings. After the u should be
+a hexadecimal number. If not, then a backslash is return and processing starts
+at u. 
+
+If it cannot be converted into a unicode, then the backslash is returned and
+we move on. No warning emitted. 
+
+    uni.lastIndex = ind;
+    match = uni.exec(text);
+    if (match) {
+        num = parseInt(match[0], 16);
+        try {
+            chr = String.fromCodePoint(num);
+            return [chr, uni.lastIndex];
+        } catch (e)  {
+            return ["\\", ind];
+        }
+    } else {
+        return ["\\", ind];
+    }
+
+
+### Whitespace Escape
+
+This escapes whitespace. It looks for indicator something indicator and
+inserts. 
+
+    function (text, indicator) {
+        var n = indicator.length, start, end, rep;
+        while ( (start = text.indexOf(indicator) ) !== -1 ) {
+            end = text.indexOf(indicator, start + n);
+            rep = text.slice(start+n, end);
+            if (rep === "n") {
+                rep = "\n";
+            }
+            text = text.slice(0, start) + rep + text.slice(end+n);
+        }
+        return text;
+
+    }
+
+    
+
+

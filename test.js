@@ -87,9 +87,9 @@ var testrunner = function (file) {
     
     var log = td.log; 
 
-   gcd.makeLog();
+   //gcd.makeLog();
 
-   gcd.monitor('', function (evt, data) { console.log(evt, data); });
+   //gcd.monitor('', function (evt, data) { console.log(evt, data); });
 
     test(name, function (t) {
         var outs, m, j, out;
@@ -124,13 +124,17 @@ var testrunner = function (file) {
             }
         }
 
-        setTimeout( function () {
-            var key;
-            for (key in gcd.whens) {
-                console.log("NOT EMITTING: " + key + " BECAUSE OF " +
-                    Object.keys(gcd.whens[key].events).join(" ; "));
-            }
-        });
+        var notEmit = function () { 
+            setTimeout( function () {
+                var key;
+                for (key in gcd.whens) {
+                    console.log("NOT EMITTING: " + key + " BECAUSE OF " +
+                        Object.keys(gcd.whens[key].events).join(" ; "));
+                }
+            });
+        };
+
+        //notEmit();
 
      // setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
@@ -156,9 +160,15 @@ var equalizer = function (t, out) {
 };
 
 var testfiles = [ 
-   
    "first.md",
-    "eval.md"/*,
+    "eval.md",
+    "sub.md",
+    "async.md",
+    "scope.md", 
+    "switch.md"
+   /*
+   "first.md",
+    "eval.md",
     "sub.md",
     "async.md",
     "scope.md", 

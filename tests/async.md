@@ -25,7 +25,7 @@ Some text.
 
     or perhaps eval some code and use its output
 
-    _"async|readfile hello|eval text=eval(text)"
+    _"async|readfile hello|eval text = eval(text)"
 
     or using the sub 
 
