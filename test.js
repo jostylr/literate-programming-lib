@@ -126,15 +126,24 @@ var testrunner = function (file) {
 
         var notEmit = function () { 
             setTimeout( function () {
-                var key;
+                var key, el;
                 for (key in gcd.whens) {
                     console.log("NOT EMITTING: " + key + " BECAUSE OF " +
                         Object.keys(gcd.whens[key].events).join(" ; "));
                 }
+
+                for (key in gcd._onces) {
+                    el = gcd._onces[key];
+                    console.log("NOT EXECUTED "+ el[1] + " TIMES: " + 
+                        key + " BECAUSE EVENT " + el[0] + 
+                        " DID NOT FIRE. " + el[2]  + " TIMES LEFT"
+                    );
+                }
+
             });
         };
 
-        //notEmit();
+       // notEmit();
 
      // setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
@@ -159,7 +168,7 @@ var equalizer = function (t, out) {
     };
 };
 
-var testfiles = [ 
+var testfiles = [  
    "first.md",
     "eval.md",
     "sub.md",
@@ -169,6 +178,9 @@ var testfiles = [
     "codeblocks.md",
     "indents.md",
     "savepipe.md",  
+    "load.md",
+    "asynceval.md",
+    "compile.md",
    /*
    "first.md",
     "eval.md",
@@ -179,7 +191,6 @@ var testfiles = [
     "codeblocks.md",
     "indents.md",
     "savepipe.md",  
-    "log.md",
     "load.md",
     "asynceval.md",
     "compile.md",
@@ -195,7 +206,6 @@ var testfiles = [
     "linkquotes.md",
     "cycle.md",
     "templating.md",
-    "reports.md",
     "empty.md",
     "switchcmd.md",
     "backslash.md",
@@ -207,7 +217,10 @@ var testfiles = [
     "directivesubbing.md",
     "done.md", 
     "constructor.md",
-    "transform.md"*/
+    "transform.md",
+    //volatile
+    "log.md",
+    "reports.md"*/
 ];
 
 

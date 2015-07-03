@@ -877,7 +877,7 @@ Folder.commands = {   eval : sync(function ( text, args ) {
         var escape = doc.colon.escape;
         var i, n, start, nextname, oldname, firstname;
     
-        var stripped = name.slice(name.indexOf(":")+1);
+        var stripped = name.slice(name.indexOf(":")+1) + colon + "c";
     
     
         var hanMaker = function (file, nextname, start) {
@@ -887,9 +887,8 @@ Folder.commands = {   eval : sync(function ( text, args ) {
         };
     
     
-    
         if (args.length === 0) {
-            gcd.once("minor ready:" + name, function (text) {
+            gcd.once("minor ready:" + name + colon + "c", function (text) {
                 gcd.emit("text ready:" + name, text); 
             });
             doc.blockCompiling(input, file, stripped);
@@ -1426,7 +1425,7 @@ dp.retrieve = function (name, cb) {
                 doc.retrieve(name, cb);
             };
             f._label = "Retrieving:" + file + ":" + varname;
-            gcd.once("text stored:" + file + ":" + varname, f); 
+            gcd.once("text stored:" + file + ":" + varname, f);
             return ;
         }
     } else {
@@ -1575,7 +1574,7 @@ dp.blockCompiling = function (block, file, bname, mainblock) {
             gcd.emit("minor ready:" + name, text);
         } else {
             doc.store(bname, text);
-            gcd.emit("text ready:" + name);
+            gcd.emit("text ready:" + name, text);
         }
     });
           
@@ -1757,7 +1756,6 @@ dp.pipeParsing = function (text, ind, quote, name, mainblock, toEmit, textEmit) 
             chr = match[2];
             ind = comreg.lastIndex;
             if (command === '') {
-                console.log(text, start, ind);
                 command = "passthru";    
             }
             command = colon.escape(command);
@@ -1775,14 +1773,15 @@ dp.pipeParsing = function (text, ind, quote, name, mainblock, toEmit, textEmit) 
             incomingEmit = "text ready:" + comname;
         
             if (chr === quote) {
+                ind -= 1; // it is set to just after the last position 
                 gcd.emit("command parsed:" + comname, 
                     [doc.file, command, "text ready:" + comname ]);
                 break;
             
             } else if (chr === "|") {
                 // nothing to do; just done. 
-            } else { 
-               ind = doc.argProcessing(text, ind, quote, comname, mainblock );
+            } else {
+                ind = doc.argProcessing(text, ind, quote, comname, mainblock );
             }
         
         } else {
@@ -1836,56 +1835,6 @@ dp.regexs = {
 
 };
 
-dp.backslash = function (text, ind, indicator) {
-    var chr, match, num;
-    var uni = /[0-9A-F]+/g; 
-    
-
-    chr = text[ind];
-    switch (chr) {
-    case "|" : return ["|", ind+1];
-    case '\u005F' : return ['\u005F', ind+1];
-    case "\\" : return ["\\", ind+1];
-    case "'" : return ["'", ind+1];
-    case "`" : return ["`", ind+1];
-    case '"' : return ['"', ind+1];
-    case "n" : return [indicator + "n" + indicator, ind+1];
-    case " " : return [indicator + " " + indicator, ind+1];
-    //case "\n" : return [" ", ind+1];
-    case "," : return [",", ind+1];
-    case "u" :  uni.lastIndex = ind;
-    match = uni.exec(text);
-    if (match) {
-        num = parseInt(match[0], 16);
-        try {
-            chr = String.fromCodePoint(num);
-            return [chr, uni.lastIndex];
-        } catch (e)  {
-            return ["\\", ind];
-        }
-    } else {
-        return ["\\", ind];
-    }
-    break;
-    default : return ["\\", ind];
-
-    }
-};
-
-dp.whitespaceEscape = function (text, indicator) {
-    var n = indicator.length, start, end, rep;
-    while ( (start = text.indexOf(indicator) ) !== -1 ) {
-        end = text.indexOf(indicator, start + n);
-        rep = text.slice(start+n, end);
-        if (rep === "n") {
-            rep = "\n";
-        }
-        text = text.slice(0, start) + rep + text.slice(end+n);
-    }
-    return text;
-
-};
-
 dp.store = function (name, text) {
     var doc = this;
     var gcd = doc.gcd;
@@ -1918,7 +1867,6 @@ dp.store = function (name, text) {
     } else {
         scope[varname] = text;
     }
-    
     gcd.emit("text stored:" + file + ":" + varname, text);
 };
 
@@ -2072,7 +2020,9 @@ dp.argEscaping = function (text, ind ) {
     case "'" : return ["'", ind+1];
     case "`" : return ["`", ind+1];
     case '"' : return ['"', ind+1];
-    case "n" : return ["\n", ind+1];
+    case "n" : return [indicator + "\n" + indicator, ind+1];
+    case "t" : return [indicator + "\t" + indicator, ind+1];
+    case " " : return [indicator + " " + indicator, ind+1];
     case "," : return [",", ind+1];
     case "u" :  uni.lastIndex = ind;
     match = uni.exec(text);
@@ -2181,7 +2131,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                     } else { // simple string
                         curname = name.join(colon.v);
                         gcd.when("text ready:" + curname , "arguments ready:" + emitname);
-                        gcd.emit("text ready:" + curname, argstring);
+                        gcd.emit("text ready:" + curname, argstring.trim());
                         argstring = "";
                         start = ind +1;
                     }
@@ -2223,7 +2173,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                         } else { // simple string
                             curname = name.join(colon.v);
                             gcd.when("text ready:" + curname , "arguments ready:" + emitname);
-                            gcd.emit("text ready:" + curname, argstring);
+                            gcd.emit("text ready:" + curname, argstring.trim());
                             argstring = "";
                             start = ind +1;
                         }
@@ -2284,7 +2234,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                         } else { // simple string
                             curname = name.join(colon.v);
                             gcd.when("text ready:" + curname , "arguments ready:" + emitname);
-                            gcd.emit("text ready:" + curname, argstring);
+                            gcd.emit("text ready:" + curname, argstring.trim());
                             argstring = "";
                             start = ind +1;
                         }
@@ -2326,7 +2276,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                         } else { // simple string
                             curname = name.join(colon.v);
                             gcd.when("text ready:" + curname , "arguments ready:" + emitname);
-                            gcd.emit("text ready:" + curname, argstring);
+                            gcd.emit("text ready:" + curname, argstring.trim());
                             argstring = "";
                             start = ind +1;
                         }
@@ -2361,7 +2311,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                         } else { // simple string
                             curname = name.join(colon.v);
                             gcd.when("text ready:" + curname , "arguments ready:" + emitname);
-                            gcd.emit("text ready:" + curname, argstring);
+                            gcd.emit("text ready:" + curname, argstring.trim());
                             argstring = "";
                             start = ind +1;
                         }
@@ -2397,7 +2347,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                         } else { // simple string
                             curname = name.join(colon.v);
                             gcd.when("text ready:" + curname , "arguments ready:" + emitname);
-                            gcd.emit("text ready:" + curname, argstring);
+                            gcd.emit("text ready:" + curname, argstring.trim());
                             argstring = "";
                             start = ind +1;
                         }
@@ -2467,6 +2417,20 @@ dp.argFinishingHandler = function (comname) {
     };
     f._label = "waiting for arguments:" + comname; 
     return f;
+};
+
+dp.whitespaceEscape = function (text, indicator) {
+    var n = indicator.length, start, end, rep;
+    while ( (start = text.indexOf(indicator) ) !== -1 ) {
+        end = text.indexOf(indicator, start + n);
+        rep = text.slice(start+n, end);
+        if (rep === "n") {
+            rep = "\n";
+        }
+        text = text.slice(0, start) + rep + text.slice(end+n);
+    }
+    return text;
+
 };
 
 module.exports = Folder;
