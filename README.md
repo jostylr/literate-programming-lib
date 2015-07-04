@@ -708,7 +708,6 @@ Each instance of folder comes with its own instances of:
   waiting, the reports go away. Ideally, this should be empty when all is
   done.
 * stack. This is for the push and pop of text piping. 
-* maker. Just an internal bit that is probably of no interest to anyone.
 * gcd. This is the event-emitter shared between docs, but not folders. Default
   actions are added during the instantiation, largely related to the parsing
   which sets up later. If you want to log what goes on, you may want to look
@@ -786,7 +785,6 @@ Inherited from folder
 * gcd, modifications affect all. Be careful to scope added events to files,
   etc. 
 * plugins, modifications affect all
-* maker, Object.created
 * colon, Object.created
 * join, overwriting will only affect doc
 * log, overwriting will only affect doc
@@ -824,7 +822,7 @@ A key feature of any programming environment is debugging. It is my hope that
 this version has some better debugging information. The key to this is the
 reporting function of what is waiting around. 
 
-The wait it works is that when an event of the form `waiting for:type:...` is
+The way it works is that when an event of the form `waiting for:type:...` is
 emitted with data `[evt, reportname, ...]` then reporters gets a key of the
 event string wthout the `waiting for:`, and when the `evt` is emitted, it is
 removed. 

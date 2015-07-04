@@ -48,85 +48,6 @@ var Folder = function (actions) {
         folder.done.cache[evObj.ev] = true;
     }, this);
     
-    this.maker = {   'emit text ready' : function (doc, name) {
-                var gcd = doc.gcd;
-    
-                var evt =  "text ready:" + name;
-                gcd.emit("waiting for:text:"  + name, 
-                    [evt, "text", name]);
-                var f = function (text) {
-                    gcd.emit(evt, text);
-                };
-                f._label = "emit text ready;;" + name;
-                return f;
-            },
-        'store' : function (doc, name, fname) {
-                
-                var f = function (text) {
-                    doc.store(name, text);
-                };
-                f._label = "store;;" + (fname ||  name);
-                return f;
-            },
-        'store emit' : function (doc, name, fname) {
-                fname = fname || name;
-                var gcd = doc.gcd;
-    
-                var evt = "text ready:" + fname;
-                gcd.emit("waiting for:text:"  + fname, 
-                    [evt, "text", fname]);
-                var f = function (text) {
-                    doc.store(name, text);
-                    gcd.emit(evt, text);
-                };
-                f._label = "store emit;;" +  fname;
-                return f;
-            },
-        'location filled' : function (doc, lname, loc, frags, indents ) {
-                var gcd = doc.gcd;
-    
-                var evt = "location filled:" + lname;
-                gcd.emit("waiting for:location:"  + lname,
-                    [evt, "location", lname]);
-    
-                var f = function (subtext) {
-                    subtext = doc.indent(subtext, indents[loc]);
-                    frags[loc] = subtext;
-                    gcd.emit(evt);
-                };
-                f._label = "location filled;;" + lname;
-                return f;
-            },
-        'stitch emit' : function (doc, name, frags) {
-                var gcd = doc.gcd;
-    
-                var evt = "minor ready:" + name;
-                gcd.emit("waiting for:minor:" + name,
-                    [evt, "minor", name]);
-    
-                var f = function () {
-                    gcd.emit(evt, frags.join(""));
-                };
-                f._label = "stitch emit;;" + name;
-                return f;
-            },
-       'stitch store emit' : function (doc, bname, name, frags) {
-                var gcd = doc.gcd;
-    
-                var evt = "text ready:" + name;
-                gcd.emit("waiting for:text:"  + name,
-                    [evt, "text", name]);
-    
-                var f = function () {
-                    var text = frags.join("");
-                    doc.store(bname, text);
-                    gcd.emit(evt, text);
-                };
-                f._label = "stitch store emit;;" + name;
-                return f;
-            }
-    };
-
     gcd.parent = this;
 
     gcd.on("block needs compiling", "compiling block");
@@ -1375,7 +1296,6 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
 
     this.commands = parent.commands;
     this.directives = parent.directives;
-    this.maker = Object.create(parent.maker);
     this.colon = Object.create(parent.colon); 
     this.join = parent.join;
     this.log = this.parent.log;
@@ -2086,7 +2006,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
             case "\u005F" :  // underscore
                 if ( (start === ind) &&
                      ( "\"'`".indexOf(text[ind+1]) !== -1 ) ) {
-                    curname = name.join(colon.v) + ind;
+                    curname = name.join(colon.v) + colon.v +  ind;
                     gcd.when("text ready:" + curname, "arguments ready:" + emitname);
                     temp =  doc.substituteParsing(text, ind+2, text[ind+1], curname, mainblock);
                     
@@ -2395,7 +2315,6 @@ dp.argFinishingHandler = function (comname) {
         });
     
         var fun = doc.commands[command];
-        
     
         if (fun) {
             fun.apply(doc, [input, args, comname, command]);

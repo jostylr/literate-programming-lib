@@ -220,8 +220,6 @@ We have a default scope called `g` for global.
 
         _":done when"
         
-        this.maker = _"maker";
-
         gcd.parent = this;
 
         _":handlers"
@@ -311,7 +309,6 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
 
         this.commands = parent.commands;
         this.directives = parent.directives;
-        this.maker = Object.create(parent.maker);
         this.colon = Object.create(parent.colon); 
         this.join = parent.join;
         this.log = this.parent.log;
@@ -1984,7 +1981,7 @@ Need to call in the substituion process. It will lead to the emitting of a
 text ready event which will contain the text to be put into the emitname's
 arguments.  
 
-    curname = name.join(colon.v) + ind;
+    curname = name.join(colon.v) + colon.v +  ind;
     gcd.when("text ready:" + curname, "arguments ready:" + emitname);
     temp =  doc.substituteParsing(text, ind+2, text[ind+1], curname, mainblock);
     
@@ -2642,6 +2639,8 @@ This is how we link the stuff
 
 ## Maker
 
+No longer being used, but may inspire the waiting or reporting.
+
 This is an object that makes the handlers for various once's. We can overwrite
 them per document or folder making them accessible to manipulations. 
 
@@ -2727,30 +2726,6 @@ them per document or folder making them accessible to manipulations.
 
 ## Action for argument finishing
 
-When arguments are ready, we need to fire the command. This is where we do
-this. 
-
-This has to decode a few different events and their data:
-
-* command parsed:  `[doc, command, name to emit when ready]`. This has what
-   we need to run the command and deal with its return. 
-* text ready: for pipe input, we can recognize it by being the shortest. This is
-  the input that is being piped into a command. 
-* text ready: arguments. These should be all the other ones. We pop off the
-  last colon.v separated number for the argument placement. 
-
-Once all is setup, we execute the command. 
-
-We need to decode the input from the arguments crudely instead of by
-specificity as the text being emitted by subsitution would not otherwise know.
-And this is simple enough. 
-
-Commands are bound to doc by applying the arguments. The first argument is the
-pipe input. The second argument is an array containing all the other
-arguments. The third argument is the name to emit when all is done.
-
-REWRITING   
-
 We extract the data and then we check for the existence of the command. If it
 exists, we execute it and any subcommands. If it does not exist, we wait for
 it to exist and then use a handler to run it. But if it is still not a
@@ -2776,7 +2751,6 @@ commands to modify the environment of the function.
         _":extract data"
 
         var fun = doc.commands[command];
-        
 
         if (fun) {
             fun.apply(doc, [input, args, comname, command]);
@@ -2815,70 +2789,6 @@ form ....
     });
 
 
-
-[old]() 
-    arguments ready --> run command
-    var doc, input, name, cur, command, min = [Infinity,-1], han;
-    var args = [];
-
-
-    _":extract data"
-
-    var fun = doc.commands[command];
-
-    if (fun) {
-        fun.apply(doc, [input, args, name, command]);
-    } else {
-        gcd.emit("waiting for:command:" + command, 
-            ["command defined:" + command, "cmd", command, name]);
-        han = function () {
-            fun = doc.commands[command];
-            if (fun) {
-                fun.apply(doc, [input, args, name, command]);
-            } else {
-                gcd.emit("error:commmand defined but not:" + doc.file +
-                    ":" + command);
-            }
-        };
-        han._label = "delayed command:" + command + ":" + name; 
-        gcd.once("command defined:" +  command, han);
-    }
-
-
-
-[extract data old]()
-
-We first run through, teasing out the command parsed event and its data while
-also finding the minimum length of the text ready events.
-
-This is a bit of arcane code. While seeking the minimum, any bit which is not
-the minimum is an argument. We extract its position by being the last number
-in the string. If something is the minimum, then we extract the previous
-minimum winner and gets its text into the proper place. 
-
-    var i, j, k, m, n=data.length;
-    for (i = 0; i < n; i += 1) {
-        cur = data[i];
-        if (data[i][0].indexOf("command parsed") === 0 ) {
-            doc = gcd.parent.docs[data[i][1][0]];
-            command = data[i][1][1];
-            name = data[i][1][2];
-        } else { // should only be text ready
-            j = i;
-            if ( ( m = data[i][0].length ) < min[0] ) {
-                j = min[1];
-                min = [m, i];
-            }
-            if (j !== -1) {
-                k = data[j][0].match(/([0-9]+)$/);
-                if (k) {
-                    args[k[1]] = data[j][1];
-                }
-            }
-        }
-    }
-
-    input = data[min[1]][1];
 
 
 ### Command wrapper sync
@@ -3834,7 +3744,8 @@ a bit better (ha).
 
 [emitname]()
 
-We store the important name in args.name. 
+We store the important name in args.name. Note that this includes the pipes as
+that may be the only distinguishing feature (see tests/store.md for example)
 
     function (state) {
         state.name = this.colon.escape(state.start + ":" + state.input);
@@ -5366,7 +5277,6 @@ Each instance of folder comes with its own instances of:
   waiting, the reports go away. Ideally, this should be empty when all is
   done.
 * stack. This is for the push and pop of text piping. 
-* maker. Just an internal bit that is probably of no interest to anyone.
 * gcd. This is the event-emitter shared between docs, but not folders. Default
   actions are added during the instantiation, largely related to the parsing
   which sets up later. If you want to log what goes on, you may want to look
@@ -5444,7 +5354,6 @@ Inherited from folder
 * gcd, modifications affect all. Be careful to scope added events to files,
   etc. 
 * plugins, modifications affect all
-* maker, Object.created
 * colon, Object.created
 * join, overwriting will only affect doc
 * log, overwriting will only affect doc
@@ -5482,7 +5391,7 @@ A key feature of any programming environment is debugging. It is my hope that
 this version has some better debugging information. The key to this is the
 reporting function of what is waiting around. 
 
-The wait it works is that when an event of the form `waiting for:type:...` is
+The way it works is that when an event of the form `waiting for:type:...` is
 emitted with data `[evt, reportname, ...]` then reporters gets a key of the
 event string wthout the `waiting for:`, and when the `evt` is emitted, it is
 removed. 
