@@ -787,13 +787,14 @@ Folder.commands = {   eval : sync(function ( text, args ) {
 
     var code = args.join("\n");
 
+
     try {
         eval(code);
         return text.toString();
     } catch (e) {
         doc.gcd.emit("error:command:eval:", [e, code, text]);
         return e.name + ":" + e.message +"\n" + code + "\n\nACTING ON:\n" +
-        text;
+            text;
     }
 }, "eval"),
     sub : function (str, args, name) {
@@ -1884,9 +1885,7 @@ dp.getBlock = function (start, cur) {
         start = start.trim().toLowerCase();
 
         if (start[0] === ":") {
-            //console.log(start);
             start = doc.stripSwitch(cur) + start;
-            //console.log(start);
         }
 
     } 
@@ -2087,7 +2086,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
             case "\u005F" :  // underscore
                 if ( (start === ind) &&
                      ( "\"'`".indexOf(text[ind+1]) !== -1 ) ) {
-                    curname = name.join(colon.v);
+                    curname = name.join(colon.v) + ind;
                     gcd.when("text ready:" + curname, "arguments ready:" + emitname);
                     temp =  doc.substituteParsing(text, ind+2, text[ind+1], curname, mainblock);
                     
@@ -2387,7 +2386,7 @@ dp.argFinishingHandler = function (comname) {
     var gcd = this.gcd;
 
     var f = function (data) {
-        var input, args, name, command, subs;
+        var input, args, command, subs;
     
         input = data[0][1];
         command = data[1][1][1];
@@ -2404,12 +2403,12 @@ dp.argFinishingHandler = function (comname) {
             han = function () {
                 fun = doc.commands[command];
                 if (fun) {
-                    fun.apply(doc, [input, args, name, command]);
+                    fun.apply(doc, [input, args, comname, command]);
                 } else { // wait some more
                     gcd.once("command defined:" + command, han);
                 }
             };
-            han._label = "delayed command:" + command + ":" + name; 
+            han._label = "delayed command:" + command + ":" + comname; 
             gcd.once("command defined:" +  command, han); 
         }
     

@@ -1984,7 +1984,7 @@ Need to call in the substituion process. It will lead to the emitting of a
 text ready event which will contain the text to be put into the emitname's
 arguments.  
 
-    curname = name.join(colon.v);
+    curname = name.join(colon.v) + ind;
     gcd.when("text ready:" + curname, "arguments ready:" + emitname);
     temp =  doc.substituteParsing(text, ind+2, text[ind+1], curname, mainblock);
     
@@ -2770,7 +2770,7 @@ commands to modify the environment of the function.
 [handler]() 
 
     function (data) {
-        var input, args, name, command, subs;
+        var input, args, command, subs;
 
         _":extract data"
 
@@ -2783,12 +2783,12 @@ commands to modify the environment of the function.
             han = function () {
                 fun = doc.commands[command];
                 if (fun) {
-                    fun.apply(doc, [input, args, name, command]);
+                    fun.apply(doc, [input, args, comname, command]);
                 } else { // wait some more
                     gcd.once("command defined:" + command, han);
                 }
             };
-            han._label = "delayed command:" + command + ":" + name; 
+            han._label = "delayed command:" + command + ":" + comname; 
             gcd.once("command defined:" +  command, han); 
         }
 
@@ -3000,13 +3000,14 @@ to see. Manipulate that variable. The text is then passed along.
 
         var code = args.join("\n");
 
+
         try {
             eval(code);
             return text.toString();
         } catch (e) {
             doc.gcd.emit("error:command:eval:", [e, code, text]);
             return e.name + ":" + e.message +"\n" + code + "\n\nACTING ON:\n" +
-            text;
+                text;
         }
     }
 
@@ -3426,9 +3427,7 @@ Note start (href) is not expected to have colon escapes, but cur might.
             start = start.trim().toLowerCase();
 
             if (start[0] === ":") {
-                //console.log(start);
                 start = doc.stripSwitch(cur) + start;
-                //console.log(start);
             }
 
         } 
@@ -4334,19 +4333,7 @@ The log array should be cleared between tests.
     var equalizer = _"equalizer";
 
     var testfiles = [  
-       "first.md",
-        "eval.md",
-        "sub.md",
-        "async.md",
-        "scope.md", 
-        "switch.md",
-        "codeblocks.md",
-        "indents.md",
-        "savepipe.md",  
-        "load.md",
-        "asynceval.md",
-        "compile.md",
-       /*
+       /**/
        "first.md",
         "eval.md",
         "sub.md",
@@ -4385,8 +4372,8 @@ The log array should be cleared between tests.
         "transform.md",
         //volatile
         "log.md",
-        "reports.md"*/
-    ];
+        "reports.md"
+    ].slice(0, 21);
 
 
     Litpro.commands.readfile = Litpro.prototype.wrapAsync(_"test async", "readfile");
@@ -4504,7 +4491,7 @@ process the inputs.
 
         //  setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
-         //   setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+          // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
     }
 
