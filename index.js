@@ -2008,8 +2008,8 @@ dp.argHandlerMaker =     function (curname, gcd) {
 
 dp.argEscaping = function (text, ind ) {
     var chr, match, num;
-    var uni = /[0-9A-F]+/g; 
-    
+    var uni = /[0-9A-F]+/g;
+    var indicator = this.indicator;
 
     chr = text[ind];
     switch (chr) {
@@ -2130,7 +2130,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                     } else { // simple string
                         curname = name.join(colon.v);
                         gcd.when("text ready:" + curname , "arguments ready:" + emitname);
-                        gcd.emit("text ready:" + curname, argstring.trim());
+                        gcd.emit("text ready:" + curname, doc.whitespaceEscape(argstring.trim()));
                         argstring = "";
                         start = ind +1;
                     }
@@ -2151,7 +2151,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
             break;
             
             case "\\" :  
-                temp = escaping(text, ind);
+                temp = doc.argEscaping(text, ind+1);
                 argstring += temp[0];
                 ind = temp[1];
             continue;
@@ -2172,7 +2172,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                         } else { // simple string
                             curname = name.join(colon.v);
                             gcd.when("text ready:" + curname , "arguments ready:" + emitname);
-                            gcd.emit("text ready:" + curname, argstring.trim());
+                            gcd.emit("text ready:" + curname, doc.whitespaceEscape(argstring.trim()));
                             argstring = "";
                             start = ind +1;
                         }
@@ -2233,7 +2233,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                         } else { // simple string
                             curname = name.join(colon.v);
                             gcd.when("text ready:" + curname , "arguments ready:" + emitname);
-                            gcd.emit("text ready:" + curname, argstring.trim());
+                            gcd.emit("text ready:" + curname, doc.whitespaceEscape(argstring.trim()));
                             argstring = "";
                             start = ind +1;
                         }
@@ -2275,7 +2275,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                         } else { // simple string
                             curname = name.join(colon.v);
                             gcd.when("text ready:" + curname , "arguments ready:" + emitname);
-                            gcd.emit("text ready:" + curname, argstring.trim());
+                            gcd.emit("text ready:" + curname, doc.whitespaceEscape(argstring.trim()));
                             argstring = "";
                             start = ind +1;
                         }
@@ -2310,7 +2310,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                         } else { // simple string
                             curname = name.join(colon.v);
                             gcd.when("text ready:" + curname , "arguments ready:" + emitname);
-                            gcd.emit("text ready:" + curname, argstring.trim());
+                            gcd.emit("text ready:" + curname, doc.whitespaceEscape(argstring.trim()));
                             argstring = "";
                             start = ind +1;
                         }
@@ -2346,7 +2346,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                         } else { // simple string
                             curname = name.join(colon.v);
                             gcd.when("text ready:" + curname , "arguments ready:" + emitname);
-                            gcd.emit("text ready:" + curname, argstring.trim());
+                            gcd.emit("text ready:" + curname, doc.whitespaceEscape(argstring.trim()));
                             argstring = "";
                             start = ind +1;
                         }
@@ -2418,7 +2418,8 @@ dp.argFinishingHandler = function (comname) {
     return f;
 };
 
-dp.whitespaceEscape = function (text, indicator) {
+dp.whitespaceEscape = function (text) {
+    var indicator = this.indicator;
     var n = indicator.length, start, end, rep;
     while ( (start = text.indexOf(indicator) ) !== -1 ) {
         end = text.indexOf(indicator, start + n);

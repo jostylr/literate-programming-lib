@@ -814,7 +814,7 @@ Prototyped on Doc. Almost all are internal and are of little to no interest.
 * regexs. Some regular expressions that are used in the parsing of the code
   blocks.
 * backslash. The backslash function applied to command arguments.
-* whitespaceEscape. Handling whitespace escaping in conjunction with
+* whitespaceEscape. Handlingwhitespace escaping in conjunction with
   backslash. Putting the whitespace back.
 * store. stores a variable.
 

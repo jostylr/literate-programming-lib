@@ -98,8 +98,7 @@ var testrunner = function (file) {
             if (log.indexOf(text) !== -1) {
                 t.pass();
             } else {
-            
-            console.log(text);
+                console.log(text);
                 t.fail(text);
             }
         };
@@ -191,12 +190,9 @@ var testfiles = [
     "erroreval.md",
     "scopeexists.md",
     "subindent.md",
-    "linkquotes.md",
-    "cycle.md",
     "templating.md",
     "empty.md",
     "switchcmd.md",
-    "backslash.md",
     "templateexample.md",
     "pushpop.md",
     "if.md",
@@ -206,10 +202,12 @@ var testfiles = [
     "done.md", 
     "constructor.md",
     "transform.md",
-    //volatile
+    "linkquotes.md",
+    "backslash.md",
     "log.md",
-    "reports.md"
-].slice(0, 21);
+    "reports.md",
+    "cycle.md"
+].slice(0, 36);
 
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {

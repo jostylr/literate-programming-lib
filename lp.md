@@ -1900,7 +1900,7 @@ This is linked to in doc prototype under name argProcessing
                 break;
                 
                 case "\\" :  
-                    temp = escaping(text, ind);
+                    temp = doc.argEscaping(text, ind+1);
                     argstring += temp[0];
                     ind = temp[1];
                 continue;
@@ -1971,7 +1971,7 @@ If argdone is false, then we have a simple string and we emit it.
     } else { // simple string
         curname = name.join(colon.v);
         gcd.when("text ready:" + curname , "arguments ready:" + emitname);
-        gcd.emit("text ready:" + curname, argstring.trim());
+        gcd.emit("text ready:" + curname, doc.whitespaceEscape(argstring.trim()));
         argstring = "";
         start = ind +1;
     }
@@ -2201,8 +2201,8 @@ actually escape the underscore, we need to use two backslashes: `\\_`.
 
     function (text, ind ) {
         var chr, match, num;
-        var uni = /[0-9A-F]+/g; 
-        
+        var uni = /[0-9A-F]+/g;
+        var indicator = this.indicator;
 
         chr = text[ind];
         switch (chr) {
@@ -2253,7 +2253,8 @@ we move on. No warning emitted.
 This escapes whitespace. It looks for indicator something indicator and
 inserts. 
 
-    function (text, indicator) {
+    function (text) {
+        var indicator = this.indicator;
         var n = indicator.length, start, end, rep;
         while ( (start = text.indexOf(indicator) ) !== -1 ) {
             end = text.indexOf(indicator, start + n);
@@ -4355,12 +4356,9 @@ The log array should be cleared between tests.
         "erroreval.md",
         "scopeexists.md",
         "subindent.md",
-        "linkquotes.md",
-        "cycle.md",
         "templating.md",
         "empty.md",
         "switchcmd.md",
-        "backslash.md",
         "templateexample.md",
         "pushpop.md",
         "if.md",
@@ -4370,10 +4368,12 @@ The log array should be cleared between tests.
         "done.md", 
         "constructor.md",
         "transform.md",
-        //volatile
+        "linkquotes.md",
+        "backslash.md",
         "log.md",
-        "reports.md"
-    ].slice(0, 21);
+        "reports.md",
+        "cycle.md"
+    ].slice(0, 36);
 
 
     Litpro.commands.readfile = Litpro.prototype.wrapAsync(_"test async", "readfile");
@@ -4440,8 +4440,7 @@ process the inputs.
                 if (log.indexOf(text) !== -1) {
                     t.pass();
                 } else {
-                
-                console.log(text);
+                    console.log(text);
                     t.fail(text);
                 }
             };
@@ -5473,7 +5472,7 @@ Prototyped on Doc. Almost all are internal and are of little to no interest.
 * regexs. Some regular expressions that are used in the parsing of the code
   blocks.
 * backslash. The backslash function applied to command arguments.
-* whitespaceEscape. Handling whitespace escaping in conjunction with
+* whitespaceEscape. Handlingwhitespace escaping in conjunction with
   backslash. Putting the whitespace back.
 * store. stores a variable.
 
