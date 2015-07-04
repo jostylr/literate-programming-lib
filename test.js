@@ -193,21 +193,22 @@ var testfiles = [
     "templating.md",
     "empty.md",
     "switchcmd.md",
-    "templateexample.md",
     "pushpop.md",
-    "if.md",
     "version.md",
     "store.md",
-    "directivesubbing.md",
     "done.md", 
     "constructor.md",
     "transform.md",
     "linkquotes.md",
+    "subcommands.md",
     "backslash.md",
+    "if.md",
+    "templateexample.md",
+    "directivesubbing.md",
     "log.md",
     "reports.md",
     "cycle.md"
-].slice(0, 36);
+].slice(0, 37);
 
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {

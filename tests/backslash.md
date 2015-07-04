@@ -14,6 +14,7 @@ This tests the backslashing numbering scheme.
 
 [out](# "save:")
 
+
 ## Woops
 
     \_":this"
@@ -35,7 +36,7 @@ This tests the backslashing numbering scheme.
 
 ## Oops
 
-    \2_"awesome | sub oo, _"self" | sub \", ' "
+    \2_"awesome | sub oo, _"self" | sub \", \' "
 
 ## awesome
 
@@ -46,8 +47,8 @@ This tests the backslashing numbering scheme.
     irt
 
 ---
-\1_"awesome | sub oo, _"self" | sub \", ' "
-\0_"awesome | sub oo, _"self" | sub \", ' "
+\1_"awesome | sub oo, _"self" | sub \", \' "
+\0_"awesome | sub oo, _"self" | sub \", \' "
 shirt
 
 hi

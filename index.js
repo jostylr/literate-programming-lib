@@ -31,6 +31,7 @@ var Folder = function (actions) {
     
     this.commands = Object.create(Folder.commands);
     this.directives = Object.create(Folder.directives);
+    this.subCommands = Object.create(Folder.subCommands);
     this.reports = {};
     this.recording = {};
     this.stack = {};
@@ -414,8 +415,10 @@ var sync  = Folder.prototype.wrapSync = function (fun, label) {
     var f = function (input, args, name, command) {
         var doc = this;
         var gcd = doc.gcd;
-        
+       
         try {
+            args = doc.argsPrep(args, name, f.subCommands ||
+                doc.subCommands);
             var out = fun.call(doc, input, args, name);
             gcd.emit("text ready:" + name, out); 
         } catch (e) {
@@ -456,7 +459,7 @@ var async = Folder.prototype.wrapAsync = function (fun, label) {
                 gcd.emit("text ready:" + name, data);
             }
         };
-
+        args = doc.argsPrep(args, name, f.subCommands || doc.subCommands);
         fun.call(doc, input, args, callback, name);
     };
     if (label)  {
@@ -707,7 +710,6 @@ Folder.commands = {   eval : sync(function ( text, args ) {
     var doc = this;
 
     var code = args.join("\n");
-
 
     try {
         eval(code);
@@ -1270,6 +1272,22 @@ Folder.directives = {
     },
 };
 
+Folder.subCommands = (function () {
+    var ret = {};
+    
+    ret.e = ret.echo = function (str) {
+        if (("\"'`".indexOf(str[0]) !== -1) && 
+            (str[0] === str[str.length-1]) ) {
+            
+            return str.slice(1, -1);
+        } else {
+            return str;
+        }
+    };
+    
+    return ret;
+
+})();
 
 
 var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
@@ -1296,6 +1314,7 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
 
     this.commands = parent.commands;
     this.directives = parent.directives;
+    this.subCommands = parent.subCommands;
     this.colon = Object.create(parent.colon); 
     this.join = parent.join;
     this.log = this.parent.log;
@@ -2128,7 +2147,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                        curname = name.join(colon.v);
                        gcd.once("arguments ready:" + curname, handlerMaker(curname, gcd));
                        gcd.when("arg command ready:" + curname, "arguments ready:" + emitname);
-                       gcd.when(["arg command parsed:" + curname, "command is:" + curname], "arguments ready:" + curname);
+                       gcd.when(["arg command parsed:" + curname, "arg command is:" + curname], "arguments ready:" + curname);
                        gcd.emit("arg command is:" + curname, argstring);
                        argstring = '';
                        emitname = curname;
@@ -2157,7 +2176,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                             argstring = "";
                             start = ind +1;
                         }
-                        gcd.emit("command parsed:" + emitname);
+                        gcd.emit("arg command parsed:" + emitname);
                         name.pop();
                         emitname = name.join(colon.v);
                     } else {
@@ -2203,7 +2222,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                     return ind;
                 } else {
                     // start after current place, get quote position
-                    temp = text.indexOf("'", ind+1); 
+                    temp = text.indexOf("'", ind+1)+1;
                     if (temp === -1 ) { 
                         err = [start, ind, temp];
                         gcd.emit("error:" + topname, [err, "non-terminating quote"]);
@@ -2211,6 +2230,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                     } else {
                         argstring += text.slice(ind, temp);    
                         ind = temp;
+                        
                         continue;
                     }
                 }
@@ -2238,7 +2258,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                     return ind;
                 } else {
                     // start after current place, get quote position
-                    temp = text.indexOf("\u0022", ind+1); 
+                    temp = text.indexOf("\u0022", ind+1)+1;
                     if (temp === -1 ) { 
                         err = [start, ind, temp];
                         gcd.emit("error:" + topname, [err, "non-terminating quote"]);
@@ -2246,6 +2266,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                     } else {
                         argstring += text.slice(ind, temp);    
                         ind = temp;
+                        
                         continue;
                     }
                 }
@@ -2274,7 +2295,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                     return ind;
                 } else {
                     // start after current place, get quote position
-                    temp = text.indexOf("`", ind+1); 
+                    temp = text.indexOf("`", ind+1)+1;
                     if (temp === -1 ) { 
                         err = [start, ind, temp];
                         gcd.emit("error:" + topname, [err, "non-terminating quote"]);
@@ -2282,6 +2303,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                     } else {
                         argstring += text.slice(ind, temp);    
                         ind = temp;
+                        
                         continue;
                     }
                 }
@@ -2306,7 +2328,7 @@ dp.argFinishingHandler = function (comname) {
     var gcd = this.gcd;
 
     var f = function (data) {
-        var input, args, command, subs;
+        var input, args, command, subs, han;
     
         input = data[0][1];
         command = data[1][1][1];
@@ -2351,5 +2373,83 @@ dp.whitespaceEscape = function (text) {
     return text;
 
 };
+
+dp.argsPrep = function self (args, name, subs ) {
+    var retArgs = [], i, n = args.length;
+    var ret, subArgs, key, preName;
+    var cur, obj, doc = this, gcd = this.gcd;
+
+    for (i = 0; i < n; i += 1) {
+        cur = args[i];
+        if (typeof cur === "string") {
+            retArgs.push(cur);
+        } else if (Array.isArray(cur) ) {
+            subArgs = cur.slice(1);
+            if (subArgs.length) {
+                subArgs = self(subArgs, name, subs);
+            }
+            ret = subs[cur[0]].apply(doc, subArgs);
+            
+            if (Array.isArray(ret) ) {
+                switch (ret[0]) {
+                case "val" : 
+                    retArgs.push(ret[1]);
+                break;
+                case "array" : 
+                    // generate an array from rest of array and add that as a whole
+                    retArgs.push(ret.slice(1)); 
+                break;
+                case "args" : 
+                    // each item is added as separate thing
+                    Array.prototype.push.apply(retArgs, ret.slice(1));
+                break;
+                case "state" : 
+                    obj = gcd.scope(name);
+                    if (obj) {
+                        for (key in ret) {
+                            obj[key] = ret[key];
+                        }
+                    } else {
+                        gcd.scope(name, ret);
+                    }
+                    // no return argument added
+                break;
+                case "lineState" :
+                    preName = name.slice(0, name.lastIndexOf(doc.colon.v));
+                    obj = gcd.scope(preName);
+                    obj = gcd.scope(preName);
+                    if (obj) {
+                        for (key in ret) {
+                            obj[key] = ret[key];
+                        }
+                    } else {
+                        gcd.scope(preName, ret);
+                    }
+                    // no return argument added
+                break;
+                case "skip" :
+                    // intentionally left blank
+                break;
+                default : 
+                    // add as if a value but warn
+                    gcd.emit("error:unrecognized type in arg prepping:" + name,
+                        ret);
+                    retArgs.push(ret);
+                break;
+                }
+            } else if (typeof ret === "undefined") {
+                // no action, nothing added to retArgs
+            } else {
+                retArgs.push(ret);
+            }
+        } else { // should never happen
+            gcd.emit("error:argument prepping:" + name, args);
+        }
+
+    }
+
+    return retArgs;
+
+};  
 
 module.exports = Folder;

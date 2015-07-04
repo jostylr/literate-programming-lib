@@ -177,6 +177,7 @@ Each doc within a folder shares all the directives and commands.
     
     Folder.directives = _"Directives";
 
+    Folder.subCommands = _"Subcommands";
 
 
     var Doc = Folder.prototype.Doc = _"doc constructor";
@@ -210,6 +211,7 @@ We have a default scope called `g` for global.
         
         this.commands = Object.create(Folder.commands);
         this.directives = Object.create(Folder.directives);
+        this.subCommands = Object.create(Folder.subCommands);
         this.reports = {};
         this.recording = {};
         this.stack = {};
@@ -309,6 +311,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
 
         this.commands = parent.commands;
         this.directives = parent.directives;
+        this.subCommands = parent.subCommands;
         this.colon = Object.create(parent.colon); 
         this.join = parent.join;
         this.log = this.parent.log;
@@ -373,6 +376,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
 
     dp.whitespaceEscape = _"whitespace escape";
 
+    dp.argsPrep = _"argument prepping";  
 
 ### Example of folder constructor use
 
@@ -2072,7 +2076,7 @@ arg1 || command array ], ....]` In the handler, we unpack this to emit
         curname = name.join(colon.v);
         gcd.once("arguments ready:" + curname, handlerMaker(curname, gcd));
         gcd.when("arg command ready:" + curname, "arguments ready:" + emitname);
-        gcd.when(["arg command parsed:" + curname, "command is:" + curname], "arguments ready:" + curname);
+        gcd.when(["arg command parsed:" + curname, "arg command is:" + curname], "arguments ready:" + curname);
         gcd.emit("arg command is:" + curname, argstring);
         argstring = '';
         emitname = curname;
@@ -2107,7 +2111,7 @@ restore the emitname to the previous level.
 
     stack.shift();
     _":arg done"
-    gcd.emit("command parsed:" + emitname);
+    gcd.emit("arg command parsed:" + emitname);
     name.pop();
     emitname = name.join(colon.v);
 
@@ -2134,7 +2138,7 @@ will write this once and use the sub.
             return ind;
         } else {
             // start after current place, get quote position
-            temp = text.indexOf("'", ind+1); 
+            temp = text.indexOf("'", ind+1)+1;
             if (temp === -1 ) { 
                 err = [start, ind, temp];
                 _":report error | sub MSG, non-terminating quote"
@@ -2142,6 +2146,7 @@ will write this once and use the sub.
             } else {
                 argstring += text.slice(ind, temp);    
                 ind = temp;
+                
                 continue;
             }
         }
@@ -2746,7 +2751,7 @@ commands to modify the environment of the function.
 [handler]() 
 
     function (data) {
-        var input, args, command, subs;
+        var input, args, command, subs, han;
 
         _":extract data"
 
@@ -2807,8 +2812,10 @@ executing.
         var f = function (input, args, name, command) {
             var doc = this;
             var gcd = doc.gcd;
-            
+           
             try {
+                args = doc.argsPrep(args, name, f.subCommands ||
+                    doc.subCommands);
                 var out = fun.call(doc, input, args, name);
                 gcd.emit("text ready:" + name, out); 
             } catch (e) {
@@ -2863,7 +2870,7 @@ receive `err, data` where data is the text to emit.
                     gcd.emit("text ready:" + name, data);
                 }
             };
-
+            args = doc.argsPrep(args, name, f.subCommands || doc.subCommands);
             fun.call(doc, input, args, callback, name);
         };
         if (label)  {
@@ -2871,6 +2878,154 @@ receive `err, data` where data is the text to emit.
         } 
         
         return f;
+    }
+
+### Argument prepping
+
+So we have a bunch of arguments. Many of the times it is just a string, but if
+it is an array, then it will be a subcommand followed by its arguments,
+possibly their own subcommands. 
+
+This receives arguments, the command name, and an object containing
+subCommands, which is prototyped up doc and folder. The command name can be
+used for state from scoping. One can use this to stash configuration options,
+for example, that can then be removed from the argument list. 
+
+If an argument is an array, then it is a subcommand plus its own arguments. We
+call the function itself to recurse down until we are down with all arguments. 
+
+The return object will be passed on as is unless it is an array. Then it
+should be of the form [type, val, ...]. Types can be: 
+
+* array to pass the rest as an array
+* val to pass the immediately next value
+* args to pass the rest of the array as separate arguments
+* state which should then be an object to merge with existing state; keys overwrite
+* lineState which is a common scope to all in this pipe chain.
+* skip to skip entirely.
+* default is to add to arguments as a whole but with an error emitted. 
+
+Break from list--
+
+    function self (args, name, subs ) {
+        var retArgs = [], i, n = args.length;
+        var ret, subArgs, key, preName;
+        var cur, obj, doc = this, gcd = this.gcd;
+
+        for (i = 0; i < n; i += 1) {
+            cur = args[i];
+            if (typeof cur === "string") {
+                retArgs.push(cur);
+            } else if (Array.isArray(cur) ) {
+                subArgs = cur.slice(1);
+                if (subArgs.length) {
+                    subArgs = self(subArgs, name, subs);
+                }
+                ret = subs[cur[0]].apply(doc, subArgs);
+                
+                _":parse ret types"
+            } else { // should never happen
+                gcd.emit("error:argument prepping:" + name, args);
+            }
+
+        }
+
+        return retArgs;
+
+    }
+
+[parse ret types]()
+
+Here we implement the the possible types and responses. 
+
+    if (Array.isArray(ret) ) {
+        _":array ret"
+    } else if (typeof ret === "undefined") {
+        // no action, nothing added to retArgs
+    } else {
+        retArgs.push(ret);
+    }
+
+[array ret]()
+
+
+    switch (ret[0]) {
+    case "val" : 
+        retArgs.push(ret[1]);
+    break;
+    case "array" : 
+        // generate an array from rest of array and add that as a whole
+        retArgs.push(ret.slice(1)); 
+    break;
+    case "args" : 
+        // each item is added as separate thing
+        Array.prototype.push.apply(retArgs, ret.slice(1));
+    break;
+    case "state" : 
+        _":state"
+    break;
+    case "lineState" :
+        preName = name.slice(0, name.lastIndexOf(doc.colon.v));
+        obj = gcd.scope(preName);
+        _":state| sub name, preName"
+    break;
+    case "skip" :
+        // intentionally left blank
+    break;
+    default : 
+        // add as if a value but warn
+        gcd.emit("error:unrecognized type in arg prepping:" + name,
+            ret);
+        retArgs.push(ret);
+    break;
+    }
+
+* state which should then be an object to merge with existing state; keys overwrite
+* lineState which is a common scope to all in this pipe chain.
+* skip to skip entirely. 
+
+[state]()
+
+The state code. Also used for lineState.
+
+    obj = gcd.scope(name);
+    if (obj) {
+        for (key in ret) {
+            obj[key] = ret[key];
+        }
+    } else {
+        gcd.scope(name, ret);
+    }
+    // no return argument added
+
+
+## subCommands
+
+This is the object that holds subcommands. Commands with unique requirements
+can use this as a prototype.  
+
+    (function () {
+        var ret = {};
+        
+        ret.e = ret.echo = _"echo";
+        
+        return ret;
+
+    })()
+
+### echo
+
+This simply returns the input, but if it is surrounded by quotes, we remove
+them. 
+
+    function (str) {
+        if (("\"'`".indexOf(str[0]) !== -1) && 
+            (str[0] === str[str.length-1]) ) {
+            
+            return str.slice(1, -1);
+        } else {
+            return str;
+        }
     }
 
 
@@ -2910,7 +3065,6 @@ to see. Manipulate that variable. The text is then passed along.
         var doc = this;
 
         var code = args.join("\n");
-
 
         try {
             eval(code);
@@ -4270,21 +4424,22 @@ The log array should be cleared between tests.
         "templating.md",
         "empty.md",
         "switchcmd.md",
-        "templateexample.md",
         "pushpop.md",
-        "if.md",
         "version.md",
         "store.md",
-        "directivesubbing.md",
         "done.md", 
         "constructor.md",
         "transform.md",
         "linkquotes.md",
+        "subcommands.md",
         "backslash.md",
+        "if.md",
+        "templateexample.md",
+        "directivesubbing.md",
         "log.md",
         "reports.md",
         "cycle.md"
-    ].slice(0, 36);
+    ].slice(0, 37);
 
 
     Litpro.commands.readfile = Litpro.prototype.wrapAsync(_"test async", "readfile");
