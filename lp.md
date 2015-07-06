@@ -1667,13 +1667,10 @@ We need to track the command numbering for the event emitting.
        
         var incomingEmit = textEmit;
 
-        var chr, argument, argnum, match, command, 
-            comname, nextname, aname, result, start, orig=ind ;
+        var chr, match, command, 
+            comname, start;
         var n = text.length;
-        var comnum = 0;
         var comreg = doc.regexs.command[quote];
-        var argreg = doc.regexs.argument[quote];
-        var wsreg = /\s*/g;
 
 
         while (ind < n) { // command processing loop
@@ -1833,12 +1830,13 @@ We advance start until the first non-whitespace character.
 The argdone flag is set true after a command parenthesis finishes or a
 substitution. If true, when an argument finishes (pipe, comma, substitute end
 quote), then it does not add an argument; if there is something, it emits an
-error. 
+error. The text ready event is handled elsewhere. But we always pop a level.    
 
-We have coming into this a .when that is waiting for the parsing to be done.
+We have coming into this a .when that is waiting for the parsing to be done;
+this is `arguments ready`.
 For each argument, we add to this .when parsing starting at the index. When
-done with an argument, we emit that it is ready if it was just a string. If it
-is not so simple, then we emit the ready when it is ready.
+done with an argument, we emit that it is `text ready` if it was just a string. If it
+is not so simple, then we emit the `text ready` when it is ready.
 
 This should return an index pointing to a pipe (another command) or to a
 matching quote from the substitution. 
@@ -1850,7 +1848,6 @@ This is linked to in doc prototype under name argProcessing
         var gcd = doc.gcd;
         var n = text.length;
         var stack = [];
-        var argstr = '';
         var name = [topname];
         var emitname = topname;
         var colon = doc.colon;
@@ -1863,18 +1860,21 @@ This is linked to in doc prototype under name argProcessing
         var argdone = false;
        
         var handlerMaker = doc.argHandlerMaker;
-        var escaping = doc.argEscaping; 
+
+        var whenIt = function () {
+            name.push(start); 
+            curname =  name.join(colon.v);
+            gcd.when("text ready:" + curname, "arguments ready:" + emitname);
+        };
+
 
         var wsreg = /\S/g;
 
         _":fast forward to non-whitespace"
 
-        name.push(ind);
-         
         
         while ( ind < n ) {
 
-            //console.log(ind, " : ", argstring, text[ind], " --- ", stack); 
 
             switch (text[ind]) {
 
@@ -1892,7 +1892,7 @@ This is linked to in doc prototype under name argProcessing
                 case "," : 
                     if ( (stack.length === 0 ) || (stack[0] === cp) ) {
                         _":arg done"
-                        ind +=1;
+                        ind += 1;
                         _":fast forward to non-whitespace"
                         continue;
                     } else {
@@ -1967,12 +1967,13 @@ If argdone is false, then we have a simple string and we emit it.
             argstring = "";
         }
         argdone = false;
+        name.pop();
         start = ind+1;
-        
+
     } else { // simple string
-        curname = name.join(colon.v);
-        gcd.when("text ready:" + curname , "arguments ready:" + emitname);
+        whenIt();
         gcd.emit("text ready:" + curname, doc.whitespaceEscape(argstring.trim()));
+        name.pop();
         argstring = "";
         start = ind +1;
     }
@@ -1985,8 +1986,7 @@ Need to call in the substituion process. It will lead to the emitting of a
 text ready event which will contain the text to be put into the emitname's
 arguments.  
 
-    curname = name.join(colon.v) + colon.v +  ind;
-    gcd.when("text ready:" + curname, "arguments ready:" + emitname);
+    whenIt();
     temp =  doc.substituteParsing(text, ind+2, text[ind+1], curname, mainblock);
     
     if ( temp === text.length) {
@@ -1997,7 +1997,7 @@ arguments.
     } else {
         ind = temp;
     }
-
+ 
     argstring = '';
     argdone = true;
 
@@ -2066,20 +2066,28 @@ The .when data stream to the next argument should be of the form
 arg1 || command array ], ....]` In the handler, we unpack this to emit
 `[cmdname, arg1, arg2, ....]` 
 
+Let's say that we have emitname1 from elsewhere. We hit a command which starts
+at 30. We should
+have already set it up to the .when for emitname1 by the time we know it is a
+command. Now we have a command. We enter it at say character 35 (just after
+parentheses). So character 35 is a new argument. It attaches to arguments
+ready:emitname1:35. It fires when it is ready.  We have three names. We
+first attach when to current emitname and the current name is the
+command level.  
+
     //make sure no whitespace to be a command
     // also make sure either top level or in cp
     if ( ( (stack.length ===0) || (stack[0] === cp) ) && 
          (argstring.search(/^\S+\s*$/) !== -1) ) {
         
         stack.unshift(cp);
-        name.push(ind);
-        curname = name.join(colon.v);
-        gcd.once("arguments ready:" + curname, handlerMaker(curname, gcd));
-        gcd.when("arg command ready:" + curname, "arguments ready:" + emitname);
-        gcd.when(["arg command parsed:" + curname, "arg command is:" + curname], "arguments ready:" + curname);
-        gcd.emit("arg command is:" + curname, argstring);
-        argstring = '';
+        whenIt(); 
         emitname = curname;
+        gcd.once("arguments ready:" + emitname, handlerMaker(emitname, gcd));
+        gcd.when(["arg command parsed:" + emitname, "arg command is:" + emitname], "arguments ready:" + emitname);
+        gcd.emit("arg command is:" + emitname, argstring);
+        argstring = '';
+        _":fast forward to non-whitespace"
     } else {
         stack.unshift("(");
         argstring += "(";
@@ -2087,18 +2095,19 @@ arg1 || command array ], ....]` In the handler, we unpack this to emit
 
 [handler maker]()
 
-This makes a handler with emitname embedded in it. 
+This makes a handler with emitname embedded in it. This provides the
+argument data.  
 
-        function (curname, gcd) {
+        function (name, gcd) {
             var f = function (data) {
                 var ret = [data[1][1]]; //cmd name
                 var args = data.slice(2);
                 args.forEach(function (el) {
                     ret.push(el[1]);
                 });
-                gcd.emit("arg command ready:" + curname, ret);
+                gcd.emit("text ready:" + name, ret);
             };
-            f._label = "arg command processing;;"+curname;
+            f._label = "arg command processing;;"+name;
             return f;
         }
 
@@ -2110,10 +2119,13 @@ argument and then we emit that the command was done being parsed. And then we
 restore the emitname to the previous level. 
 
     stack.shift();
-    _":arg done"
+    _":arg done" //  the last argument is popped
     gcd.emit("arg command parsed:" + emitname);
-    name.pop();
-    emitname = name.join(colon.v);
+    emitname = name.slice(0, -1).join(colon.v);
+    argdone = true;
+    argstring = '';
+    _":fast forward to non-whitespace"
+    
 
 
 [quote]()
@@ -2751,7 +2763,7 @@ commands to modify the environment of the function.
 [handler]() 
 
     function (data) {
-        var input, args, command, subs, han;
+        var input, args, command, han;
 
         _":extract data"
 
@@ -2817,6 +2829,7 @@ executing.
                 args = doc.argsPrep(args, name, f.subCommands ||
                     doc.subCommands);
                 var out = fun.call(doc, input, args, name);
+                gcd.scope(name, null); // wipes out scope for args
                 gcd.emit("text ready:" + name, out); 
             } catch (e) {
                 doc.log(e);
@@ -2867,6 +2880,7 @@ receive `err, data` where data is the text to emit.
                     gcd.emit("error:command execution:" + name, 
                         [err, input, args, command]);
                 } else {
+                    gcd.scope(name, null); // wipes out scope for args
                     gcd.emit("text ready:" + name, data);
                 }
             };
@@ -2909,9 +2923,9 @@ Break from list--
 
     function self (args, name, subs ) {
         var retArgs = [], i, n = args.length;
-        var ret, subArgs, key, preName;
-        var cur, obj, doc = this, gcd = this.gcd;
-
+        var ret, subArgs;
+        var cur, doc = this, gcd = this.gcd;
+        doc.cmdName = name;
         for (i = 0; i < n; i += 1) {
             cur = args[i];
             if (typeof cur === "string") {
@@ -2949,54 +2963,34 @@ Here we implement the the possible types and responses.
 [array ret]()
 
 
-    switch (ret[0]) {
+    switch (ret.shift()) {
+    case "value" :
+    case "values" :
     case "val" : 
-        retArgs.push(ret[1]);
+        Array.prototype.push.apply(retArgs, ret);
     break;
     case "array" : 
         // generate an array from rest of array and add that as a whole
-        retArgs.push(ret.slice(1)); 
+        retArgs.push(ret); 
     break;
+    case "arguments" : 
     case "args" : 
-        // each item is added as separate thing
-        Array.prototype.push.apply(retArgs, ret.slice(1));
+        // array each item is added as separate thing
+        Array.prototype.push.apply(retArgs, ret.shift());
     break;
-    case "state" : 
-        _":state"
+    case "skip" : 
+        // blank intentionally
     break;
-    case "lineState" :
-        preName = name.slice(0, name.lastIndexOf(doc.colon.v));
-        obj = gcd.scope(preName);
-        _":state| sub name, preName"
-    break;
-    case "skip" :
-        // intentionally left blank
-    break;
-    default : 
+     default : 
         // add as if a value but warn
-        gcd.emit("error:unrecognized type in arg prepping:" + name,
+        gcd.emit("warn:unrecognized type in arg prepping:" + name,
             ret);
         retArgs.push(ret);
     break;
     }
 
-* state which should then be an object to merge with existing state; keys overwrite
-* lineState which is a common scope to all in this pipe chain.
-* skip to skip entirely. 
-
-[state]()
-
-The state code. Also used for lineState.
-
-    obj = gcd.scope(name);
-    if (obj) {
-        for (key in ret) {
-            obj[key] = ret[key];
-        }
-    } else {
-        gcd.scope(name, ret);
-    }
-    // no return argument added
+         
+       
 
 
 ## subCommands
@@ -3007,13 +3001,47 @@ can use this as a prototype.
     (function () {
         var ret = {};
         
-        ret.e = ret.echo = _"echo";
+        ret.echo = ret.e = _"echo";
+       
+        ret.join = ret.j = _"join";
         
+        ret.array = ret.a = _"array";
+
+        ret.object = ret.obj = ret.o = _"object";
+
+        ret.merge = _"merge";
+
+        ret["key-value"] = ret.kv = _"key value";
+
+        ret.act = _"act";
+
+        ret.json = _"json";
+
+        ret.set = _"set";
+
+        ret.gSet = _"gSet";
+
+        ret.get = _"get";
+
+        ret.gGet = _"gGet";
+
+        ret.arguments = ret.args = _"arguments";
+
+        ret.number = ret.n = ret["#"] = _"number";
+
+        ret.eval = _"sc eval";
+
+        ret.log = _"sc log";
+
         return ret;
 
     })()
 
-### echo
+
+    
+
+
+### Echo
 
 This simply returns the input, but if it is surrounded by quotes, we remove
 them. 
@@ -3028,6 +3056,275 @@ them.
         }
     }
 
+### Join
+
+
+The first entry is the joiner separator and it joins the rest
+  of the arguments. For arrays, they are flattened with the separator as well
+  (just one level -- then it gets messy and wrong, probably).
+
+    function (sep) {
+        var args = Array.prototype.slice.call(arguments, 1);
+        var ret = [];
+        
+        args.forEach( function (el) {
+            if ( Array.isArray(el)) {
+                ret.push(el.join(sep));
+            } else {
+                ret.push(el);
+            }
+        });
+
+        return ["val", ret.join(sep)];
+
+    }
+
+### Array 
+
+This creates an array of the arguments.
+
+    function () {
+        return ["val", Array.prototype.slice.call(arguments, 0)];
+    }
+
+
+### Object
+
+This presumes that a JSON stringed object is ready
+  to be made into an object.
+
+    function (str) {
+        var ret;
+        try {
+            ret = JSON.parse(str);
+            if (Array.isArray(ret) ) {
+                return ["val", ret];
+            } else {
+                return ret;
+            }
+        } catch (e) {
+            this.gcd.emit("error:arg prepping:bad json parse:" + this.cmdname, 
+                [e, e.stack, str]);
+            return ["error", e];
+        }
+    }
+
+
+### Merge
+
+Merge arrays or objects, depending on what is there.
+
+To merge the arrays, we use concat with the first argument as this and the
+rest as arguments from slicing the arguments. 
+
+For objects, we use the first object, iterate over the keys, adding. The later
+objects will overwrite the earlier ones. 
+
+    function (a) {
+        var ret, args; 
+        if (Array.isArray(a) ) {
+            args = Array.prototype.slice.call(arguments, 1);
+            return ["val", Array.prototype.concat.apply(a, args)];
+        } else {
+            args = Array.prototype.slice.call(arguments, 1);
+            ret = a;
+            args.forEach( function (el) {
+                var key;
+                for (key in el) {
+                    ret[key] = el[key];
+                }
+            });
+            return ret; 
+        }
+    }
+
+### Key Value
+
+This produces an object based on the assumption that a
+  `key, value` pairing are the arguments. The key should be text. 
+
+    function () {
+        var ret = {};
+        var i, n = arguments.length;
+        for (i = 0; i < n; i += 2) {
+            ret[arguments[i]] = arguments[i+1];
+        }
+
+        return ret;
+    }
+
+### Act
+
+This allows one to do `obj, method, args` to apply a method to an
+  object with the slot 2 and above being arguments. For example, one could do
+  `act( arr(3, 4, 5), slice, 2, 5)` to slice the array.
+
+    function (obj, method) {
+        try {
+            return ["value", 
+                obj[method].apply(obj, Array.prototype.slice.call(arguments))
+            ];
+        } catch (e) {
+            this.gcd.emit("error:arg prepping:bad method:" + this.cmdname, 
+                [e, e.stack, obj, method,
+                Array.prototype.slice.call(arguments)]);
+            return ;
+        }
+    }
+
+### JSON
+
+This will convert an object to to JSON representation. If it fails (cyclical
+structures for example), then it emits an error.
+
+    function (obj) {
+        try {
+            return JSON.stringify(obj);
+        } catch (e) {
+            this.gcd.emit("error:arg prepping:bad json:" + this.cmdname, 
+                [e, e.stack, obj]);
+            return ;
+        }
+    }
+
+### Set
+
+The presumption is that this is an object passed in whose scope is to be used.
+If one wants to bubble the argument up, one can use a value recognized by the
+return parsing (value, array, args) 
+
+    function (obj, retType) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var name = doc.cmdName;
+        var scope, key; 
+        
+        scope = gcd.scope(name);
+        if (!scope) {
+            scope = {};
+            gcd.scope(name, scope);
+        }
+        for (key in obj) {
+            scope[key] = obj[key];
+        }
+        if (retType) {
+            return [retType, obj];
+        } else {
+            return ;
+        }
+    }
+
+### gSet
+  
+This does this in a way that other commands in the pipe chain can
+  see it.
+
+    _"set | sub  doc.cmdName , _":sub line" " 
+
+[sub line]()
+
+    doc.cmdName.slice(0, doc.cmdName.lastIndexOf(doc.colon.v)) 
+    
+
+### Get
+
+This retrieves the value for the given key argument(s).
+
+    function () {
+        var doc = this;
+        var gcd = doc.gcd;
+        var name = doc.cmdName;
+        var scope; 
+        
+        scope = gcd.scope(name);
+        if (!scope) {
+            gcd.emit("error:arg prepping:no scope:" + name);
+            return ;
+        }
+
+        var i, n = arguments.length;
+        var ret = ["values"];
+        for (i = 0; i < n; i +=1 ) {
+            ret.push(scope[arguments[i]]);
+        }
+    }
+
+### gGet
+
+This retrieves the value for the given key argument from the pipe chain.
+
+    _"get | sub  doc.cmdName , _":sub line" " 
+
+[sub line]()
+
+    doc.cmdName.slice(0, doc.cmdName.lastIndexOf(doc.colon.v)) 
+    
+
+### Arguments
+
+This expects an array and each element becomes a separate
+  argument that the command will see. E.g., `cmd arguments(arr(3, 4))` is
+  equivalent to `cmd 3, 4`. This is useful for constructing the args
+  elsewhere. In particular, `args(obj(_"returns json of an array"))` will
+  result in the array from the subsitution becoming the arguments to pass in.  
+
+    function (arr) {
+        return ["arguments", arr];
+    }
+
+
+### Number
+
+This converts the argument(s) to numbers, using js Number function. Each
+number becomes a separate argument. 
+
+    function () {
+        var ret = [], i, n = arguments.length;
+        for (i = 0; i < n; i += 1) {
+            ret.push(Number(arguments[i]));
+        }
+        ret.unshift("val");
+        return ret;
+    }
+
+
+### sc Eval
+
+Will evaluate the argument and use the magic `ret` variable as the value to
+  return. This can also see doc and args has the arguments post code.
+  Recommend using backticks for quoting the eval; it will check for
+  that automatically (just backticks, can do echo for the others if needed).
+
+    function (code) {
+        var ret, doc = this;
+        var args = Array.prototype.slice.call(arguments, 1);
+
+        if ( (code[0] === "`" ) && (code[code.length-1] === code[0]) ) {
+            code = code.slice(1, code.length-1);
+        }
+       
+        try {
+            eval(code);
+            return ret;
+        } catch (e) {
+            this.gcd.emit("error:arg prepping:bad eval:" + this.cmdname, 
+                [e, e.stack, code]);
+            return;
+        }
+
+    }
+
+### sc Log
+
+This logs the argument and passes them along as arguments.
+
+    function () {
+        var doc = this, name = doc.cmdName;
+        var args = Array.prototype.slice.call(arguments);
+        doc.log("arguments in " + name + ":\n---\n" + 
+            args.join("\n~~~\n") + "\n---\n");
+        return ["values", args];  
+    }
 
 ## Commands
 
@@ -4439,7 +4736,7 @@ The log array should be cleared between tests.
         "log.md",
         "reports.md",
         "cycle.md"
-    ].slice(0, 37);
+    ].slice(0, 35);
 
 
     Litpro.commands.readfile = Litpro.prototype.wrapAsync(_"test async", "readfile");
@@ -4550,7 +4847,7 @@ process the inputs.
                 });
             };
 
-           // notEmit();
+            //notEmit();
 
          // setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
@@ -5280,6 +5577,57 @@ Note commands need to be one word.
 * **Done** `name` This is a command to emit the done event for name. It just
   passes through the incoming text. The idea is that it would be, say, a
   filename of somehting that got saved. 
+
+ ## Built-in Subcommands
+
+With command arguments, one can run commands on arguments to get them in some
+appropriate form or use, including passing in objects or arrays. You can use
+them as `cmd a, subcmd(arg1, arg2, arg3)` would have subcmd acting on the args
+and the result of that would be the argument place (more or less -- see
+definig subcommands). The a would be passed as a string into cmd as the first
+argument, but anything might get passed into cmd by subcmd's return value. It
+could also store an object into a state for configuration (again see defining
+these guys). 
+
+There are several built-in subcommands. Note that These are case insensitive. 
+
+* `e` or `echo`  This expects a quote-delimited string to be passed in and
+  will strip the quotes. This is useful as the appearance of a quote will mask
+  all other mechanics. So `e("a, b and _this")` will produce a literal
+  argument of `a, b, and _this`. 
+* `j` or `join` The first entry is the joiner separator and it joins the rest
+  of the arguments. For arrays, they are flattened with the separator as well
+  (just one level -- then it gets messy and wrong, probably). 
+* `a` or `arr` or `array` This creates an array of the arguments.
+* `o` or `obj` or `object` This presumes that a JSON stringed object is ready
+  to be made into an object.
+* `merge` Merge arrays or objects, depending on what is there.
+* `kv` or `key-value` This produces an object based on the assumption that a
+  `key, value` pairing are the arguments. The key should be text. multipl
+  pairs welcome.  
+* `act` This allows one to do `obj, method, args` to apply a method to an
+  object with the slot 2 and above being arguments. For example, one could do
+  `act( arr(3, 4, 5), slice, 2, 5)` to slice the array.
+* `json` This will convert an object to to JSON representation.
+* `set` The presumption is that an object is passed in whose key:values should
+  be added to the command state. 
+  `gSet` does this in a way that other commands in the pipe chain can
+  see it. 
+* `get` This retrieves the value for the given key argument. `gGet` does the
+  same for the pipe chain. Multiple keys can be given and each associated
+  value will be
+  returned as distinct arguments. 
+* `arguments` This expects an array and each element becomes a separate
+  argument that the command will see. E.g., `cmd arguments(arr(3, 4))` is
+  equivalent to `cmd 3, 4`. This is useful for constructing the args
+  elsewhere. In particular, `args(obj(_"returns json of an array"))` will
+  result in the array from the subsitution becoming the arguments to pass in.  
+* `n` or `#` or `number` This converts the argument(s) to numbers, using js Number function.
+* `eval` will evaluate the argument and use the magic `ret` variable as the value to
+  return. This can also see doc (and doc.cmdName) and args has the arguments post code.
+  Recommend using backticks for quoting the eval; it will check for
+  that automatically (just backticks, can do echo for the others if needed).
+* `log` This logs the argument and passes them along as arguments. 
 
  ## h5 and h6
 
