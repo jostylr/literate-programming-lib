@@ -11,6 +11,8 @@ subCommands -- testing our subcommands
 
     _"eval"
 
+    _"set"
+
 [out](# "save:")
 
 
@@ -33,7 +35,8 @@ subCommands -- testing our subcommands
 
 ## eval
 
-    _"|cat eval(_":code", arr(n(1, 2, 3, 4, 5)))"
+    _"|cat :, eval(_":code", arr(n(1, 2, 3, 4, 5))), 
+        eval(`ret = 70;`)"
 
 
 
@@ -43,27 +46,15 @@ subCommands -- testing our subcommands
         return prev + cur;
     });
 
+## set
 
-* `set` The presumption is that an object is passed in whose key:values should
-  be added to the command state. 
-  `gSet` does this in a way that other commands in the pipe chain can
-  see it. 
-* `get` This retrieves the value for the given key argument. `gGet` does the
-  same for the pipe chain. Multiple keys can be given and each associated
-  value will be
-  returned as distinct arguments. 
-* `arguments` This expects an array and each element becomes a separate
-  argument that the command will see. E.g., `cmd arguments(arr(3, 4))` is
-  equivalent to `cmd 3, 4`. This is useful for constructing the args
-  elsewhere. In particular, `args(obj(_"returns json of an array"))` will
-  result in the array from the subsitution becoming the arguments to pass in.  
-* `n` or `#` or `number` This converts the argument(s) to numbers, using js Number function.
-* `eval` will evaluate the argument and use the magic `ret` variable as the value to
-  return. This can also see doc (and doc.cmdName) and args has the arguments post code.
-  Recommend using backticks for quoting the eval; it will check for
-  that automatically (just backticks, can do echo for the others if needed).
-* `log` This logs the argument and passes them along as arguments. 
+This is going to see if the get and sets work
 
+    _"| cat 5, gSet(o({"a": [1, 2, 3]}))  |
+        cat :=:, set(kv(cool, gGet(a))), 
+            args(eval( `ret = args[0].concat(args[1]);`, 
+                     get(cool, cool)))"
+                     
 ---
 Cool, beans. :: koo"like
 
@@ -73,4 +64,8 @@ this -- that -- the other
 
 5:6
 
-15
+15:70
+
+5:=:1:=:2:=:3:=:1:=:2:=:3
+
+

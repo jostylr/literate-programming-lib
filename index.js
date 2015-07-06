@@ -425,7 +425,7 @@ var sync  = Folder.prototype.wrapSync = function (fun, label) {
         } catch (e) {
             doc.log(e);
             gcd.emit("error:command execution:" + name, 
-                [e, input, args, command]); 
+                [e, e.stack, input, args, command]); 
         }
     };
 
@@ -1396,7 +1396,7 @@ Folder.subCommands = (function () {
         }
     };
 
-    ret.gSet = function (obj, retType) {
+    ret.gset = function (obj, retType) {
         var doc = this;
         var gcd = doc.gcd;
         var name = doc.cmdName.slice(0, doc.cmdName.lastIndexOf(doc.colon.v)) ;
@@ -1434,9 +1434,10 @@ Folder.subCommands = (function () {
         for (i = 0; i < n; i +=1 ) {
             ret.push(scope[arguments[i]]);
         }
+        return ret;
     };
 
-    ret.gGet = function () {
+    ret.gget = function () {
         var doc = this;
         var gcd = doc.gcd;
         var name = doc.cmdName.slice(0, doc.cmdName.lastIndexOf(doc.colon.v)) ;
@@ -1453,6 +1454,7 @@ Folder.subCommands = (function () {
         for (i = 0; i < n; i +=1 ) {
             ret.push(scope[arguments[i]]);
         }
+        return ret;
     } ;
 
     ret.arguments = ret.args = function (arr) {
@@ -1478,7 +1480,7 @@ Folder.subCommands = (function () {
        
         try {
             eval(code);
-            return ret;
+            return ["val", ret];
         } catch (e) {
             this.gcd.emit("error:arg prepping:bad eval:" + this.cmdname, 
                 [e, e.stack, code]);
@@ -1492,7 +1494,7 @@ Folder.subCommands = (function () {
         var args = Array.prototype.slice.call(arguments);
         doc.log("arguments in " + name + ":\n---\n" + 
             args.join("\n~~~\n") + "\n---\n");
-        return ["values", args];  
+        return ["val", args];  
     };
 
     return ret;
@@ -2620,7 +2622,7 @@ dp.argsPrep = function self (args, name, subs ) {
         } else if (Array.isArray(cur) ) {
             subArgs = cur.slice(1);
             if (subArgs.length) {
-                subArgs = self(subArgs, name, subs);
+                subArgs = self.call(doc, subArgs, name, subs);
             }
             ret = subs[cur[0]].apply(doc, subArgs);
             

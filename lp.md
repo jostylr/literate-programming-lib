@@ -2836,7 +2836,7 @@ executing.
             } catch (e) {
                 doc.log(e);
                 gcd.emit("error:command execution:" + name, 
-                    [e, input, args, command]); 
+                    [e, e.stack, input, args, command]); 
             }
         };
 
@@ -2935,7 +2935,7 @@ Break from list--
             } else if (Array.isArray(cur) ) {
                 subArgs = cur.slice(1);
                 if (subArgs.length) {
-                    subArgs = self(subArgs, name, subs);
+                    subArgs = self.call(doc, subArgs, name, subs);
                 }
                 ret = subs[cur[0]].apply(doc, subArgs);
                 
@@ -3021,11 +3021,11 @@ can use this as a prototype.
 
         ret.set = _"set";
 
-        ret.gSet = _"gSet";
+        ret.gset = _"gSet";
 
         ret.get = _"get";
 
-        ret.gGet = _"gGet";
+        ret.gget = _"gGet";
 
         ret.arguments = ret.args = _"arguments";
 
@@ -3250,6 +3250,7 @@ This retrieves the value for the given key argument(s).
         for (i = 0; i < n; i +=1 ) {
             ret.push(scope[arguments[i]]);
         }
+        return ret;
     }
 
 ### gGet
@@ -3308,7 +3309,7 @@ Will evaluate the argument and use the magic `ret` variable as the value to
        
         try {
             eval(code);
-            return ret;
+            return ["val", ret];
         } catch (e) {
             this.gcd.emit("error:arg prepping:bad eval:" + this.cmdname, 
                 [e, e.stack, code]);
@@ -3326,7 +3327,7 @@ This logs the argument and passes them along as arguments.
         var args = Array.prototype.slice.call(arguments);
         doc.log("arguments in " + name + ":\n---\n" + 
             args.join("\n~~~\n") + "\n---\n");
-        return ["values", args];  
+        return ["val", args];  
     }
 
 ## Commands
