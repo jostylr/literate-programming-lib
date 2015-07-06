@@ -142,7 +142,7 @@ var testrunner = function (file) {
             });
         };
 
-        //notEmit();
+       // notEmit();
 
      // setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
@@ -208,7 +208,9 @@ var testfiles = [
     "log.md",
     "reports.md",
     "cycle.md"
-].slice(0, 35);
+].
+slice(0,36);
+//slice(31, 32);
 
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {

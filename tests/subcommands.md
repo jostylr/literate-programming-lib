@@ -3,31 +3,47 @@ subCommands -- testing our subcommands
 
     _"echo"
 
+    _"join"
+
+    _"json"
+
+    _"act"
+
+    _"eval"
+
 [out](# "save:")
 
-# echo
 
-    _"|cat echo(' :: '), e("Cool, beans."), e(koo\"like)"
+## echo
+
+    _"|cat echo(' :: ', discarded), e("Cool, beans."), e(koo\"like)"
+
+## join
+
+    _"|cat join(e(" -- "), a(this, that), the other)"
+
+## json
+
+    _"|cat json( merge( o({"a" : 2, "c" : "j"}), 
+        kv(b, merge(arr(3, 4), arr(t, f)), c, k ) ) )"
+
+## act
+
+    _"|cat :, args(act(arr (4, 5, 6), slice, n(1) ) )"
+
+## eval
+
+    _"|cat eval(_":code", arr(n(1, 2, 3, 4, 5)))"
 
 
-* `e` or `echo`  This expects a quote-delimited string to be passed in and
-  will strip the quotes. This is useful as the appearance of a quote will mask
-  all other mechanics. So `e("a, b and _this")` will produce a literal
-  argument of `a, b, and _this`. 
-* `j` or `join` The first entry is the joiner separator and it joins the rest
-  of the arguments. For arrays, they are flattened with the separator as well
-  (just one level -- then it gets messy and wrong, probably). 
-* `a` or `arr` or `array` This creates an array of the arguments.
-* `o` or `obj` or `object` This presumes that a JSON stringed object is ready
-  to be made into an object.
-* `merge` Merge arrays or objects, depending on what is there.
-* `kv` or `key-value` This produces an object based on the assumption that a
-  `key, value` pairing are the arguments. The key should be text. multipl
-  pairs welcome.  
-* `act` This allows one to do `obj, method, args` to apply a method to an
-  object with the slot 2 and above being arguments. For example, one could do
-  `act( arr(3, 4, 5), slice, 2, 5)` to slice the array.
-* `json` This will convert an object to to JSON representation.
+
+[code]()
+
+    ret = args[0].reduce(function (prev, cur) {
+        return prev + cur;
+    });
+
+
 * `set` The presumption is that an object is passed in whose key:values should
   be added to the command state. 
   `gSet` does this in a way that other commands in the pipe chain can
@@ -50,3 +66,11 @@ subCommands -- testing our subcommands
 
 ---
 Cool, beans. :: koo"like
+
+this -- that -- the other
+
+{"a":2,"c":"k","b":["3","4","t","f"]}
+
+5:6
+
+15

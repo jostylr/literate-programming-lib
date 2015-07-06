@@ -1303,12 +1303,12 @@ Folder.subCommands = (function () {
     
     };
     
-    ret.array = ret.a = function () {
+    ret.array = ret.arr = ret.a = function () {
         return ["val", Array.prototype.slice.call(arguments, 0)];
     };
 
     ret.object = ret.obj = ret.o = function (str) {
-        var ret;
+        var ret, doc = this;
         try {
             ret = JSON.parse(str);
             if (Array.isArray(ret) ) {
@@ -1317,7 +1317,7 @@ Folder.subCommands = (function () {
                 return ret;
             }
         } catch (e) {
-            this.gcd.emit("error:arg prepping:bad json parse:" + this.cmdname, 
+            doc.gcd.emit("error:arg prepping:bad json parse:" + this.cmdname, 
                 [e, e.stack, str]);
             return ["error", e];
         }
@@ -1354,7 +1354,7 @@ Folder.subCommands = (function () {
     ret.act = function (obj, method) {
         try {
             return ["value", 
-                obj[method].apply(obj, Array.prototype.slice.call(arguments))
+                obj[method].apply(obj, Array.prototype.slice.call(arguments, 2))
             ];
         } catch (e) {
             this.gcd.emit("error:arg prepping:bad method:" + this.cmdname, 
@@ -1365,6 +1365,7 @@ Folder.subCommands = (function () {
     };
 
     ret.json = function (obj) {
+        var doc = this; 
         try {
             return JSON.stringify(obj);
         } catch (e) {
@@ -1944,7 +1945,7 @@ dp.pipeParsing = function (text, ind, quote, name, mainblock, toEmit, textEmit) 
             start = ind += 1;
         } else {
             gcd.emit("error:bad terminating character in command" + 
-                name, [ind, text[ind]]);
+                name, [start, ind, text[ind]]);
         }
 
     }
@@ -2227,7 +2228,6 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
     
     while ( ind < n ) {
 
-
         switch (text[ind]) {
 
             case "\u005F" :  // underscore
@@ -2266,8 +2266,8 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                 if ( (stack.length === 0 ) || (stack[0] === cp) ) {
                     if (argdone) {
                         if (argstring !== "") {
-                            err = [argstring, start, ind];
-                            gcd.emit("error:" + topname, [err, "stuff found after argument finsihed"]);
+                            err = [argstring, text[start], text[ind], start, ind];
+                            gcd.emit("error:" + topname, [err, "stuff found after argument finished"]);
                             argstring = "";
                         }
                         argdone = false;
@@ -2279,7 +2279,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                         gcd.emit("text ready:" + curname, doc.whitespaceEscape(argstring.trim()));
                         name.pop();
                         argstring = "";
-                        start = ind +1;
+                        start = ind + 1;
                     }
                     ind += 1;
                         wsreg.lastIndex = ind;
@@ -2309,8 +2309,8 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                     if (argstring.trim()) {
                         if (argdone) {
                             if (argstring !== "") {
-                                err = [argstring, start, ind];
-                                gcd.emit("error:" + topname, [err, "stuff found after argument finsihed"]);
+                                err = [argstring, text[start], text[ind], start, ind];
+                                gcd.emit("error:" + topname, [err, "stuff found after argument finished"]);
                                 argstring = "";
                             }
                             argdone = false;
@@ -2322,7 +2322,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                             gcd.emit("text ready:" + curname, doc.whitespaceEscape(argstring.trim()));
                             name.pop();
                             argstring = "";
-                            start = ind +1;
+                            start = ind + 1;
                         }
                     }
                     return ind;
@@ -2339,7 +2339,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                 break;
             
                 case "]":
-                    if (stack[0] === String.fromCharCode("]".charCodeAt(0)-1)) {
+                    if (stack[0] === "[") {
                         stack.shift();
                     }
                     argstring += "]" ;
@@ -2356,8 +2356,9 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                        emitname = curname;
                        gcd.once("arguments ready:" + emitname, handlerMaker(emitname, gcd));
                        gcd.when(["arg command parsed:" + emitname, "arg command is:" + emitname], "arguments ready:" + emitname);
-                       gcd.emit("arg command is:" + emitname, argstring);
+                       gcd.emit("arg command is:" + emitname, argstring.trim().toLowerCase());
                        argstring = '';
+                       ind += 1;
                            wsreg.lastIndex = ind;
                            if (wsreg.test(text) ) {
                                start = ind = wsreg.lastIndex - 1;
@@ -2367,6 +2368,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                                gcd.emit("error:" + topname, [err, "argument is just whitespace with no terminating"]);
                                return;
                            }
+                       continue;
                    } else {
                        stack.unshift("(");
                        argstring += "(";
@@ -2378,8 +2380,8 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                         stack.shift();
                         if (argdone) {
                             if (argstring !== "") {
-                                err = [argstring, start, ind];
-                                gcd.emit("error:" + topname, [err, "stuff found after argument finsihed"]);
+                                err = [argstring, text[start], text[ind], start, ind];
+                                gcd.emit("error:" + topname, [err, "stuff found after argument finished"]);
                                 argstring = "";
                             }
                             argdone = false;
@@ -2391,12 +2393,13 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                             gcd.emit("text ready:" + curname, doc.whitespaceEscape(argstring.trim()));
                             name.pop();
                             argstring = "";
-                            start = ind +1;
+                            start = ind + 1;
                         } //  the last argument is popped
                         gcd.emit("arg command parsed:" + emitname);
                         emitname = name.slice(0, -1).join(colon.v);
                         argdone = true;
                         argstring = '';
+                        ind += 1;
                             wsreg.lastIndex = ind;
                             if (wsreg.test(text) ) {
                                 start = ind = wsreg.lastIndex - 1;
@@ -2406,8 +2409,9 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                                 gcd.emit("error:" + topname, [err, "argument is just whitespace with no terminating"]);
                                 return;
                             }
+                        continue;
                     } else {
-                        if (stack[0] === String.fromCharCode(")".charCodeAt(0)-1)) {
+                        if (stack[0] === "(") {
                             stack.shift();
                         }
                         argstring += ")" ;
@@ -2420,7 +2424,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                 break;
             
                 case "}" :
-                    if (stack[0] === String.fromCharCode("}".charCodeAt(0)-1)) {
+                    if (stack[0] === "{") {
                         stack.shift();
                     }
                     argstring += "}" ;
@@ -2431,8 +2435,8 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                     if (argstring.trim()) {
                         if (argdone) {
                             if (argstring !== "") {
-                                err = [argstring, start, ind];
-                                gcd.emit("error:" + topname, [err, "stuff found after argument finsihed"]);
+                                err = [argstring, text[start], text[ind], start, ind];
+                                gcd.emit("error:" + topname, [err, "stuff found after argument finished"]);
                                 argstring = "";
                             }
                             argdone = false;
@@ -2444,7 +2448,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                             gcd.emit("text ready:" + curname, doc.whitespaceEscape(argstring.trim()));
                             name.pop();
                             argstring = "";
-                            start = ind +1;
+                            start = ind + 1;
                         }
                     }
                     return ind;
@@ -2468,8 +2472,8 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                     if (argstring.trim()) {
                         if (argdone) {
                             if (argstring !== "") {
-                                err = [argstring, start, ind];
-                                gcd.emit("error:" + topname, [err, "stuff found after argument finsihed"]);
+                                err = [argstring, text[start], text[ind], start, ind];
+                                gcd.emit("error:" + topname, [err, "stuff found after argument finished"]);
                                 argstring = "";
                             }
                             argdone = false;
@@ -2481,7 +2485,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                             gcd.emit("text ready:" + curname, doc.whitespaceEscape(argstring.trim()));
                             name.pop();
                             argstring = "";
-                            start = ind +1;
+                            start = ind + 1;
                         }
                     }
                     return ind;
@@ -2506,8 +2510,8 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                     if (argstring.trim()) {
                         if (argdone) {
                             if (argstring !== "") {
-                                err = [argstring, start, ind];
-                                gcd.emit("error:" + topname, [err, "stuff found after argument finsihed"]);
+                                err = [argstring, text[start], text[ind], start, ind];
+                                gcd.emit("error:" + topname, [err, "stuff found after argument finished"]);
                                 argstring = "";
                             }
                             argdone = false;
@@ -2519,7 +2523,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                             gcd.emit("text ready:" + curname, doc.whitespaceEscape(argstring.trim()));
                             name.pop();
                             argstring = "";
-                            start = ind +1;
+                            start = ind + 1;
                         }
                     }
                     return ind;
