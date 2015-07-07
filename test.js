@@ -89,7 +89,7 @@ var testrunner = function (file) {
 
    //gcd.makeLog();
 
-   //gcd.monitor('', function (evt, data) { console.log(evt, data); });
+   // gcd.monitor('', function (evt, data) { console.log(evt, data); });
 
     test(name, function (t) {
         var outs, m, j, out;

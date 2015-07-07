@@ -2107,6 +2107,7 @@ argument data.
                 args.forEach(function (el) {
                     ret.push(el[1]);
                 });
+                ret.sub = true;
                 gcd.emit("text ready:" + name, ret);
             };
             f._label = "arg command processing;;"+name;
@@ -2932,9 +2933,7 @@ Break from list--
         doc.cmdName = name;
         for (i = 0; i < n; i += 1) {
             cur = args[i];
-            if (typeof cur === "string") {
-                retArgs.push(cur);
-            } else if (Array.isArray(cur) ) {
+            if (Array.isArray(cur) && cur.sub ) {
                 subArgs = cur.slice(1);
                 if (subArgs.length) {
                     subArgs = self.call(doc, subArgs, name, subs);
@@ -2943,7 +2942,7 @@ Break from list--
                 
                 _":parse ret types"
             } else { // should never happen
-                gcd.emit("error:argument prepping:" + name, args);
+                retArgs.push(cur);
             }
 
         }
@@ -4803,7 +4802,7 @@ process the inputs.
 
        //gcd.makeLog();
 
-       //gcd.monitor('', function (evt, data) { console.log(evt, data); });
+       // gcd.monitor('', function (evt, data) { console.log(evt, data); });
 
         test(name, function (t) {
             var outs, m, j, out;
@@ -5924,13 +5923,12 @@ final report that gets printed out.
 Check problematic syntax for erroring and reporting. Make sure there are tests
 for every bit of syntax. 
 
+Implement ability to switch syntax (say replace quotes with hash symbols). 
 
+Go over docs
 
-Implement better argument parsing. What something like `md tex($..$, $$..$$)`,
-Quotes and brackets would switch it to a different mode where it only cares
-about finding the end, ignoring other stuff in there except maybe
-subsitutions.  Also, maybe allowing `tex(_"tex delim")`. That is, having
-subsitutions anywhere in the arguments. 
+Update return processing of subcommands to have the return array be flagged as
+a type thus allowing everything else to be normally seen. 
 
 
 

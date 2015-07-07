@@ -2150,6 +2150,7 @@ dp.argHandlerMaker =     function (name, gcd) {
             args.forEach(function (el) {
                 ret.push(el[1]);
             });
+            ret.sub = true;
             gcd.emit("text ready:" + name, ret);
         };
         f._label = "arg command processing;;"+name;
@@ -2619,9 +2620,7 @@ dp.argsPrep = function self (args, name, subs ) {
     doc.cmdName = name;
     for (i = 0; i < n; i += 1) {
         cur = args[i];
-        if (typeof cur === "string") {
-            retArgs.push(cur);
-        } else if (Array.isArray(cur) ) {
+        if (Array.isArray(cur) && cur.sub ) {
             subArgs = cur.slice(1);
             if (subArgs.length) {
                 subArgs = self.call(doc, subArgs, name, subs);
@@ -2660,7 +2659,7 @@ dp.argsPrep = function self (args, name, subs ) {
                 retArgs.push(ret);
             }
         } else { // should never happen
-            gcd.emit("error:argument prepping:" + name, args);
+            retArgs.push(cur);
         }
 
     }

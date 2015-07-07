@@ -7,8 +7,9 @@ passed into a function -- think of it as named parameters, if you like.
     _"|paired set(kv(1, +, 2, *, join, -- )),
                 n(1, 2, 3, 4, 5), clog(!!!hey)"
     _"|paired set(kv(1, *, 2, + )), 
-        n(1, 2, 3, 4, 5), clog(!!!reversed) |
+        n(1, 2, 3, 4, 5), clog(!!!reversed) | store arr |
         slice n(1, 2) | cat !"
+    _"|paired args(act( _"arr", concat, _"arr"))"
 
 [out](# "save:")
 
@@ -20,16 +21,18 @@ result is returned
 
     var f = function (input, args, name) {
         var i, n=args.length, doc = this, arr = [];
-        var conf = doc.gcd.scope(name);
+        var conf = doc.gcd.scope(name) || {};
+        var first = conf[1] || "+";
+        var second = conf[2] || "*";
         ops = {
             '+' : function (l, r) { return l + r;}, 
             '*' : function (l, r) { return l*r;}
         }
         for (i = 0; i < n-1 ; i +=1 ) {
-            arr.push(ops[conf[1]](args[i], args[i+1]));
+            arr.push(ops[first](args[i], args[i+1]));
         }
         for (i = 0; i < n-2;  i +=1 ) {
-            arr[i] = ops[conf[2]](arr[i], arr[i+1]);
+            arr[i] = ops[second](arr[i], arr[i+1]);
         }
         arr.pop(); //get rid of last one
         if (conf.join) {
@@ -66,3 +69,4 @@ This is to test whether things other than text can be piped.
 ---
 15--35--63
 18!
+1300,2000,1040,1300
