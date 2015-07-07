@@ -415,7 +415,7 @@ var sync  = Folder.prototype.wrapSync = function (fun, label) {
     var f = function (input, args, name, command) {
         var doc = this;
         var gcd = doc.gcd;
-       
+
         try {
             args = doc.argsPrep(args, name, f.subCommands ||
                 doc.subCommands);
@@ -436,7 +436,7 @@ var sync  = Folder.prototype.wrapSync = function (fun, label) {
     return f;
 };
 Folder.sync = function (name, fun) {
-    Folder.commands[name] = sync(name, fun);
+    return Folder.commands[name] = sync(name, fun);
 };
 
 var async = Folder.prototype.wrapAsync = function (fun, label) {
@@ -471,7 +471,7 @@ var async = Folder.prototype.wrapAsync = function (fun, label) {
     return f;
 };
 Folder.async = function (name, fun) {
-    Folder.commands[name] = async(name, fun);
+    return Folder.commands[name] = async(name, fun);
 };
 
 var dirFactory = Folder.prototype.dirFactory = function (namefactory, handlerfactory, other) {
@@ -1535,6 +1535,8 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
     this.indicator = this.parent.indicator;
     this.wrapAsync = parent.wrapAsync;
     this.wrapSync = parent.wrapSync;
+    this.sync = Folder.sync;
+    this.async = Folder.async;
     this.dirFactory = parent.dirFactory;
     this.plugins = Object.create(parent.plugins);
 

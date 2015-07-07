@@ -138,12 +138,12 @@ Each doc within a folder shares all the directives and commands.
     
     var sync  = Folder.prototype.wrapSync = _"Command wrapper sync";
     Folder.sync = function (name, fun) {
-        Folder.commands[name] = sync(name, fun);
+        return Folder.commands[name] = sync(name, fun);
     };
 
     var async = Folder.prototype.wrapAsync = _"Command wrapper async";
     Folder.async = function (name, fun) {
-        Folder.commands[name] = async(name, fun);
+        return Folder.commands[name] = async(name, fun);
     };
 
     var dirFactory = Folder.prototype.dirFactory = _"dir factory";
@@ -320,6 +320,8 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.indicator = this.parent.indicator;
         this.wrapAsync = parent.wrapAsync;
         this.wrapSync = parent.wrapSync;
+        this.sync = Folder.sync;
+        this.async = Folder.async;
         this.dirFactory = parent.dirFactory;
         this.plugins = Object.create(parent.plugins);
     
@@ -2768,7 +2770,7 @@ commands to modify the environment of the function.
         var input, args, command, han;
 
         _":extract data"
-
+    
         var fun = doc.commands[command];
 
         if (fun) {
@@ -2826,7 +2828,7 @@ executing.
         var f = function (input, args, name, command) {
             var doc = this;
             var gcd = doc.gcd;
-           
+
             try {
                 args = doc.argsPrep(args, name, f.subCommands ||
                     doc.subCommands);
@@ -4737,12 +4739,13 @@ The log array should be cleared between tests.
         "if.md",
         "templateexample.md",
         "directivesubbing.md",
+        "config.md",
         "log.md",
         "reports.md",
         "cycle.md"
     ].
-    slice(0,36);
-    //slice(31, 32);
+    slice(0,37);
+    //slice(36, 37);
 
 
     Litpro.commands.readfile = Litpro.prototype.wrapAsync(_"test async", "readfile");
