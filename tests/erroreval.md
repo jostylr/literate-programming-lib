@@ -4,8 +4,8 @@ error eval -- testing evals for errors
 
 Wanted to catch and report eval errors. 
 
-    _":text|eval _"ev", _"more", _"and""
-    _":text|async _"ev", _"more", _"and""
+    _":text|eval join(\n, _"ev", _"more", _"and")"
+    _":text|async join(\n, _"ev", _"more", _"and")"
     _"log1"
     _"log2"
 

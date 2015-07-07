@@ -138,12 +138,12 @@ Each doc within a folder shares all the directives and commands.
     
     var sync  = Folder.prototype.wrapSync = _"Command wrapper sync";
     Folder.sync = function (name, fun) {
-        return Folder.commands[name] = sync(name, fun);
+        return (Folder.commands[name] = sync(name, fun));
     };
 
     var async = Folder.prototype.wrapAsync = _"Command wrapper async";
     Folder.async = function (name, fun) {
-        return Folder.commands[name] = async(name, fun);
+        return (Folder.commands[name] = async(name, fun));
     };
 
     var dirFactory = Folder.prototype.dirFactory = _"dir factory";
@@ -3357,26 +3357,24 @@ Here we have some commands and directives that are of common use
 
 ### Eval
 
-This implements the command `eval`. This evaluates the arguments as JavaScript. It
+This implements the command `eval`. This evaluates the first argument as JavaScript. It
 is formulated to be synchronous eval.
 
-Arguments are concatenated together and eval'd, in order with input
-first.
-
-The incoming text is stored in the variable text which the eval should be able
-to see. Manipulate that variable. The text is then passed along. 
+`code` contains the text to be eval'd which is the first argument. `text` has
+the incoming text and is the return variable. `args` is available; the first
+one is shifted off to the code variable.
 
 
     function ( text, args ) {
         var doc = this;
 
-        var code = args.join("\n");
+        var code = args.shift();
 
         try {
             eval(code);
             return text.toString();
         } catch (e) {
-            doc.gcd.emit("error:command:eval:", [e, code, text]);
+            doc.gcd.emit("error:command:eval:", [e, e.stack, code, text]);
             return e.name + ":" + e.message +"\n" + code + "\n\nACTING ON:\n" +
                 text;
         }
@@ -3395,13 +3393,13 @@ some mistakes.
     function (text, args, callback) {
         var doc = this;
 
-        var code =  args.join("\n");
+        var code =  args.shift();
 
         try {
             eval(code);
         } catch (e) {
-            doc.gcd.emit("error:command:async:", [e, code, text]);
-            callback(null, e.name + ":" + e.message +"\n"  + code + 
+            doc.gcd.emit("error:command:async:", [e, e.stack, code, text]);
+            callback( null, e.name + ":" + e.message +"\n"  + code + 
              "\n\nACTING ON:\n" + text);
         }
     }
@@ -5532,17 +5530,19 @@ There are a variety of directives that come built in.
 
 Note commands need to be one word. 
 
-* **Eval** `code1, code2,...`  The arguments are concatenated together. Then they
-  are evaluated in the context with the `text` variable having the incoming
-  text and its value after evaling the arguments will be what is returned.
-  This should make for quick hacking on text. The doc variable is also
-  available for inpsecting all sorts of stuff, like the current state of the
-  blocks. If you want to evaluate the incoming text and use the result as
-  text, then the line `text = eval(text)` as the first argument should work.
-* **Async** (async eval) `code1, code2, ...` Same deal as eval, except this code
-  expects a callback function to be called. It is in the variable callback. So
-  you can read a file and have its callback call the callback to send the text
-  along its merry way. 
+* **Eval** `code, arg1,...`  The first argument is the text of the code to
+  eval. In its scope, it will have the incoming text as the `text` variable
+  and the arguments, which could be objects, will be in the `args` array. The
+  code is eval'd (first argument). The code text itself is available in the
+  `code` variable. The variable `text` is what is passed along.  This should
+  make for quick hacking on text. The doc variable is also available for
+  inpsecting all sorts of stuff, like the current state of the blocks. If you
+  want to evaluate the incoming text and use the result as text, then the line
+  `text = eval(text)` as the first argument should work.
+* **Async** (async eval) `code1, code2, ...` Same deal as eval, except this
+  code expects a callback function to be called. It is in the variable
+  callback. So you can read a file and have its callback call the callback to
+  send the text along its merry way. 
 * **Compile** This compiles a block of text as if it was in the document
   originally. The compiled text will be the output. The arguments give the
   names of blocknames that are used if short-hand minor blocks are
@@ -5552,27 +5552,27 @@ Note commands need to be one word.
   is to help with SUBTITLE being replaced before TITLE, for example, while
   allowing one to write it in an order that makes reading make sense. A little
   unorthodox. We'll see if I regret it. 
-* **Store** `variable name`  This stores the incoming text into the variable name.
-  This is good for stashing something in mid computation. For example, 
+* **Store** `variable name`  This stores the incoming text into the variable
+  name.  This is good for stashing something in mid computation. For example,
   `...|store temp | sub THIS, that | store awe | _"temp"` will stash the
   incoming text into temp, then substitute out THIS for that, then store that
   into awe, and finally restore back to the state of temp. Be careful that the
   variable temp could get overwritten if there are any async operations
   hanging about. Best to have unique names. See push and pop commands for a
   better way to do this. 
-* **Log** This will output a concatenated string to doc.log (default console.log)
-  with the incoming text and the arguments. This is a good way to see what is
-  going on in the middle of a transformation.
-* **Raw** `start, end` This will look for start in the raw text of the file and
-  end in the file and return everything in between. The start and end are
+* **Log** This will output a concatenated string to doc.log (default
+  console.log) with the incoming text and the arguments. This is a good way to
+  see what is going on in the middle of a transformation.
+* **Raw** `start, end` This will look for start in the raw text of the file
+  and end in the file and return everything in between. The start and end are
   considered stand-alone lines. 
 * **Trim** This trims the incoming text, both leading and trailing whitespace.
   Useful in some tests of mine. 
 * **Cat**  This will concatenate the incoming text and the arguments together
-  using the first argument as the separator. Note one can use `\n` as arg1
-  and it should give you a newline (use `\\n` if in a directive due to parser
+  using the first argument as the separator. Note one can use `\n` as arg1 and
+  it should give you a newline (use `\\n` if in a directive due to parser
   escaping backslashes!). If there is just one argument, then it is
-  concatenated with the incoming text as is. No separator can be as easy as 
+  concatenated with the incoming text as is. No separator can be as easy as
   `|cat ,1,2,...`.
 * **Push** Simply pushes the current state of the incoming text on the stack
   for this pipe process.
@@ -5596,12 +5596,12 @@ With command arguments, one can run commands on arguments to get them in some
 appropriate form or use, including passing in objects or arrays. You can use
 them as `cmd a, subcmd(arg1, arg2, arg3)` would have subcmd acting on the args
 and the result of that would be the argument place (more or less -- see
-definig subcommands). The a would be passed as a string into cmd as the first
+definig subcommands). The `a` would be passed into cmd as the first
 argument, but anything might get passed into cmd by subcmd's return value. It
 could also store an object into a state for configuration (again see defining
 these guys). 
 
-There are several built-in subcommands. Note that These are case insensitive. 
+There are several built-in subcommands. Note that these are case insensitive. 
 
 * `e` or `echo`  This expects a quote-delimited string to be passed in and
   will strip the quotes. This is useful as the appearance of a quote will mask
@@ -5611,34 +5611,37 @@ There are several built-in subcommands. Note that These are case insensitive.
   of the arguments. For arrays, they are flattened with the separator as well
   (just one level -- then it gets messy and wrong, probably). 
 * `a` or `arr` or `array` This creates an array of the arguments.
+* `arguments` or `args` Inverse of array. This expects an array and each
+  element becomes a separate argument that the command will see. E.g., `cmd
+  arguments(arr(3, 4))` is equivalent to `cmd 3, 4`. This is useful for
+  constructing the args elsewhere. In particular, `args(obj(_"returns json of
+  an array"))` will result in the array from the subsitution becoming the
+  arguments to pass in. 
 * `o` or `obj` or `object` This presumes that a JSON stringed object is ready
   to be made into an object.
 * `merge` Merge arrays or objects, depending on what is there.
 * `kv` or `key-value` This produces an object based on the assumption that a
-  `key, value` pairing are the arguments. The key should be text. multipl
+  `key, value` pairing are the arguments. The key should be text. multiple
   pairs welcome.  
 * `act` This allows one to do `obj, method, args` to apply a method to an
   object with the slot 2 and above being arguments. For example, one could do
-  `act( arr(3, 4, 5), slice, 2, 5)` to slice the array.
-* `json` This will convert an object to to JSON representation.
+  `act( arr(3, 4, 5), slice, 2, 3)` to slice the array to `[5]`.
+* `json` This will convert an object to JSON representation.
 * `set` The presumption is that an object is passed in whose key:values should
-  be added to the command state. 
-  `gSet` does this in a way that other commands in the pipe chain can
-  see it. 
+  be added to the command state.  `gSet` does this in a way that other
+  commands in the pipe chain can see it. `set(kv(name, val, ...))` would
+  probably be the typical way.  
 * `get` This retrieves the value for the given key argument. `gGet` does the
   same for the pipe chain. Multiple keys can be given and each associated
-  value will be
-  returned as distinct arguments. 
-* `arguments` This expects an array and each element becomes a separate
-  argument that the command will see. E.g., `cmd arguments(arr(3, 4))` is
-  equivalent to `cmd 3, 4`. This is useful for constructing the args
-  elsewhere. In particular, `args(obj(_"returns json of an array"))` will
-  result in the array from the subsitution becoming the arguments to pass in.  
-* `n` or `#` or `number` This converts the argument(s) to numbers, using js Number function.
-* `eval` will evaluate the argument and use the magic `ret` variable as the value to
-  return. This can also see doc (and doc.cmdName) and args has the arguments post code.
-  Recommend using backticks for quoting the eval; it will check for
-  that automatically (just backticks, can do echo for the others if needed).
+  value will be returned as distinct arguments. 
+* `n` or `#` or `number` This converts the argument(s) to numbers, using js
+  Number function. `n(1, 2, 3)` will create three arguments of integers. To
+  get an array, use `arr(n(1, 2, 3)`
+* `eval` will evaluate the argument and use the magic `ret` variable as the
+  value to return. This can also see doc (and doc.cmdName) and args has the
+  arguments post code.  Recommend using backticks for quoting the eval; it
+  will check for that automatically (just backticks, can do echo for the
+  others if needed).
 * `log` This logs the argument and passes them along as arguments. 
 
  ## h5 and h6

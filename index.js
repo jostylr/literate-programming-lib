@@ -436,7 +436,7 @@ var sync  = Folder.prototype.wrapSync = function (fun, label) {
     return f;
 };
 Folder.sync = function (name, fun) {
-    return Folder.commands[name] = sync(name, fun);
+    return (Folder.commands[name] = sync(name, fun));
 };
 
 var async = Folder.prototype.wrapAsync = function (fun, label) {
@@ -471,7 +471,7 @@ var async = Folder.prototype.wrapAsync = function (fun, label) {
     return f;
 };
 Folder.async = function (name, fun) {
-    return Folder.commands[name] = async(name, fun);
+    return (Folder.commands[name] = async(name, fun));
 };
 
 var dirFactory = Folder.prototype.dirFactory = function (namefactory, handlerfactory, other) {
@@ -711,13 +711,13 @@ Folder.prototype.reportwaits = function () {
 Folder.commands = {   eval : sync(function ( text, args ) {
     var doc = this;
 
-    var code = args.join("\n");
+    var code = args.shift();
 
     try {
         eval(code);
         return text.toString();
     } catch (e) {
-        doc.gcd.emit("error:command:eval:", [e, code, text]);
+        doc.gcd.emit("error:command:eval:", [e, e.stack, code, text]);
         return e.name + ":" + e.message +"\n" + code + "\n\nACTING ON:\n" +
             text;
     }
@@ -785,13 +785,13 @@ Folder.commands = {   eval : sync(function ( text, args ) {
     async : async(function (text, args, callback) {
         var doc = this;
     
-        var code =  args.join("\n");
+        var code =  args.shift();
     
         try {
             eval(code);
         } catch (e) {
-            doc.gcd.emit("error:command:async:", [e, code, text]);
-            callback(null, e.name + ":" + e.message +"\n"  + code + 
+            doc.gcd.emit("error:command:async:", [e, e.stack, code, text]);
+            callback( null, e.name + ":" + e.message +"\n"  + code + 
              "\n\nACTING ON:\n" + text);
         }
     }, "async"),
