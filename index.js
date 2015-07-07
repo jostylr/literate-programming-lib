@@ -1299,12 +1299,12 @@ Folder.subCommands = (function () {
             }
         });
     
-        return ["val", ret.join(sep)];
+        return ret.join(sep);
     
     };
     
     ret.array = ret.arr = ret.a = function () {
-        return ["val", Array.prototype.slice.call(arguments, 0)];
+        return Array.prototype.slice.call(arguments, 0);
     };
 
     ret.object = ret.obj = ret.o = function (str) {
@@ -1327,7 +1327,7 @@ Folder.subCommands = (function () {
         var ret, args; 
         if (Array.isArray(a) ) {
             args = Array.prototype.slice.call(arguments, 1);
-            return ["val", Array.prototype.concat.apply(a, args)];
+            return Array.prototype.concat.apply(a, args);
         } else {
             args = Array.prototype.slice.call(arguments, 1);
             ret = a;
@@ -1353,9 +1353,8 @@ Folder.subCommands = (function () {
 
     ret.act = function (obj, method) {
         try {
-            return ["value", 
-                obj[method].apply(obj, Array.prototype.slice.call(arguments, 2))
-            ];
+            return  obj[method].apply(obj, 
+                Array.prototype.slice.call(arguments, 2)) ;
         } catch (e) {
             this.gcd.emit("error:arg prepping:bad method:" + this.cmdname, 
                 [e, e.stack, obj, method,
@@ -1389,8 +1388,8 @@ Folder.subCommands = (function () {
         for (key in obj) {
             scope[key] = obj[key];
         }
-        if (retType) {
-            return [retType, obj];
+        if (retType === "pass" ) {
+            return obj;
         } else {
             return ;
         }
@@ -1410,8 +1409,8 @@ Folder.subCommands = (function () {
         for (key in obj) {
             scope[key] = obj[key];
         }
-        if (retType) {
-            return [retType, obj];
+        if (retType === "pass" ) {
+            return obj;
         } else {
             return ;
         }
@@ -1430,10 +1429,11 @@ Folder.subCommands = (function () {
         }
     
         var i, n = arguments.length;
-        var ret = ["values"];
+        var ret = [];
         for (i = 0; i < n; i +=1 ) {
             ret.push(scope[arguments[i]]);
         }
+        ret.args = true; // each is separate 
         return ret;
     };
 
@@ -1450,15 +1450,18 @@ Folder.subCommands = (function () {
         }
     
         var i, n = arguments.length;
-        var ret = ["values"];
+        var ret = [];
         for (i = 0; i < n; i +=1 ) {
             ret.push(scope[arguments[i]]);
         }
+        ret.args = true; // each is separate 
         return ret;
     } ;
 
     ret.arguments = ret.args = function (arr) {
-        return ["arguments", arr];
+        var ret =  arr.slice(0); //make a shallow copy
+        ret.args = true;
+        return ret;
     };
 
     ret.number = ret.n = ret["#"] = function () {
@@ -1466,7 +1469,7 @@ Folder.subCommands = (function () {
         for (i = 0; i < n; i += 1) {
             ret.push(Number(arguments[i]));
         }
-        ret.unshift("val");
+        ret.args = true;
         return ret;
     };
 
@@ -1480,7 +1483,7 @@ Folder.subCommands = (function () {
        
         try {
             eval(code);
-            return ["val", ret];
+            return ret;
         } catch (e) {
             this.gcd.emit("error:arg prepping:bad eval:" + this.cmdname, 
                 [e, e.stack, code]);
@@ -1494,7 +1497,7 @@ Folder.subCommands = (function () {
         var args = Array.prototype.slice.call(arguments);
         doc.log("arguments in " + name + ":\n---\n" + 
             args.join("\n~~~\n") + "\n---\n");
-        return ["val", args];  
+        return args;  
     };
 
     return ret;
@@ -2627,32 +2630,8 @@ dp.argsPrep = function self (args, name, subs ) {
             }
             ret = subs[cur[0]].apply(doc, subArgs);
             
-            if (Array.isArray(ret) ) {
-                switch (ret.shift()) {
-                case "value" :
-                case "values" :
-                case "val" : 
-                    Array.prototype.push.apply(retArgs, ret);
-                break;
-                case "array" : 
-                    // generate an array from rest of array and add that as a whole
-                    retArgs.push(ret); 
-                break;
-                case "arguments" : 
-                case "args" : 
-                    // array each item is added as separate thing
-                    Array.prototype.push.apply(retArgs, ret.shift());
-                break;
-                case "skip" : 
-                    // blank intentionally
-                break;
-                 default : 
-                    // add as if a value but warn
-                    gcd.emit("warn:unrecognized type in arg prepping:" + name,
-                        ret);
-                    retArgs.push(ret);
-                break;
-                }
+            if (Array.isArray(ret) && (ret.args === true) ) {
+                Array.prototype.push.apply(retArgs, ret);
             } else if (typeof ret === "undefined") {
                 // no action, nothing added to retArgs
             } else {

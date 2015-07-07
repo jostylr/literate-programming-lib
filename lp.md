@@ -2953,10 +2953,12 @@ Break from list--
 
 [parse ret types]()
 
-Here we implement the the possible types and responses. 
+Here we implement the the possible types and responses. If it is an array with
+the args flag set to true, then we put each element in the array as an
+argument.   
 
-    if (Array.isArray(ret) ) {
-        _":array ret"
+    if (Array.isArray(ret) && (ret.args === true) ) {
+        Array.prototype.push.apply(retArgs, ret);
     } else if (typeof ret === "undefined") {
         // no action, nothing added to retArgs
     } else {
@@ -3078,7 +3080,7 @@ The first entry is the joiner separator and it joins the rest
             }
         });
 
-        return ["val", ret.join(sep)];
+        return ret.join(sep);
 
     }
 
@@ -3087,7 +3089,7 @@ The first entry is the joiner separator and it joins the rest
 This creates an array of the arguments.
 
     function () {
-        return ["val", Array.prototype.slice.call(arguments, 0)];
+        return Array.prototype.slice.call(arguments, 0);
     }
 
 
@@ -3127,7 +3129,7 @@ objects will overwrite the earlier ones.
         var ret, args; 
         if (Array.isArray(a) ) {
             args = Array.prototype.slice.call(arguments, 1);
-            return ["val", Array.prototype.concat.apply(a, args)];
+            return Array.prototype.concat.apply(a, args);
         } else {
             args = Array.prototype.slice.call(arguments, 1);
             ret = a;
@@ -3164,9 +3166,8 @@ This allows one to do `obj, method, args` to apply a method to an
 
     function (obj, method) {
         try {
-            return ["value", 
-                obj[method].apply(obj, Array.prototype.slice.call(arguments, 2))
-            ];
+            return  obj[method].apply(obj, 
+                Array.prototype.slice.call(arguments, 2)) ;
         } catch (e) {
             this.gcd.emit("error:arg prepping:bad method:" + this.cmdname, 
                 [e, e.stack, obj, method,
@@ -3194,8 +3195,8 @@ structures for example), then it emits an error.
 ### Set
 
 The presumption is that this is an object passed in whose scope is to be used.
-If one wants to bubble the argument up, one can use a value recognized by the
-return parsing (value, array, args) 
+If one wants to bubble the argument up, one can use `pass` in third
+argument.
 
     function (obj, retType) {
         var doc = this;
@@ -3211,8 +3212,8 @@ return parsing (value, array, args)
         for (key in obj) {
             scope[key] = obj[key];
         }
-        if (retType) {
-            return [retType, obj];
+        if (retType === "pass" ) {
+            return obj;
         } else {
             return ;
         }
@@ -3247,10 +3248,11 @@ This retrieves the value for the given key argument(s).
         }
 
         var i, n = arguments.length;
-        var ret = ["values"];
+        var ret = [];
         for (i = 0; i < n; i +=1 ) {
             ret.push(scope[arguments[i]]);
         }
+        ret.args = true; // each is separate 
         return ret;
     }
 
@@ -3274,7 +3276,9 @@ This expects an array and each element becomes a separate
   result in the array from the subsitution becoming the arguments to pass in.  
 
     function (arr) {
-        return ["arguments", arr];
+        var ret =  arr.slice(0); //make a shallow copy
+        ret.args = true;
+        return ret;
     }
 
 
@@ -3288,7 +3292,7 @@ number becomes a separate argument.
         for (i = 0; i < n; i += 1) {
             ret.push(Number(arguments[i]));
         }
-        ret.unshift("val");
+        ret.args = true;
         return ret;
     }
 
@@ -3310,7 +3314,7 @@ Will evaluate the argument and use the magic `ret` variable as the value to
        
         try {
             eval(code);
-            return ["val", ret];
+            return ret;
         } catch (e) {
             this.gcd.emit("error:arg prepping:bad eval:" + this.cmdname, 
                 [e, e.stack, code]);
@@ -3328,7 +3332,7 @@ This logs the argument and passes them along as arguments.
         var args = Array.prototype.slice.call(arguments);
         doc.log("arguments in " + name + ":\n---\n" + 
             args.join("\n~~~\n") + "\n---\n");
-        return ["val", args];  
+        return args;  
     }
 
 ## Commands
@@ -5925,11 +5929,7 @@ for every bit of syntax.
 
 Implement ability to switch syntax (say replace quotes with hash symbols). 
 
-Go over docs
-
-Update return processing of subcommands to have the return array be flagged as
-a type thus allowing everything else to be normally seen. 
-
+Go over docs (subcommands in particular)
 
 
 !----

@@ -52,7 +52,7 @@ This is going to see if the get and sets work
 
     _"| cat 5, gSet(o({"a": [1, 2, 3]}))  |
         cat :=:, set(kv(cool, gGet(a))), 
-            args(eval( `ret = args[0].concat(args[1]);`, 
+            args(eval( `ret = args[0].concat(args[1]);`,
                      get(cool, cool)))"
                      
 ---
