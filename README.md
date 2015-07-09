@@ -802,8 +802,11 @@ and shares via the prototype
   that avoid using the main block heading. This can be overwritten if you want
   some custom behavior. 
 * reportwaits. This is a function that produces the reports of what is still
-  waiting. Very useful for debugging. Default is to use reporters and send it
-  to log. 
+  waiting. Very useful for debugging. This returns an array.
+* simpleReport. This reports on the substitutions that did not get resolved.
+  This returns an array. It also includes any commands that were called but
+  not defined. Subcommands throw errors when not defined, but since commands
+  can be defined later, they will not. Hence this mechanism.  
 * Doc. This is the constructor for documents. 
 
 
