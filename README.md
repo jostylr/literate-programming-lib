@@ -564,11 +564,10 @@ Note commands need to be one word.
 With command arguments, one can run commands on arguments to get them in some
 appropriate form or use, including passing in objects or arrays. You can use
 them as `cmd a, subcmd(arg1, arg2, arg3)` would have subcmd acting on the args
-and the result of that would be the argument place (more or less -- see
-definig subcommands). The `a` would be passed into cmd as the first
+and the result of that would be the argument place
+ The `a` would be passed into cmd as the first
 argument, but anything might get passed into cmd by subcmd's return value. It
-could also store an object into a state for configuration (again see defining
-these guys). 
+could also store an object into a state for configuration. 
 
 There are several built-in subcommands. Note that these are case insensitive. 
 
@@ -612,6 +611,17 @@ There are several built-in subcommands. Note that these are case insensitive.
   will check for that automatically (just backticks, can do echo for the
   others if needed).
 * `log` This logs the argument and passes them along as arguments. 
+
+To build one's own command, you can attach a function whose arguments will be
+the arguments passed in. The `this` is the doc object. The current name (say
+for scope storing) is in doc.cmdName. This will point to within a whole pipe
+chunk. Pop off the last part (delimited by triple colon) to get to the whole
+command scope. The return value will be used as in an argument into the
+command or another subcommand. If it is an array and the flag `args` is set to
+true, then each entry in the array will be expanded into a set of arguments.
+So instead of 1 argument, several could be returned. If nothing is returned,
+then no arguments are passed on and it is as if it wasn't there.    
+
 
 ## h5 and h6
 

@@ -172,6 +172,8 @@ Each doc within a folder shares all the directives and commands.
 
 
     Folder.prototype.reportwaits = _"reporting on waiting";
+    
+    Folder.prototype.simpleReport = _"Simple Report";
 
     Folder.commands = _"Commands";
     
@@ -379,6 +381,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
     dp.whitespaceEscape = _"whitespace escape";
 
     dp.argsPrep = _"argument prepping";  
+
 
 ### Example of folder constructor use
 
@@ -633,6 +636,43 @@ variable name.
 
 * filename:blockname;loc;comnum;argnum(;comnum;argnum...)
 
+## Simple Report
+
+This generates a report of the stitch fragments that have not yet been
+resolved. 
+
+    function () {
+        var folder = this;
+        var recording = folder.recording;
+        var gcd = this.gcd;
+        var key, lname, ret = [], el, pieces;
+        var v = this.colon.v;
+        for (key in gcd.whens) {
+            if (key.slice(0,15) === "stitch fragment") { 
+                lname = key.slice(16);
+                ret.push("PROBLEM WITH: " + recording[lname] + 
+                    " IN: " + lname.slice(lname.indexOf(":")+1, 
+                       lname.indexOf(v) ) +  
+                    " FILE: " + lname.slice(0, lname.indexOf(":"))); 
+            } 
+        }
+        for (key in gcd._onces) {
+            el = gcd._onces[key];
+            if ( el[0].slice(0, 15) === "command defined") {
+                pieces = key.split(":");
+                if (pieces.length < 3) {
+                    gcd.error("error:simple report:"+ el[1]);
+                    return ret;
+                }
+                ret.push("COMMAND REQUESTED: " + 
+                    pieces[1] +  
+                    " BUT NOT DEFINED. REQUIRED IN: " + 
+                    pieces[3].slice(0, pieces[3].indexOf(v)) +  
+                    " FILE: " + pieces[2] ); 
+            }
+        }
+        return ret;
+    }
 
 ## What is waiting
 
@@ -4745,8 +4785,8 @@ The log array should be cleared between tests.
         "reports.md",
         "cycle.md"
     ].
-    slice(0,37);
-    //slice(36, 37);
+    slice(0,40);
+    //slice(38, 40);
 
 
     Litpro.commands.readfile = Litpro.prototype.wrapAsync(_"test async", "readfile");
@@ -5595,11 +5635,10 @@ Note commands need to be one word.
 With command arguments, one can run commands on arguments to get them in some
 appropriate form or use, including passing in objects or arrays. You can use
 them as `cmd a, subcmd(arg1, arg2, arg3)` would have subcmd acting on the args
-and the result of that would be the argument place (more or less -- see
-definig subcommands). The `a` would be passed into cmd as the first
+and the result of that would be the argument place
+ The `a` would be passed into cmd as the first
 argument, but anything might get passed into cmd by subcmd's return value. It
-could also store an object into a state for configuration (again see defining
-these guys). 
+could also store an object into a state for configuration. 
 
 There are several built-in subcommands. Note that these are case insensitive. 
 
@@ -5643,6 +5682,17 @@ There are several built-in subcommands. Note that these are case insensitive.
   will check for that automatically (just backticks, can do echo for the
   others if needed).
 * `log` This logs the argument and passes them along as arguments. 
+
+To build one's own command, you can attach a function whose arguments will be
+the arguments passed in. The `this` is the doc object. The current name (say
+for scope storing) is in doc.cmdName. This will point to within a whole pipe
+chunk. Pop off the last part (delimited by triple colon) to get to the whole
+command scope. The return value will be used as in an argument into the
+command or another subcommand. If it is an array and the flag `args` is set to
+true, then each entry in the array will be expanded into a set of arguments.
+So instead of 1 argument, several could be returned. If nothing is returned,
+then no arguments are passed on and it is as if it wasn't there.    
+
 
  ## h5 and h6
 
@@ -5823,8 +5873,11 @@ and shares via the prototype
   that avoid using the main block heading. This can be overwritten if you want
   some custom behavior. 
 * reportwaits. This is a function that produces the reports of what is still
-  waiting. Very useful for debugging. Default is to use reporters and send it
-  to log. 
+  waiting. Very useful for debugging. This returns an array.
+* simpleReport. This reports on the substitutions that did not get resolved.
+  This returns an array. It also includes any commands that were called but
+  not defined. Subcommands throw errors when not defined, but since commands
+  can be defined later, they will not. Hence this mechanism.  
 * Doc. This is the constructor for documents. 
 
 

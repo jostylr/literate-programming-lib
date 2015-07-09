@@ -210,8 +210,8 @@ var testfiles = [
     "reports.md",
     "cycle.md"
 ].
-slice(0,37);
-//slice(36, 37);
+slice(0,40);
+//slice(38, 40);
 
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {

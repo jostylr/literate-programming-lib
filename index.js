@@ -708,6 +708,39 @@ Folder.prototype.reportwaits = function () {
     return arr; 
 };
 
+Folder.prototype.simpleReport = function () {
+    var folder = this;
+    var recording = folder.recording;
+    var gcd = this.gcd;
+    var key, lname, ret = [], el, pieces;
+    var v = this.colon.v;
+    for (key in gcd.whens) {
+        if (key.slice(0,15) === "stitch fragment") { 
+            lname = key.slice(16);
+            ret.push("PROBLEM WITH: " + recording[lname] + 
+                " IN: " + lname.slice(lname.indexOf(":")+1, 
+                   lname.indexOf(v) ) +  
+                " FILE: " + lname.slice(0, lname.indexOf(":"))); 
+        } 
+    }
+    for (key in gcd._onces) {
+        el = gcd._onces[key];
+        if ( el[0].slice(0, 15) === "command defined") {
+            pieces = key.split(":");
+            if (pieces.length < 3) {
+                gcd.error("error:simple report:"+ el[1]);
+                return ret;
+            }
+            ret.push("COMMAND REQUESTED: " + 
+                pieces[1] +  
+                " BUT NOT DEFINED. REQUIRED IN: " + 
+                pieces[3].slice(0, pieces[3].indexOf(v)) +  
+                " FILE: " + pieces[2] ); 
+        }
+    }
+    return ret;
+};
+
 Folder.commands = {   eval : sync(function ( text, args ) {
     var doc = this;
 

@@ -30,14 +30,16 @@ This is where we do a bit of black magic to pop it out of the flow. This
 delays it to allow the rest of the stuff to compile and be waiting. 
 
     setTimeout(function () {
-       callback(null, doc.parent.reportwaits().join("\n")); 
+        var a = doc.parent.simpleReport().join("\n");
+        var b = doc.parent.reportwaits().join("\n");
+       callback(null, b + "\n" + a);
     }, 1); 
 
 ---
 NOT SAVED: out AS REQUESTED BY: in NEED: output
-PROBLEM WITH: _"block" IN: cycle FIlE: in
-PROBLEM WITH: _"cycle" IN: block FIlE: in
-PROBLEM WITH: _"block:switch" IN: block FIlE: in
-PROBLEM WITH: _"block" IN: block FIlE: in
-PROBLEM WITH: _"cycle" IN: block FIlE: in
-PROBLEM WITH: _"|async _"timeout"" IN: output FIlE: in
+PROBLEM WITH: _"block" IN: cycle FILE: in
+PROBLEM WITH: _"cycle" IN: block FILE: in
+PROBLEM WITH: _"block:switch" IN: block FILE: in
+PROBLEM WITH: _"block" IN: block FILE: in
+PROBLEM WITH: _"cycle" IN: block FILE: in
+PROBLEM WITH: _"|async _"timeout"" IN: output FILE: in

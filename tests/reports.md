@@ -59,21 +59,23 @@ This is where we do a bit of black magic to pop it out of the flow. This
 delays it to allow the rest of the stuff to compile and be waiting. 
 
     setTimeout(function () {
-       callback(null, doc.parent.reportwaits().join("\n")); 
+        var a = doc.parent.simpleReport().join("\n");
+        var b = doc.parent.reportwaits().join("\n");
+       callback(null, b + "\n" + a);
     }, 1); 
+    
 ---
 NOT SAVED: out AS REQUESTED BY: in NEED: output
 NOT SAVED: never AS REQUESTED BY: in NEED: hopeless
 NEED SCOPE: just FOR SAVING: kidding IN FILE: in
-PROBLEM WITH: _"dude" IN: hopeless FIlE: in
-PROBLEM WITH: _"|bogus art, dee" IN: hopeless FIlE: in
-PROBLEM WITH: _"not here" IN: hopeless FIlE: in
-PROBLEM WITH: _"|sub *, _"not here"" IN: hopeless FIlE: in
-PROBLEM WITH: _"hey now" IN: hopeless FIlE: in
-PROBLEM WITH: _"just::kidding" IN: hopeless FIlE: in
 NEED SCOPE: just FOR RETRIEVING: kidding IN FILE: in
-PROBLEM WITH: _"actual:not here" IN: hopeless FIlE: in
-PROBLEM WITH: _"not a var" IN: hopeless FIlE: in
-PROBLEM WITH: _"|async _":ev"" IN: hey now FIlE: in
-PROBLEM WITH: _"|async _"timeout"" IN: output FIlE: in
-NEED COMMAND: bogus FOR: _"|bogus art, dee"
+PROBLEM WITH: _"dude" IN: hopeless FILE: in
+PROBLEM WITH: _"|bogus art, dee" IN: hopeless FILE: in
+PROBLEM WITH: _"|sub *, _"not here"" IN: hopeless FILE: in
+PROBLEM WITH: _"hey now" IN: hopeless FILE: in
+PROBLEM WITH: _"just::kidding" IN: hopeless FILE: in
+PROBLEM WITH: _"actual:not here" IN: hopeless FILE: in
+PROBLEM WITH: _"not a var" IN: hopeless FILE: in
+PROBLEM WITH: _"|async _":ev"" IN: hey now FILE: in
+PROBLEM WITH: _"|async _"timeout"" IN: output FILE: in
+COMMAND REQUESTED: bogus BUT NOT DEFINED. REQUIRED IN: hopeless FILE: in
