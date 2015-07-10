@@ -371,10 +371,12 @@ Folder.prototype.newdoc = function (name, text, actions) {
 
 Folder.prototype.colon = {   v : "\u2AF6",
     escape : function (text) {
-         return text.replace(/:/g,  "\u2AF6");
+         return (typeof text === "string") ? 
+            text.replace(/:/g,  "\u2AF6") : text;
     },
     restore : function (text) {
-        return text.replace( /[\u2AF6]/g, ":");
+        return (typeof text === "string") ? 
+            text.replace( /[\u2AF6]/g, ":") : text;
     }
 };
 
@@ -2061,9 +2063,13 @@ dp.getBlock = function (start, cur) {
     var doc = this;
     var colon = doc.colon;
 
-    cur = colon.restore(cur);
+    if (typeof cur === "string") {
+        cur = colon.restore(cur);
+    } else {
+        cur = '';
+    }
 
-    if (start) {
+    if (typeof start === "string") {
         if ( start[0] === "#") {
             start = start.slice(1).replace(/-/g, " ");
         }
@@ -2074,7 +2080,10 @@ dp.getBlock = function (start, cur) {
             start = doc.stripSwitch(cur) + start;
         }
 
-    } 
+    } else {
+        doc.gcd.emit("error:start not a string in doc block", [start, cur]);
+        start = '';
+    }
     if (!start) {
         start = cur;
     }

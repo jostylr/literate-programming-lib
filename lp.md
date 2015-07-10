@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.6.0; A literate programming compiler. Write your program in markdown. This is the core library and does not know about files.")
+# [literate-programming-lib](# "version:1.6.1; A literate programming compiler. Write your program in markdown. This is the core library and does not know about files.")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -780,10 +780,12 @@ unescape, we define methods and export them.
 
     {   v : "\u2AF6",
         escape : function (text) {
-             return text.replace(/:/g,  "\u2AF6");
+             return (typeof text === "string") ? 
+                text.replace(/:/g,  "\u2AF6") : text;
         },
         restore : function (text) {
-            return text.replace( /[\u2AF6]/g, ":");
+            return (typeof text === "string") ? 
+                text.replace( /[\u2AF6]/g, ":") : text;
         }
     }
 
@@ -3826,9 +3828,13 @@ Note start (href) is not expected to have colon escapes, but cur might.
         var doc = this;
         var colon = doc.colon;
 
-        cur = colon.restore(cur);
+        if (typeof cur === "string") {
+            cur = colon.restore(cur);
+        } else {
+            cur = '';
+        }
 
-        if (start) {
+        if (typeof start === "string") {
             if ( start[0] === "#") {
                 start = start.slice(1).replace(/-/g, " ");
             }
@@ -3839,7 +3845,10 @@ Note start (href) is not expected to have colon escapes, but cur might.
                 start = doc.stripSwitch(cur) + start;
             }
 
-        } 
+        } else {
+            doc.gcd.emit("error:start not a string in doc block", [start, cur]);
+            start = '';
+        }
         
 It is possible (likely even!) that start consisted of just `#` which indicates
 that it should be the current block name to use for starting. Afer slicing
@@ -6108,6 +6117,6 @@ A travis.yml file for continuous test integration!
 
 
 by [James Taylor](https://github.com/jostylr "npminfo: jostylr@gmail.com ; 
-    deps: event-when 1.4.0, commonmark 0.20.0, string.fromcodepoint 0.2.1;
+    deps: event-when 1.4.1, commonmark 0.20.0, string.fromcodepoint 0.2.1;
     dev: tape 4.0.0, litpro-jshint 0.1.0")
 
