@@ -286,9 +286,9 @@ Folder.prototype.parse = function (doc) {
                 if ((!href) && (!title)) {
                     gcd.emit("switch found:"+file, [ltext, ""]);
                 } else if (title[0] === ":") {
-                    if ( (ltext[0] === "|") || ( ltext.length === 0) ) {
+                    if  ((ltext.indexOf("|") !== -1) || ( ltext.length === 0) ) {
                         gcd.emit("directive found:transform:" + file, 
-                            {   link : ltext.slice(1),
+                            {   link : ltext,
                                 input : title.slice(1),
                                 href: href, 
                                 cur: doc.curname, 
@@ -1125,11 +1125,16 @@ Folder.directives = {
         state.name = this.colon.escape(state.start + ":" + state.input);
         state.emitname =  "for transform:" + this.file + ":" + state.name;
     }, function (state) {
-        var gcd = this.gcd;
+        var doc = this;
+        var gcd = doc.gcd;
     
     
         var f = function (data) {
             gcd.emit(state.emitname, data);
+            var name = doc.getPostPipeName(state.linkname);
+            if (name) {
+                doc.store(name, data);
+            }
         };
         f._label =  "transform;;" + state.name;
         
@@ -1218,10 +1223,15 @@ Folder.directives = {
         var doc = this;
     
         var block = doc.blocks[args.cur];
-    
-    
+        
+        var storageName = doc.getPostPipeName(args.link);
+        var ret = '';
+        
         try {
             eval(block);
+            if (storageName) {
+                doc.store(storageName, ret);
+            }
         } catch (e) {
             doc.gcd.emit("error:dir eval:", [e, block]);
             doc.log(e.name + ":" + e.message +"\n" + block);
@@ -2688,5 +2698,14 @@ dp.argsPrep = function self (args, name, subs ) {
     return retArgs;
 
 };  
+
+dp.getPostPipeName = function (name) {
+    var ind = name.indexOf("|") + 1;
+    if (ind) {
+        return name.slice(ind);
+    } else {
+        return '';
+    }
+} ;
 
 module.exports = Folder;

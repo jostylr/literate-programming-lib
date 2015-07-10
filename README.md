@@ -410,10 +410,11 @@ There are a variety of directives that come built in.
   it is sent through the pipes. If there is no
   value, then the `#start` location is used for the value and that gets piped.
   The name is used to store the value. 
-* **Transform** `[des](#start "transform:|...)` or `[|des](#start ":|...")`.
+* **Transform** `[des|name](#start "transform:|...)` or `[des|name](#start ":|...")`.
   This takes the value that start points to and transforms it using the pipe
-  commands. Note one can store the transformed values using the store command
-  (not directive). The description of link text has no role. For the syntax
+  commands. Note one can store the transformed values by placing the variable
+  name after a pipe in the link text.
+  The description of link text has no role. For the syntax
   with no transform, it can be link text that starts with a pipe or it can be
   completely empty. Note that if it is empty, then it does not appear and is
   completely obscure to the reader. 
@@ -446,13 +447,15 @@ There are a variety of directives that come built in.
   Directives and headings are still actively being run and used. These can be
   nested. Think "block comment" sections. Good for turning off troublesome
   sections. 
-* **Eval** `[?](# "eval:)` Whatever block the eval finds itself, it will eval. It
+* **Eval** `[des|name](# "eval:)` Whatever block the eval finds itself, it will eval. It
   will eval it only up to the point where it is placed. This is an immediate
   action and can be quite useful for interventions. The eval will have access
   to the doc object which gives one access to just about everything else. This
   is one of those things that make running a literate progamming insecure. The
   return value is nonexistent and the program will not usually wait for any async
-  actions to complete. 
+  actions to complete. If you put a pipe in the link name text, then the
+  anything after the pipe will become a name that the variable `ret` will be
+  stored in.  
 * **Ignore** `[language](# "ignore:")` This ignores the `language` code blocks.
   For example, by convention, you could use code fence blocks with language js
   for compiled code and ignore those with javascript. So you can have example

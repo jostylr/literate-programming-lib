@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.6.1; A literate programming compiler. Write your program in markdown. This is the core library and does not know about files.")
+# [literate-programming-lib](# "version:1.6.2; A literate programming compiler. Write your program in markdown. This is the core library and does not know about files.")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -381,6 +381,8 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
     dp.whitespaceEscape = _"whitespace escape";
 
     dp.argsPrep = _"argument prepping";  
+
+    dp.getPostPipeName = _"Post pipe name";
 
 
 ### Example of folder constructor use
@@ -946,7 +948,7 @@ in the heading then.
         if ((!href) && (!title)) {
             gcd.emit("switch found:"+file, [ltext, ""]);
         } else if (title[0] === ":") {
-            if ( (ltext[0] === "|") || ( ltext.length === 0) ) {
+            if  ((ltext.indexOf("|") !== -1) || ( ltext.length === 0) ) {
                 _":transform"
             } else {
                 _":switch with pipes"
@@ -964,12 +966,13 @@ the gap of main blocks not having pipes that can act on them. The idea is that
 this can transform the text and do something with it, maybe just log or eval'd
 or stored in a different variable.
 
-It is triggered by having a pipe at the beginning of the link text; one can
-then write a descriptive for the rest of the link text. One can also have
+It is triggered by having a pipe in the link text; one can
+then write a descriptive for the rest of the link text before the pipe and/or
+a variable name to store the result in after the pipe. One can also have
 empty link text though that becomes entirely hidden to the reader and is best not done. 
 
     gcd.emit("directive found:transform:" + file, 
-        {   link : ltext.slice(1),
+        {   link : ltext,
             input : title.slice(1),
             href: href, 
             cur: doc.curname, 
@@ -3801,6 +3804,22 @@ for saving as well.
 
 Directives get a single argument object which gets the link, the href, and
  the text after the colon. 
+
+### Post pipe name
+
+This is a practically trivial function for getting the name after a pipe.
+
+We need to add one past the pipe and so if it is not found, then it becomes a
+0 and we can just do if. 
+
+    function (name) {
+        var ind = name.indexOf("|") + 1;
+        if (ind) {
+            return name.slice(ind);
+        } else {
+            return '';
+        }
+    } 
  
 ### Dealing with directive pipes
 
@@ -4243,7 +4262,9 @@ This is the directive for manipulating some text. The href hash tag has the
 variable value to retrieve and then it gets sent into the pipes. The stuff
 before the pipes is an options thing which is not currently used, but reserved
 to be in line with other directives, available for the future, and just looks
-a bit better (ha). 
+a bit better (ha). If the link text contains a pipe with some text after it,
+the final value after the pipes will be stored in the name given by the post
+pipes in the link text.  
 
 `[](#... ": ..|..")` or transform:
 
@@ -4264,11 +4285,16 @@ that may be the only distinguishing feature (see tests/store.md for example)
 
 
     function (state) {
-        var gcd = this.gcd;
+        var doc = this;
+        var gcd = doc.gcd;
 
 
         var f = function (data) {
             gcd.emit(state.emitname, data);
+            var name = doc.getPostPipeName(state.linkname);
+            if (name) {
+                doc.store(name, data);
+            }
         };
         f._label =  "transform;;" + state.name;
         
@@ -4481,17 +4507,24 @@ block. That's it. Nothing fancy. This gives immediate access to evaling. If
 you need somthing involving other blocks, use the command eval and pipe in
 input. It has access to doc due to scope of eval. This leads to whatever one
 might need access to but keep in mind that it is being evaled during the
-marked parsing stage. 
+marked parsing stage. If there is a pipe in the link text, then the `ret`
+variable will lead to its value being stored under the name post pipe in the
+link text. The name to save under is also accessible under storageName. 
 
 
     function (args) {
         var doc = this;
 
         var block = doc.blocks[args.cur];
-
-
+        
+        var storageName = doc.getPostPipeName(args.link);
+        var ret = '';
+        
         try {
             eval(block);
+            if (storageName) {
+                doc.store(storageName, ret);
+            }
         } catch (e) {
             doc.gcd.emit("error:dir eval:", [e, block]);
             doc.log(e.name + ":" + e.message +"\n" + block);
@@ -4787,6 +4820,7 @@ The log array should be cleared between tests.
         "subcommands.md",
         "backslash.md",
         "if.md",
+        "nameafterpipe.md",
         "templateexample.md",
         "directivesubbing.md",
         "config.md",
@@ -4794,7 +4828,7 @@ The log array should be cleared between tests.
         "reports.md",
         "cycle.md"
     ].
-    slice(0,40);
+    slice(0);
     //slice(38, 40);
 
 
@@ -5490,10 +5524,11 @@ There are a variety of directives that come built in.
   it is sent through the pipes. If there is no
   value, then the `#start` location is used for the value and that gets piped.
   The name is used to store the value. 
-* **Transform** `[des](#start "transform:|...)` or `[|des](#start ":|...")`.
+* **Transform** `[des|name](#start "transform:|...)` or `[des|name](#start ":|...")`.
   This takes the value that start points to and transforms it using the pipe
-  commands. Note one can store the transformed values using the store command
-  (not directive). The description of link text has no role. For the syntax
+  commands. Note one can store the transformed values by placing the variable
+  name after a pipe in the link text.
+  The description of link text has no role. For the syntax
   with no transform, it can be link text that starts with a pipe or it can be
   completely empty. Note that if it is empty, then it does not appear and is
   completely obscure to the reader. 
@@ -5526,13 +5561,15 @@ There are a variety of directives that come built in.
   Directives and headings are still actively being run and used. These can be
   nested. Think "block comment" sections. Good for turning off troublesome
   sections. 
-* **Eval** `[?](# "eval:)` Whatever block the eval finds itself, it will eval. It
+* **Eval** `[des|name](# "eval:)` Whatever block the eval finds itself, it will eval. It
   will eval it only up to the point where it is placed. This is an immediate
   action and can be quite useful for interventions. The eval will have access
   to the doc object which gives one access to just about everything else. This
   is one of those things that make running a literate progamming insecure. The
   return value is nonexistent and the program will not usually wait for any async
-  actions to complete. 
+  actions to complete. If you put a pipe in the link name text, then the
+  anything after the pipe will become a name that the variable `ret` will be
+  stored in.  
 * **Ignore** `[language](# "ignore:")` This ignores the `language` code blocks.
   For example, by convention, you could use code fence blocks with language js
   for compiled code and ignore those with javascript. So you can have example

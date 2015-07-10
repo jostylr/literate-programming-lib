@@ -203,6 +203,7 @@ var testfiles = [
     "subcommands.md",
     "backslash.md",
     "if.md",
+    "nameafterpipe.md",
     "templateexample.md",
     "directivesubbing.md",
     "config.md",
@@ -210,7 +211,7 @@ var testfiles = [
     "reports.md",
     "cycle.md"
 ].
-slice(0,40);
+slice(0);
 //slice(38, 40);
 
 
