@@ -577,7 +577,8 @@ There are several built-in subcommands. Note that these are case insensitive.
 * `e` or `echo`  This expects a quote-delimited string to be passed in and
   will strip the quotes. This is useful as the appearance of a quote will mask
   all other mechanics. So `e("a, b and _this")` will produce a literal
-  argument of `a, b, and _this`. 
+  argument of `a, b, and _this`. Multiple arguments will be stripped and
+  passed on as multipel arguments.  
 * `j` or `join` The first entry is the joiner separator and it joins the rest
   of the arguments. For arrays, they are flattened with the separator as well
   (just one level -- then it gets messy and wrong, probably). 
@@ -597,6 +598,8 @@ There are several built-in subcommands. Note that these are case insensitive.
 * `act` This allows one to do `obj, method, args` to apply a method to an
   object with the slot 2 and above being arguments. For example, one could do
   `act( arr(3, 4, 5), slice, 2, 3)` to slice the array to `[5]`.
+* `prop` or `property`. This will take the arguments as a property chain to
+  extract the value being pointed to. 
 * `json` This will convert an object to JSON representation.
 * `set` The presumption is that an object is passed in whose key:values should
   be added to the command state.  `gSet` does this in a way that other
@@ -613,7 +616,13 @@ There are several built-in subcommands. Note that these are case insensitive.
   arguments post code.  Recommend using backticks for quoting the eval; it
   will check for that automatically (just backticks, can do echo for the
   others if needed).
-* `log` This logs the argument and passes them along as arguments. 
+* `log` This logs the argument and passes them along as arguments.
+* `t` or `true`. This returns the true value.
+* `f` or `false`. This returns the false value.
+* `null`. This returns the null value. 
+* `doc`. This returns the doc variable. This could be useful in connection to
+  the property method and the log subcommand.
+* `skip`. This returns no arguments. 
 
 To build one's own command, you can attach a function whose arguments will be
 the arguments passed in. The `this` is the doc object. The current name (say

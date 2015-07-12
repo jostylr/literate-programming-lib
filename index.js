@@ -1322,14 +1322,22 @@ Folder.directives = {
 Folder.subCommands = (function () {
     var ret = {};
     
-    ret.echo = ret.e = function (str) {
-        if (("\"'`".indexOf(str[0]) !== -1) && 
-            (str[0] === str[str.length-1]) ) {
-            
-            return str.slice(1, -1);
-        } else {
-            return str;
-        }
+    ret.echo = ret.e = function () {
+        var arr = Array.prototype.slice.call(arguments);
+        
+        var ret = arr.map(function (str) { 
+            if (("\"'`".indexOf(str[0]) !== -1) && 
+                (str[0] === str[str.length-1]) ) {
+                
+                return str.slice(1, -1);
+            } else {
+                return str;
+            }
+        });
+    
+        ret.args = true;
+    
+        return ret;
     };
    
     ret.join = ret.j = function (sep) {
@@ -1405,6 +1413,21 @@ Folder.subCommands = (function () {
                 [e, e.stack, obj, method,
                 Array.prototype.slice.call(arguments)]);
             return ;
+        }
+    };
+
+    ret.property = ret.prop = function () {
+        var props = Array.prototype.slice.call(arguments, 0);
+        var obj;
+        try {
+            obj = props.reduce(function (prev, cur) {
+                return prev[cur];
+            });
+            return obj;
+        } catch (e) {
+            this.gcd.emit("error:bad property access:" +
+                this.cmdname, [e, e.stack, props]);
+            return;
         }
     };
 
@@ -1544,6 +1567,12 @@ Folder.subCommands = (function () {
             args.join("\n~~~\n") + "\n---\n");
         return args;  
     };
+
+    ret.true = ret.t = function () {return true;}; 
+    ret.false = ret.f = function () {return false;}; 
+    ret.null = function () {return null;}; 
+    ret.doc =  function () {return this;}; 
+    ret.skip = function () {return ;}; 
 
     return ret;
 

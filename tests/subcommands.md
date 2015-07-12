@@ -13,12 +13,16 @@ subCommands -- testing our subcommands
 
     _"set"
 
+    _"prop"
+
+    _"primitives"
+
 [out](# "save:")
 
 
 ## echo
 
-    _"|cat echo(' :: ', discarded), e("Cool, beans."), e(koo\"like)"
+    _"|cat echo(' :: ', `first up`), e("Cool, beans."), e(koo\"like)"
 
 ## join
 
@@ -54,9 +58,17 @@ This is going to see if the get and sets work
         cat :=:, set(kv(cool, gGet(a))), 
             args(eval( `ret = args[0].concat(args[1]);`,
                      get(cool, cool)))"
-                     
+ 
+## prop
+
+    _"|cat :, property(doc(), colon, v ), property(doc(), cmdName)"
+
+## primitives
+
+    _"|cat :, arr(true(), t(), skip(5), false(), f(), null())"
+
 ---
-Cool, beans. :: koo"like
+first up :: Cool, beans. :: koo"like
 
 this -- that -- the other
 
@@ -68,4 +80,6 @@ this -- that -- the other
 
 5:=:1:=:2:=:3:=:1:=:2:=:3
 
+⫶:in:prop⫶0⫶3
 
+true,true,false,false,
