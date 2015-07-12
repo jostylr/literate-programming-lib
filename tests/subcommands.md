@@ -22,7 +22,7 @@ subCommands -- testing our subcommands
 
 ## echo
 
-    _"|cat echo(' :: ', `first up`), e("Cool, beans."), e(koo\"like)"
+    _"|join echo(' :: ', `first up`), e("Cool, beans."), e(koo\"like)"
 
 ## join
 
@@ -35,11 +35,11 @@ subCommands -- testing our subcommands
 
 ## act
 
-    _"|cat :, args(act(arr (4, 5, 6), slice, n(1) ) )"
+    _"|join :, args(act(arr (4, 5, 6), slice, n(1) ) )"
 
 ## eval
 
-    _"|cat :, eval(_":code", arr(n(1, 2, 3, 4, 5))), 
+    _"|join :, eval(_":code", arr(n(1, 2, 3, 4, 5))), 
         eval(`ret = 70;`)"
 
 
@@ -55,17 +55,17 @@ subCommands -- testing our subcommands
 This is going to see if the get and sets work
 
     _"| cat 5, gSet(o({"a": [1, 2, 3]}))  |
-        cat :=:, set(kv(cool, gGet(a))), 
+        join :=:, set(kv(cool, gGet(a))), 
             args(eval( `ret = args[0].concat(args[1]);`,
                      get(cool, cool)))"
  
 ## prop
 
-    _"|cat :, property(doc(), colon, v ), property(doc(), cmdName)"
+    _"|join :, property(doc(), colon, v ), property(doc(), cmdName)"
 
 ## primitives
 
-    _"|cat :, arr(true(), t(), skip(5), false(), f(), null())"
+    _"|join :, arr(true(), t(), skip(5), false(), f(), null())"
 
 ---
 first up :: Cool, beans. :: koo"like

@@ -14,7 +14,7 @@ ensure that the ordering is faithful.
 
     _"|cat ct | store fourth| done fourth"
 
-    _"|when first, second, third, fourth| cat \ and\ , _"1", _"second", _"3", _"fourth""
+    _"|when first, second, third, fourth| join \ and\ , _"1", _"second", _"3", _"fourth""
 
     _"|cat cool |store 3 | done third"
 

@@ -3053,7 +3053,7 @@ can use this as a prototype.
         
         ret.echo = ret.e = _"echo";
        
-        ret.join = ret.j = _"join";
+        ret.join = ret.j = _"subcmd join";
         
         ret.array = ret.arr = ret.a = _"array";
 
@@ -3120,7 +3120,7 @@ them.
         return ret;
     }
 
-### Join
+### subcmd Join
 
 
 The first entry is the joiner separator and it joins the rest
@@ -3426,6 +3426,7 @@ Here we have some commands and directives that are of common use
         compile : _"cmd compile",
         raw : sync(_"raw", "raw"),
         trim : sync(_"trim", "trim"),
+        join : sync(_"cmd join", "join"),
         cat : sync(_"cat", "cat"),
         push : sync(_"push", "push"),
         pop : sync(_"pop", "pop"),
@@ -3692,19 +3693,32 @@ Bloody spaces and newlines
         return input.trim();
     }
 
+
+## Cmd Join
+
+This will join the incoming text and the arguments beyond the first one
+together using the separator which is the first argument. This only makes
+sense when there is at least one argument.   
+
+    function (input, args) {
+        var sep = args.shift() || '';
+        if (input) {
+            args.unshift(input);
+        }
+        return args.join(sep);
+    }
+
 ### Cat
 
-Concatenating text together and returning it. If there is only one argument,
-then it just concatenates as is. If there is more than one argument, then the
-first argument, which could be empty, is the join separator. 
+Concatenating text together and returning it. Probably mostly a single
+argument use case. 
 
     function (input, args) {
         var sep = '';
-        if (args.length > 1) {
-            sep = args[0];
-            args = args.slice(1);
+        if (input) {
+            args.unshift(input);
         }
-        return (input ? input + sep : '') + args.join(sep) ;
+        return args.join(sep);
     }
 
 ### Push

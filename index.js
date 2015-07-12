@@ -896,13 +896,19 @@ Folder.commands = {   eval : sync(function ( text, args ) {
     trim : sync(function (input) {
         return input.trim();
     }, "trim"),
+    join : sync(function (input, args) {
+        var sep = args.shift() || '';
+        if (input) {
+            args.unshift(input);
+        }
+        return args.join(sep);
+    }, "join"),
     cat : sync(function (input, args) {
         var sep = '';
-        if (args.length > 1) {
-            sep = args[0];
-            args = args.slice(1);
+        if (input) {
+            args.unshift(input);
         }
-        return (input ? input + sep : '') + args.join(sep) ;
+        return args.join(sep);
     }, "cat"),
     push : sync(function (input, args, name) {
         var folder = this.parent;
