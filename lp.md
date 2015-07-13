@@ -3419,6 +3419,7 @@ This logs the argument and passes them along as arguments.
 Here we have some commands and directives that are of common use
 
     {   eval : sync(_"eval", "eval"),
+        passthru : sync(function (text) {return text;}, "passthru"),
         sub : _"sub",
         store: sync(_"store command", "store"),
         log : sync(_"cmd log", "log"),

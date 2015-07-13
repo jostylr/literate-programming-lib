@@ -757,6 +757,7 @@ Folder.commands = {   eval : sync(function ( text, args ) {
             text;
     }
 }, "eval"),
+    passthru : sync(function (text) {return text;}, "passthru"),
     sub : function (str, args, name) {
         var doc = this;
         var gcd = this.gcd;
