@@ -1307,9 +1307,12 @@ Folder.directives = {
             var ret = [];
             
             var ind = el.indexOf(":");
-            var kind = el.slice(0, ind).trim();
-            kind = types[kind];
-            if (!kind) { doc.log("unrecognized type");return;}
+            var prekind = el.slice(0, ind).trim();
+            var kind = types[prekind];
+            if (!kind) { 
+                doc.log("unrecognized type in npminfo:" + prekind );
+                return;
+            }
             var entries = el.slice(ind+1).split(",");
             entries.forEach(function(el) {
                 if (!el) {return;}

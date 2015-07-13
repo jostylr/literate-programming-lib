@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.6.2; A literate programming compiler. Write your program in markdown. This is the core library and does not know about files.")
+# [literate-programming-lib](# "version:1.6.3; A literate programming compiler. Write your program in markdown. This is the core library and does not know about files.")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -4719,9 +4719,12 @@ This takes in a string for npm files and store the values in global variables.
             var ret = [];
             
             var ind = el.indexOf(":");
-            var kind = el.slice(0, ind).trim();
-            kind = types[kind];
-            if (!kind) { doc.log("unrecognized type");return;}
+            var prekind = el.slice(0, ind).trim();
+            var kind = types[prekind];
+            if (!kind) { 
+                doc.log("unrecognized type in npminfo:" + prekind );
+                return;
+            }
             var entries = el.slice(ind+1).split(",");
             entries.forEach(function(el) {
                 if (!el) {return;}
@@ -5702,12 +5705,12 @@ Note commands need to be one word.
   considered stand-alone lines. 
 * **Trim** This trims the incoming text, both leading and trailing whitespace.
   Useful in some tests of mine. 
-* **Cat**  This will concatenate the incoming text and the arguments together
+* **Join** This will concatenate the incoming text and the arguments together
   using the first argument as the separator. Note one can use `\n` as arg1 and
   it should give you a newline (use `\\n` if in a directive due to parser
-  escaping backslashes!). If there is just one argument, then it is
-  concatenated with the incoming text as is. No separator can be as easy as
-  `|cat ,1,2,...`.
+  escaping backslashes!). No separator can be as easy as `|join ,1,2,...`.
+* **Cat**  The arguments are concatenated with the incoming text as is. Useful
+  for single arguments, often with no incoming text.
 * **Push** Simply pushes the current state of the incoming text on the stack
   for this pipe process.
 * **Pop** Replaces the incoming text with popping out the last unpopped pushed
@@ -5722,7 +5725,7 @@ Note commands need to be one word.
   when everything is setup. It passes through the incoming text. 
 * **Done** `name` This is a command to emit the done event for name. It just
   passes through the incoming text. The idea is that it would be, say, a
-  filename of somehting that got saved. 
+  filename of something that got saved. 
 
  ## Built-in Subcommands
 
@@ -5755,7 +5758,7 @@ There are several built-in subcommands. Note that these are case insensitive.
   to be made into an object.
 * `merge` Merge arrays or objects, depending on what is there.
 * `kv` or `key-value` This produces an object based on the assumption that a
-  `key, value` pairing are the arguments. The key should be text. multiple
+  `key, value` pairing are the arguments. The key should be text. Multiple
   pairs welcome.  
 * `act` This allows one to do `obj, method, args` to apply a method to an
   object with the slot 2 and above being arguments. For example, one could do
