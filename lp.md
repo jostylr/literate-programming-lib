@@ -181,6 +181,8 @@ Each doc within a folder shares all the directives and commands.
 
     Folder.subCommands = _"Subcommands";
 
+    Folder.defSubCommand =_"Attach Subcommands";
+
 
     var Doc = Folder.prototype.Doc = _"doc constructor";
 
@@ -292,6 +294,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
     function (file, text, parent, actions) {
         this.parent = parent;
         var gcd = this.gcd = parent.gcd;
+        this.Folder = Folder;
 
         this.file = file; // globally unique name for this doc
 
@@ -324,6 +327,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.wrapSync = parent.wrapSync;
         this.sync = Folder.sync;
         this.async = Folder.async;
+        this.defSubCommand = Folder.defSubCommand;
         this.dirFactory = parent.dirFactory;
         this.plugins = Object.create(parent.plugins);
     
@@ -2876,8 +2880,7 @@ executing.
             var gcd = doc.gcd;
 
             try {
-                args = doc.argsPrep(args, name, f.subCommands ||
-                    doc.subCommands);
+                args = doc.argsPrep(args, name, doc.subCommands, command);
                 var out = fun.call(doc, input, args, name);
                 gcd.scope(name, null); // wipes out scope for args
                 gcd.emit("text ready:" + name, out); 
@@ -2934,7 +2937,7 @@ receive `err, data` where data is the text to emit.
                     gcd.emit("text ready:" + name, data);
                 }
             };
-            args = doc.argsPrep(args, name, f.subCommands || doc.subCommands);
+            args = doc.argsPrep(args, name, doc.subCommands, command);
             fun.call(doc, input, args, callback, name);
         };
         if (label)  {
@@ -2971,11 +2974,14 @@ should be of the form [type, val, ...]. Types can be:
 
 Break from list--
 
-    function self (args, name, subs ) {
+    function self (args, name, subs, command ) {
         var retArgs = [], i, n = args.length;
         var ret, subArgs;
         var cur, doc = this, gcd = this.gcd;
         doc.cmdName = name;
+        var csubs, subc;
+        csubs =  doc.plugins[command] &&
+             doc.plugins[command].subCommands ;
         for (i = 0; i < n; i += 1) {
             cur = args[i];
             if (Array.isArray(cur) && cur.sub ) {
@@ -2983,7 +2989,22 @@ Break from list--
                 if (subArgs.length) {
                     subArgs = self.call(doc, subArgs, name, subs);
                 }
-                ret = subs[cur[0]].apply(doc, subArgs);
+                subc = cur[0];
+                try {
+                    if (csubs && csubs[subc] ) {
+                        ret = csubs[subc].apply(doc, subArgs);
+                    } else if (subs && subs[subc] ) {
+                        ret = subs[subc].apply(doc, subArgs);
+                    } else {
+                        gcd.emit("error:no such subcommand:" + command + ":" +
+                            subc, [i, subArgs,name]);
+                        continue;
+                    }
+                } catch (e) {
+                    gcd.emit("error:subcommand failed:" + command + ":" +
+                    subc, [i, subArgs, name]);
+                    continue;
+                }
                 
                 _":parse ret types"
             } else { // should never happen
@@ -3094,6 +3115,32 @@ can use this as a prototype.
         return ret;
 
     })()
+
+### Attach Subcommands
+
+This attaches subcommands to plugins and folders. Note that this will attach
+to the appropriate object based on the `this` whether it be Folder, folder, or
+doc. 
+
+    function (sub, f, cmd) {
+        var subs, cmdplug,  cmdsub;
+
+        if (cmd) {
+            cmdplug = this.plugins[cmd];
+            if (!cmdplug) {
+                cmdplug = this.plugins[cmd] = {};
+            } 
+            cmdsub = cmdplug.subCommands;
+            if (!cmdsub) {
+                cmdsub = cmdplug.subCommands = {};
+            }
+            cmdsub[sub] = f;
+        } else {
+            subs = this.subCommands;
+            subs[sub] = f; 
+        }
+    }
+
 
 
 
@@ -3839,7 +3886,8 @@ for saving as well.
         "load" : _"load",
         "link scope" : _"link scope",
         "transform" : _"dir transform",
-        define : _"define directive",
+        "define" : _"define directive",
+        "subcommand" : _"subcommand directive",
         "block" : _"block",
         "ignore" : _"ignore language",
         "eval" : _"dir eval",
@@ -4547,6 +4595,36 @@ The args should `filename to save, section to wait for`.
             "\nNEED: " + name;
     }
 
+### subcommand directive
+
+This defines a subcommand for a function or directly on the doc if href leads
+to a blank command name.
+
+    function (args) {
+        var doc = this;
+
+        var block = doc.blocks[args.cur];
+        
+        var subCommandName = args.link;
+
+        var cmdName = args.href.trim().slice(1);
+       
+        var f; 
+        
+        try {
+            block = "f="+block;
+            eval( block);
+        } catch (e) {
+            doc.gcd.emit("error:subcommand define:"+subCommandName, [e, block]);
+            doc.log(e.name + ":" + e.message +"\n" + block);
+            return;
+        } 
+
+        doc.defSubCommand( subCommandName, f, cmdName); 
+         
+    }
+
+
 ### dir eval
 
 Run any code you like. Now. 
@@ -4873,6 +4951,7 @@ The log array should be cleared between tests.
         "backslash.md",
         "if.md",
         "nameafterpipe.md",
+        "fsubcommand.md",
         "templateexample.md",
         "directivesubbing.md",
         "config.md",
@@ -4881,7 +4960,7 @@ The log array should be cleared between tests.
         "cycle.md"
     ].
     slice(0);
-    //slice(31, 32);
+    //slice(35, 36);
 
 
     Litpro.commands.readfile = Litpro.prototype.wrapAsync(_"test async", "readfile");
@@ -5591,7 +5670,7 @@ There are a variety of directives that come built in.
   in the loaded file. Options are open, but for the command line client it is
   the encoding string with default utf8. Note there are no pipes since there
   is no block to act on it.
-* **Define** `[command name](#start "define: async/sync/raw|cmd")` This allows one
+* **Define** `[commandName](#start "define: async/sync/raw|cmd")` This allows one
   to define commands in a lit pro document. Very handy. Order is irrelevant;
   anything requiring a command will wait for it to be defined. This is
   convenient, but also a bit more of a bother for debugging. Anyway, the start
@@ -5606,7 +5685,12 @@ There are a variety of directives that come built in.
   command, and name is the name to be emitted when done. For async, name is a
   callback function that should be called when done. For sync, you probably
   need not worry about a name. The doc that is calling the command is the
-  `this`. 
+  `this`. This defines the command only for current doc. To do it across docs
+  in the project, define it in the lprc.js. The commandName should be one
+  word. 
+* **Subcommand** `[subcommandname](#cmdName "subcommand:")` This defines
+  subcommandname (one word) and attaches it to be active in the cmdName. If no
+  cmdName, then it becomes available to all commands.  
 * **Block**s on/off `[off](# "block:")` Stops recording code blocks. This is
   good when writing a bunch of explanatory code text that you do not want
   compiled. You can turn it back on with the `[on](# "block:")` directive.
@@ -5933,7 +6017,8 @@ These are the properties of Folder that may be of interest.
 * reporter. This holds the functions that report out problems. See
   reporters below. This is not prototyped and is shared across instances.
 * postInit. This does modification of the instance. Default is a noop. 
-* sync, async. These install sync and async commands, respectively. 
+* sync, async. These install sync and async commands, respectively.
+* defSubCommand. Installs a subcommand. 
 * plugins. This is a space to stash stuff for plugins. Use the plugin sans
   litpr as the key. Then put there whatever is of use. The idea is if you
   require something like jshint and then want default options, you can put
@@ -6077,7 +6162,10 @@ removed.
 If it is still waiting around when all is done, then it gets reported. The
 reportname is used to look up which reporter is used. Then that reporter takes
 in the remaining arguments and produces a string that will be part of the
-final report that gets printed out. 
+final report that gets printed out.
+
+Some of the waiting is not done by the emitting, but rather by presence in
+.when and .onces. 
 
 
  ## LICENSE

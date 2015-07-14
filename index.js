@@ -419,8 +419,7 @@ var sync  = Folder.prototype.wrapSync = function (fun, label) {
         var gcd = doc.gcd;
 
         try {
-            args = doc.argsPrep(args, name, f.subCommands ||
-                doc.subCommands);
+            args = doc.argsPrep(args, name, doc.subCommands, command);
             var out = fun.call(doc, input, args, name);
             gcd.scope(name, null); // wipes out scope for args
             gcd.emit("text ready:" + name, out); 
@@ -463,7 +462,7 @@ var async = Folder.prototype.wrapAsync = function (fun, label) {
                 gcd.emit("text ready:" + name, data);
             }
         };
-        args = doc.argsPrep(args, name, f.subCommands || doc.subCommands);
+        args = doc.argsPrep(args, name, doc.subCommands, command);
         fun.call(doc, input, args, callback, name);
     };
     if (label)  {
@@ -1156,7 +1155,7 @@ Folder.directives = {
         gcd.emit("waiting for:transforming:" + name, 
             [emitname, name, doc.file, start]  );
     }),
-    define : dirFactory(function (state) {
+    "define" : dirFactory(function (state) {
         state.emitname =  "cmddefine:" + state.linkname;
     }, function (state) {
         var cmdname = state.linkname;
@@ -1202,6 +1201,29 @@ Folder.directives = {
             ["command defined:"+cmdname, cmdname, file, state.start]  );
     
     }),
+    "subcommand" : function (args) {
+        var doc = this;
+    
+        var block = doc.blocks[args.cur];
+        
+        var subCommandName = args.link;
+    
+        var cmdName = args.href.trim().slice(1);
+       
+        var f; 
+        
+        try {
+            block = "f="+block;
+            eval( block);
+        } catch (e) {
+            doc.gcd.emit("error:subcommand define:"+subCommandName, [e, block]);
+            doc.log(e.name + ":" + e.message +"\n" + block);
+            return;
+        } 
+    
+        doc.defSubCommand( subCommandName, f, cmdName); 
+         
+    },
     "block" : function (args) {
         var doc = this;
         
@@ -1588,10 +1610,30 @@ Folder.subCommands = (function () {
 
 })();
 
+Folder.defSubCommand =function (sub, f, cmd) {
+    var subs, cmdplug,  cmdsub;
+
+    if (cmd) {
+        cmdplug = this.plugins[cmd];
+        if (!cmdplug) {
+            cmdplug = this.plugins[cmd] = {};
+        } 
+        cmdsub = cmdplug.subCommands;
+        if (!cmdsub) {
+            cmdsub = cmdplug.subCommands = {};
+        }
+        cmdsub[sub] = f;
+    } else {
+        subs = this.subCommands;
+        subs[sub] = f; 
+    }
+};
+
 
 var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
     this.parent = parent;
     var gcd = this.gcd = parent.gcd;
+    this.Folder = Folder;
 
     this.file = file; // globally unique name for this doc
 
@@ -1624,6 +1666,7 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
     this.wrapSync = parent.wrapSync;
     this.sync = Folder.sync;
     this.async = Folder.async;
+    this.defSubCommand = Folder.defSubCommand;
     this.dirFactory = parent.dirFactory;
     this.plugins = Object.create(parent.plugins);
 
@@ -2707,11 +2750,14 @@ dp.whitespaceEscape = function (text) {
 
 };
 
-dp.argsPrep = function self (args, name, subs ) {
+dp.argsPrep = function self (args, name, subs, command ) {
     var retArgs = [], i, n = args.length;
     var ret, subArgs;
     var cur, doc = this, gcd = this.gcd;
     doc.cmdName = name;
+    var csubs, subc;
+    csubs =  doc.plugins[command] &&
+         doc.plugins[command].subCommands ;
     for (i = 0; i < n; i += 1) {
         cur = args[i];
         if (Array.isArray(cur) && cur.sub ) {
@@ -2719,7 +2765,22 @@ dp.argsPrep = function self (args, name, subs ) {
             if (subArgs.length) {
                 subArgs = self.call(doc, subArgs, name, subs);
             }
-            ret = subs[cur[0]].apply(doc, subArgs);
+            subc = cur[0];
+            try {
+                if (csubs && csubs[subc] ) {
+                    ret = csubs[subc].apply(doc, subArgs);
+                } else if (subs && subs[subc] ) {
+                    ret = subs[subc].apply(doc, subArgs);
+                } else {
+                    gcd.emit("error:no such subcommand:" + command + ":" +
+                        subc, [i, subArgs,name]);
+                    continue;
+                }
+            } catch (e) {
+                gcd.emit("error:subcommand failed:" + command + ":" +
+                subc, [i, subArgs, name]);
+                continue;
+            }
             
             if (Array.isArray(ret) && (ret.args === true) ) {
                 Array.prototype.push.apply(retArgs, ret);

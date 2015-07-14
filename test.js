@@ -204,6 +204,7 @@ var testfiles = [
     "backslash.md",
     "if.md",
     "nameafterpipe.md",
+    "fsubcommand.md",
     "templateexample.md",
     "directivesubbing.md",
     "config.md",
@@ -212,7 +213,7 @@ var testfiles = [
     "cycle.md"
 ].
 slice(0);
-//slice(31, 32);
+//slice(35, 36);
 
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {

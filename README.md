@@ -425,7 +425,7 @@ There are a variety of directives that come built in.
   in the loaded file. Options are open, but for the command line client it is
   the encoding string with default utf8. Note there are no pipes since there
   is no block to act on it.
-* **Define** `[command name](#start "define: async/sync/raw|cmd")` This allows one
+* **Define** `[commandName](#start "define: async/sync/raw|cmd")` This allows one
   to define commands in a lit pro document. Very handy. Order is irrelevant;
   anything requiring a command will wait for it to be defined. This is
   convenient, but also a bit more of a bother for debugging. Anyway, the start
@@ -440,7 +440,12 @@ There are a variety of directives that come built in.
   command, and name is the name to be emitted when done. For async, name is a
   callback function that should be called when done. For sync, you probably
   need not worry about a name. The doc that is calling the command is the
-  `this`. 
+  `this`. This defines the command only for current doc. To do it across docs
+  in the project, define it in the lprc.js. The commandName should be one
+  word. 
+* **Subcommand** `[subcommandname](#cmdName "subcommand:")` This defines
+  subcommandname (one word) and attaches it to be active in the cmdName. If no
+  cmdName, then it becomes available to all commands.  
 * **Block**s on/off `[off](# "block:")` Stops recording code blocks. This is
   good when writing a bunch of explanatory code text that you do not want
   compiled. You can turn it back on with the `[on](# "block:")` directive.
@@ -767,7 +772,8 @@ These are the properties of Folder that may be of interest.
 * reporter. This holds the functions that report out problems. See
   reporters below. This is not prototyped and is shared across instances.
 * postInit. This does modification of the instance. Default is a noop. 
-* sync, async. These install sync and async commands, respectively. 
+* sync, async. These install sync and async commands, respectively.
+* defSubCommand. Installs a subcommand. 
 * plugins. This is a space to stash stuff for plugins. Use the plugin sans
   litpr as the key. Then put there whatever is of use. The idea is if you
   require something like jshint and then want default options, you can put
@@ -911,7 +917,10 @@ removed.
 If it is still waiting around when all is done, then it gets reported. The
 reportname is used to look up which reporter is used. Then that reporter takes
 in the remaining arguments and produces a string that will be part of the
-final report that gets printed out. 
+final report that gets printed out.
+
+Some of the waiting is not done by the emitting, but rather by presence in
+.when and .onces. 
 
 
 ## LICENSE
