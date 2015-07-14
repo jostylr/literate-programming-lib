@@ -26,7 +26,7 @@
   },
   "devDependencies" : {
     "tape" : "^4.0.0",
-    "litpro-jshint" : "^0.1.0"
+    "litpro-jshint" : "^0.2.1"
   },
   "scripts" : { 
     "test" : "node ./test.js"

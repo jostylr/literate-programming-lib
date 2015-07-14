@@ -3442,8 +3442,8 @@ Will evaluate the argument and use the magic `ret` variable as the value to
             eval(code);
             return ret;
         } catch (e) {
-            this.gcd.emit("error:arg prepping:bad eval:" + this.cmdname, 
-                [e, e.stack, code]);
+            doc.gcd.emit("error:arg prepping:bad eval:" + doc.cmdname, 
+                [e, e.stack, code, args]);
             return;
         }
 
@@ -6304,5 +6304,5 @@ A travis.yml file for continuous test integration!
 
 by [James Taylor](https://github.com/jostylr "npminfo: jostylr@gmail.com ; 
     deps: event-when 1.4.1, commonmark 0.20.0, string.fromcodepoint 0.2.1;
-    dev: tape 4.0.0, litpro-jshint 0.1.0")
+    dev: tape 4.0.0, litpro-jshint 0.2.1")
 

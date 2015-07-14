@@ -1585,8 +1585,8 @@ Folder.subCommands = (function () {
             eval(code);
             return ret;
         } catch (e) {
-            this.gcd.emit("error:arg prepping:bad eval:" + this.cmdname, 
-                [e, e.stack, code]);
+            doc.gcd.emit("error:arg prepping:bad eval:" + doc.cmdname, 
+                [e, e.stack, code, args]);
             return;
         }
     
