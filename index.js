@@ -498,7 +498,7 @@ var dirFactory = Folder.prototype.dirFactory = function (namefactory, handlerfac
         other.call(doc, state);
 
         doc.pipeDirSetup(state.pipes, state.emitname, state.handler, 
-            ( state.start ||  state.block) );
+            ( state.start ||  state.block || '') );
         
         var pipeEmitStart = "text ready:" + state.emitname + colon.v + "sp";
         if (! state.value) {
@@ -1645,7 +1645,7 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
     
     this.levels = {};
     this.blocks = {'' : ''}; //an empty initial block in case of headless
-    this.heading = this.curname = '';
+    this.heading =  this.curname = '';
     this.levels[0] = text;
     this.levels[1] = '';
     this.levels[2] = '';
@@ -2186,7 +2186,7 @@ dp.getBlock = function (start, cur) {
 dp.stripSwitch = function (name) {
     var ind, blockhead;
 
-    blockhead = name;
+    blockhead = name = name || '';
 
     if ( (ind = name.indexOf("::")) !== -1)  {
         if (  (ind = name.indexOf(":", ind+2 )) !== -1 ) {

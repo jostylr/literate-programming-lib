@@ -189,7 +189,7 @@ Each doc within a folder shares all the directives and commands.
     _"doc constructor:prototype"
  
     module.exports = Folder;
-
+ 
 
 ## folder constructor
 This is the container that contains a bunch of related docs if need be and
@@ -3987,7 +3987,7 @@ block.
     function (name) {
         var ind, blockhead;
 
-        blockhead = name;
+        blockhead = name = name || '';
 
         if ( (ind = name.indexOf("::")) !== -1)  {
             if (  (ind = name.indexOf(":", ind+2 )) !== -1 ) {
@@ -4134,7 +4134,7 @@ heading reference (end of pipeDirSetup).
 
         
     doc.pipeDirSetup(state.pipes, state.emitname, state.handler, 
-        ( state.start ||  state.block) );
+        ( state.start ||  state.block || '') );
 
     var pipeEmitStart = "text ready:" + state.emitname + colon.v + "sp";
     if (! state.value) {
@@ -4951,6 +4951,7 @@ The log array should be cleared between tests.
         "backslash.md",
         "if.md",
         "nameafterpipe.md",
+        "headless.md",
         "fsubcommand.md",
         "templateexample.md",
         "directivesubbing.md",

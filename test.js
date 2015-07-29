@@ -204,6 +204,7 @@ var testfiles = [
     "backslash.md",
     "if.md",
     "nameafterpipe.md",
+    "headless.md",
     "fsubcommand.md",
     "templateexample.md",
     "directivesubbing.md",
