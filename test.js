@@ -199,6 +199,7 @@ var testfiles = [
     "done.md", 
     "constructor.md",
     "transform.md",
+    "defaults.md", // 30
     "linkquotes.md",
     "subcommands.md",
     "backslash.md",
@@ -214,7 +215,7 @@ var testfiles = [
     "cycle.md"
 ].
 slice(0);
-//slice(35, 36);
+//slice(30, 31);
 
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {

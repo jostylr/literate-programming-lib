@@ -146,6 +146,13 @@ Each doc within a folder shares all the directives and commands.
         return (Folder.commands[name] = async(name, fun));
     };
 
+    var defaults = Folder.prototype.wrapDefaults = _"command wrapper cb sequence";
+    Folder.defaults = function (name, fun) {
+        return (Folder.commands[name] = defaults(name, fun) );
+    };
+
+    Folder.prototype.uniq = _"unique counter";
+
     var dirFactory = Folder.prototype.dirFactory = _"dir factory";
 
     // communication between folders, say for caching read in files
@@ -325,6 +332,8 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.indicator = this.parent.indicator;
         this.wrapAsync = parent.wrapAsync;
         this.wrapSync = parent.wrapSync;
+        this.wrapDefaults = parent.wrapDefaults;
+        this.uniq = parent.uniq();
         this.sync = Folder.sync;
         this.async = Folder.async;
         this.defSubCommand = Folder.defSubCommand;
@@ -2946,6 +2955,155 @@ receive `err, data` where data is the text to emit.
         
         return f;
     }
+    
+
+### Unique counter
+
+This is a little helper counter that one can use to generate a unique count
+for event names. Best to avoid if possible, but this will deal with
+non-uniqueness effectively.
+
+`doc.uniq`
+
+    function () {
+        var counter = 0;
+        return function () {
+            return counter += 1;
+        };
+    }
+
+### Command wrapper cb sequence
+
+The idea of this is a command that is not fundamentally async, but that may
+require waiting for a sequence. It expects an array whose first leading
+argument is a tag function that creates a unique name for the call when passed
+in the arguments. The next arguments are strings which indicate the
+default value store in the document. Empty is fine. The final argument is the
+function to execute in a synchronous. If you want the last one to be async,
+then presumably one could just be async the whole way. This is for sync
+except for a little bit of default filling in of arguments.   
+
+fun is actually an array whose last element is the final function to execute. 
+
+`doc.wrapDefaults`
+
+    function (label, fun) {
+        _"command wrapper sync:switching"
+        var i, n, bad;
+
+        var arr = fun.slice();
+        var tag = arr.shift() || '';
+        fun = arr.pop();
+
+        _":tag"
+
+        _":check array for non-empty string" 
+        
+        var f = function (input, args, name, command) {
+            
+            var doc = this;
+            var gcd = doc.gcd;
+            var v = doc.colon.v;
+            
+            args = doc.argsPrep(args, name, doc.subCommands, command);
+
+            var cbname = tag.call(doc, args);    
+
+            gcd.when(cbname + v + "setup", cbname); 
+
+            arr.forEach(function (el, i) {
+                if ( _":check need default" ) {
+                    gcd.when(cbname + v + i, cbname);
+                    doc.retrieve(el, cbname + v + i); 
+                } 
+            });
+            
+            gcd.on(cbname, _":handler");
+            
+            gcd.emit(cbname + v + "setup");
+            
+        };
+
+        if (label)  {
+            f._label = label;
+        } 
+        
+        return f;
+    
+    }
+
+
+[handler]()
+
+This reads off the data from the emitted events into the args array. Then it
+executes the synchronous function.
+
+The index we need for argument replacing should be in the last of the name. 
+
+    function(data) {
+        data.shift(); // get rid of setup
+        data.forEach(function (el) {
+            var ev = el[0];
+            var i = parseInt(ev.slice(ev.lastIndexOf(v)+1));
+            args[i] = el[1];
+        });
+        try {
+            var out = fun.call(doc, input, args, name);
+            gcd.scope(name, null); // wipes out scope for args
+            gcd.emit("text ready:" + name, out); 
+        } catch (e) {
+            doc.log(e);
+            gcd.emit("error:command execution:" + name, 
+                [e, e.stack, input, args, command]); 
+        }
+    }
+
+
+
+[check array for non-empty string]() 
+
+This looks for a non-empty string in the array. Any entries that are not
+strings get converted to empty strings. 
+
+This swallows having non-string elements and perhaps should be revisited.
+
+    n = arr.length;
+    bad = true;
+    for (i = 0; i < n; i += 1) {
+        if (arr[i] && typeof arr[i] === "string") {
+            bad = false;
+        } else {
+            arr[i] = '';
+        }
+    }
+
+[check need default]()
+
+We need the string in the defining array to be non-empty and if so, we then
+only do something if the arg in the corresponding position is undefined or
+empty. 
+
+    ( el ) && ( ( typeof args[i] === "undefined" ) || ( args[i] === '' ) )
+
+
+
+[tag]() 
+
+This makes a function if the tag is a string. The basic idea is we have a
+tagname, then we have the arguments that are called, and then a unique
+counter. Hopefully this is sufficient to make it unique and identifiable.  
+
+    if (typeof tag === "string") {
+        tag = (function (tag) {
+            return function (args) {
+                var doc = this;
+                var col = doc.colon.v;
+                return tag + args.join(col) + col + doc.file +  
+                    col + doc.uniq();
+            };
+        })(tag);
+    }
+
 
 ### Argument prepping
 
@@ -4555,6 +4713,9 @@ input.
                 case "async" : doc.commands[cmdname] = 
                     doc.wrapAsync(f, cmdname);
                 break;
+                case "defaults" : doc.commands[cmdname] = 
+                    doc.wrapDefaults(f, cmdname);
+                break;
                 default : doc.commands[cmdname] = 
                     doc.wrapSync(f, cmdname);
             }
@@ -4946,6 +5107,7 @@ The log array should be cleared between tests.
         "done.md", 
         "constructor.md",
         "transform.md",
+        "defaults.md", // 30
         "linkquotes.md",
         "subcommands.md",
         "backslash.md",
@@ -4961,7 +5123,7 @@ The log array should be cleared between tests.
         "cycle.md"
     ].
     slice(0);
-    //slice(35, 36);
+    //slice(30, 31);
 
 
     Litpro.commands.readfile = Litpro.prototype.wrapAsync(_"test async", "readfile");
@@ -5648,22 +5810,21 @@ output.
 
 There are a variety of directives that come built in.
     
-* **Save** `[filename](#start "save:options|commands")` Save the text from start
-  into file filename. The options can be used in different ways, but in the
-  command client it is an encoding string for saving the file; the default
+* **Save** `[filename](#start "save:options|commands")` Save the text from
+  start into file filename. The options can be used in different ways, but in
+  the command client it is an encoding string for saving the file; the default
   encoding is utf8.
 * **Store** `[name](#start "store:value|...")`  If the value is present, then
-  it is sent through the pipes. If there is no
-  value, then the `#start` location is used for the value and that gets piped.
-  The name is used to store the value. 
-* **Transform** `[des|name](#start "transform:|...)` or `[des|name](#start ":|...")`.
-  This takes the value that start points to and transforms it using the pipe
-  commands. Note one can store the transformed values by placing the variable
-  name after a pipe in the link text.
-  The description of link text has no role. For the syntax
-  with no transform, it can be link text that starts with a pipe or it can be
-  completely empty. Note that if it is empty, then it does not appear and is
-  completely obscure to the reader. 
+  it is sent through the pipes. If there is no value, then the `#start`
+  location is used for the value and that gets piped.  The name is used to
+  store the value. 
+* **Transform** `[des|name](#start "transform:|...)` or `[des|name](#start
+  ":|...")`.  This takes the value that start points to and transforms it
+  using the pipe commands. Note one can store the transformed values by
+  placing the variable name after a pipe in the link text.  The description of
+  link text has no role. For the syntax with no transform, it can be link text
+  that starts with a pipe or it can be completely empty. Note that if it is
+  empty, then it does not appear and is completely obscure to the reader. 
 * **Load** `[alias](url "load:options")` This loads the file, found at the url
   (file name probably) and stores it in the alias scope as well as under the
   url name. We recommend using a short alias and not relying on the filename
@@ -5671,24 +5832,45 @@ There are a variety of directives that come built in.
   in the loaded file. Options are open, but for the command line client it is
   the encoding string with default utf8. Note there are no pipes since there
   is no block to act on it.
-* **Define** `[commandName](#start "define: async/sync/raw|cmd")` This allows one
-  to define commands in a lit pro document. Very handy. Order is irrelevant;
-  anything requiring a command will wait for it to be defined. This is
-  convenient, but also a bit more of a bother for debugging. Anyway, the start
-  is where we find the text for the body of the command. The post colon, pre
-  pipe area expects one of three options which is explained below in plugins.
-  The default is sync which if you return the text you want to pass along from
-  the command, then it is all good. Start with that. You can also pipe your
-  command definition through pipe commands before finally installing the
-  function as a live function. Lots of power, lots of headaches :) The
-  signature of a command is `function (input, args, name)` where the input is
-  the text being piped in, the args are the arguments array (all text) of the
-  command, and name is the name to be emitted when done. For async, name is a
-  callback function that should be called when done. For sync, you probably
-  need not worry about a name. The doc that is calling the command is the
-  `this`. This defines the command only for current doc. To do it across docs
-  in the project, define it in the lprc.js. The commandName should be one
-  word. 
+* **Define** `[commandName](#start "define: async/sync/raw/defaults|cmd")`
+  This allows one to define commands in a lit pro document. Very handy. Order
+  is irrelevant; anything requiring a command will wait for it to be defined.
+  This is convenient, but also a bit more of a bother for debugging. Anyway,
+  the start is where we find the text for the body of the command. The post
+  colon, pre pipe area expects one of three options which is explained below
+  in plugins.You can also pipe your command definition through pipe commands
+  before finally installing the function as a live function. Lots of power,
+  lots of headaches :)  
+  
+    + The basic signature of a command is 
+      `function (input, args, name/callback)` where
+      the input is the text being piped in, the args are the arguments array
+      of the command, and name is the name to be emitted when done. The `this`
+      is the doc. 
+    + sync. This should return a value which will be used as the text being
+      passed along. You can access name if you like, but it is not useful
+      here.  
+    + async. Name is a callback function that should be called when done.
+      Standard node signature of `(err, data)`. So put the text in the second
+      slot and null in the first if all is well. 
+    + raw. Nothing is setup for you. You have to get your hands dirty with the
+      event emitter of the doc. You'll need some good understanding of it. See
+      the sub command definition for inspiration.
+    + defaults. The idea is that this is mostly synchronous, but has some
+      default arguments that come from the document and hence it is async for
+      that reason. So we need to create a tag for the emitname, document
+      variable names for default, and the function that is to be called when
+      all is ready. To accomodate this, instead of a function, we should have
+      an array that gets read in: `[tag, arg0, arg1, ...., fun]` where tag is
+      either a string or a function that takes in the passed in arguments and
+      generates a string,  arg0 to arg..., are the default doc variables. It
+      is fine to have some be empty. The final entry should be a function of
+      the same type as the sync functions (return values pass along the
+      input). 
+      
+    This defines the command only for current doc. To do it across docs in the
+    project, define it in the lprc.js. The commandName should be one word. 
+
 * **Subcommand** `[subcommandname](#cmdName "subcommand:")` This defines
   subcommandname (one word) and attaches it to be active in the cmdName. If no
   cmdName, then it becomes available to all commands.  
@@ -5698,56 +5880,56 @@ There are a variety of directives that come built in.
   Directives and headings are still actively being run and used. These can be
   nested. Think "block comment" sections. Good for turning off troublesome
   sections. 
-* **Eval** `[des|name](# "eval:)` Whatever block the eval finds itself, it will eval. It
-  will eval it only up to the point where it is placed. This is an immediate
-  action and can be quite useful for interventions. The eval will have access
-  to the doc object which gives one access to just about everything else. This
-  is one of those things that make running a literate progamming insecure. The
-  return value is nonexistent and the program will not usually wait for any async
-  actions to complete. If you put a pipe in the link name text, then the
-  anything after the pipe will become a name that the variable `ret` will be
-  stored in.  
-* **Ignore** `[language](# "ignore:")` This ignores the `language` code blocks.
-  For example, by convention, you could use code fence blocks with language js
-  for compiled code and ignore those with javascript. So you can have example
-  code that will not be seen and still get your syntax highlighting and
-  convenience. Note that this only works with code fences, obviously. As soon
-  as this is seen, it will be used and applied there after. 
-* **Out**  `[outname](#start "save:|commands")` Sends the text from start
-  to the console, using outname as a label.
+* **Eval** `[des|name](# "eval:)` Whatever block the eval finds itself, it
+  will eval. It will eval it only up to the point where it is placed. This is
+  an immediate action and can be quite useful for interventions. The eval will
+  have access to the doc object which gives one access to just about
+  everything else. This is one of those things that make running a literate
+  progamming insecure. The return value is nonexistent and the program will
+  not usually wait for any async actions to complete. If you put a pipe in the
+  link name text, then the anything after the pipe will become a name that the
+  variable `ret` will be stored in.  
+* **Ignore** `[language](# "ignore:")` This ignores the `language` code
+  blocks.  For example, by convention, you could use code fence blocks with
+  language js for compiled code and ignore those with javascript. So you can
+  have example code that will not be seen and still get your syntax
+  highlighting and convenience. Note that this only works with code fences,
+  obviously. As soon as this is seen, it will be used and applied there after. 
+* **Out**  `[outname](#start "save:|commands")` Sends the text from start to
+  the console, using outname as a label.
 * **New scope** `[scope name](# "new scope:")` This creates a new scope (stuff
   before a double colon). You can use it to store variables in a different
   scope. Not terribly needed, but it was easy to expose the underlying
   functionality. 
-* **Link Scope** `[alias name](# "link scope:scopename")` This creates an alias for
-  an existing scope. This can be useful if you want to use one name and toggle
-  between them. For example, you could use the alias `v` for `dev` or `deploy`
-  and then have `v::title` be used with just switching what `v` points to
-  depending on needs. A bit of a stretch, I admit. 
-* **Log** `[match string](# "log:")` This is a bit digging into the system. You
-  can monitor the events being emitted by using what you want to match for. 
-  For example, you could put in a block name (all lower cased) and monitor all
-  events for that. This gets sent to `doc.log` which by default prints to
-  `console.log`. If you use `\:` in the match string, this becomes the triple
-  colon separator that we use for techinical reasons for `block:minor` name syntax. 
-  This directive's code gives a bit of insight as to how to get
-  more out of the system.
-* **If** `[...](... "if: flag; directive:...")` If flag holds true (think build
-  flag), then the driective is executed with the arguments as given. A couple
-  of great uses are conditional evaling which allows for a great deal of
-  flexibility and conditional block on/off which may be useful if there is
+* **Link Scope** `[alias name](# "link scope:scopename")` This creates an
+  alias for an existing scope. This can be useful if you want to use one name
+  and toggle between them. For example, you could use the alias `v` for `dev`
+  or `deploy` and then have `v::title` be used with just switching what `v`
+  points to depending on needs. A bit of a stretch, I admit. 
+* **Log** `[match string](# "log:")` This is a bit digging into the system.
+  You can monitor the events being emitted by using what you want to match
+  for.  For example, you could put in a block name (all lower cased) and
+  monitor all events for that. This gets sent to `doc.log` which by default
+  prints to `console.log`. If you use `\:` in the match string, this becomes
+  the triple colon separator that we use for techinical reasons for
+  `block:minor` name syntax.  This directive's code gives a bit of insight as
+  to how to get more out of the system.
+* **If** `[...](... "if: flag; directive:...")` If flag holds true (think
+  build flag), then the driective is executed with the arguments as given. A
+  couple of great uses are conditional evaling which allows for a great deal
+  of flexibility and conditional block on/off which may be useful if there is
   extensive debugging commands involved. 
 * **Flag** `[flag name](# "flag:")` This sets the named flag to true. Note
   there is no way to turn a flag off easily. 
-* **Version** `[name](# "version: number ; tagline")` This gives the name and version of
-  the program. Note the semicolon separator.
-  Saves `g::docname`, `g::docversion`, `g::tagline`.
+* **Version** `[name](# "version: number ; tagline")` This gives the name and
+  version of the program. Note the semicolon separator.  Saves `g::docname`,
+  `g::docversion`, `g::tagline`.
 * **npminfo** `[author name](github/gituser "npminfo: author email; deps: ;
   dev: " )` This takes in a string for some basic author information and
   dependencies used. To add on or modify how it handles the deps, dev, etc.,
-  modify the `types` object on `Folder.directives.npminfo`.
-  Saves `g::authorname`, `g::gituser`, `g::authoremail`, `g::npm
-  dependencies`, `g::npm dev dependencies`.
+  modify the `types` object on `Folder.directives.npminfo`.  Saves
+  `g::authorname`, `g::gituser`, `g::authoremail`, `g::npm dependencies`,
+  `g::npm dev dependencies`.
 
  ## Built in commands
 
@@ -6171,7 +6353,7 @@ Some of the waiting is not done by the emitting, but rather by presence in
 
  ## LICENSE
 
-[MIT-LICENSE](https://github.com/jostylr/literate-programming-lib/blob/master/LICENSE-MIT)
+[MIT-LICENSE](https://github.com/jostylr/literate-programming-lib/blob/master/LICENSE)
 !----
 
 ## TODO
@@ -6182,6 +6364,10 @@ for every bit of syntax.
 Implement ability to switch syntax (say replace quotes with hash symbols). 
 
 Go over docs (subcommands in particular)
+
+add directive `add`. This will use the pipe stuff and put the end result of it
+to the end of the named section: `[to add to](#start "add: pipe stuff")` This
+will append the section in order of appearance in the document. 
 
 
 !----

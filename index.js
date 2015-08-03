@@ -475,6 +475,99 @@ Folder.async = function (name, fun) {
     return (Folder.commands[name] = async(name, fun));
 };
 
+var defaults = Folder.prototype.wrapDefaults = function (label, fun) {
+        var temp;
+        if (typeof fun === "string") {
+            temp = fun;
+            fun = label;
+            label = fun;
+        }
+    var i, n, bad;
+
+    var arr = fun.slice();
+    var tag = arr.shift() || '';
+    fun = arr.pop();
+
+    if (typeof tag === "string") {
+        tag = (function (tag) {
+            return function (args) {
+                var doc = this;
+                var col = doc.colon.v;
+                return tag + args.join(col) + col + doc.file +  
+                    col + doc.uniq();
+            };
+        })(tag);
+    }
+
+    n = arr.length;
+    bad = true;
+    for (i = 0; i < n; i += 1) {
+        if (arr[i] && typeof arr[i] === "string") {
+            bad = false;
+        } else {
+            arr[i] = '';
+        }
+    } 
+    
+    var f = function (input, args, name, command) {
+        
+        var doc = this;
+        var gcd = doc.gcd;
+        var v = doc.colon.v;
+        
+        args = doc.argsPrep(args, name, doc.subCommands, command);
+
+        var cbname = tag.call(doc, args);    
+
+        gcd.when(cbname + v + "setup", cbname); 
+
+        arr.forEach(function (el, i) {
+            if ( ( el ) && ( ( typeof args[i] === "undefined" ) || ( args[i] === '' ) ) ) {
+                gcd.when(cbname + v + i, cbname);
+                doc.retrieve(el, cbname + v + i); 
+            } 
+        });
+        
+        gcd.on(cbname, function(data) {
+            data.shift(); // get rid of setup
+            data.forEach(function (el) {
+                var ev = el[0];
+                var i = parseInt(ev.slice(ev.lastIndexOf(v)+1));
+                args[i] = el[1];
+            });
+            try {
+                var out = fun.call(doc, input, args, name);
+                gcd.scope(name, null); // wipes out scope for args
+                gcd.emit("text ready:" + name, out); 
+            } catch (e) {
+                doc.log(e);
+                gcd.emit("error:command execution:" + name, 
+                    [e, e.stack, input, args, command]); 
+            }
+        });
+        
+        gcd.emit(cbname + v + "setup");
+        
+    };
+
+    if (label)  {
+        f._label = label;
+    } 
+    
+    return f;
+
+};
+Folder.defaults = function (name, fun) {
+    return (Folder.commands[name] = defaults(name, fun) );
+};
+
+Folder.prototype.uniq = function () {
+    var counter = 0;
+    return function () {
+        return counter += 1;
+    };
+};
+
 var dirFactory = Folder.prototype.dirFactory = function (namefactory, handlerfactory, other) {
 
     return function (state) {
@@ -1181,6 +1274,9 @@ Folder.directives = {
                 case "async" : doc.commands[cmdname] = 
                     doc.wrapAsync(f, cmdname);
                 break;
+                case "defaults" : doc.commands[cmdname] = 
+                    doc.wrapDefaults(f, cmdname);
+                break;
                 default : doc.commands[cmdname] = 
                     doc.wrapSync(f, cmdname);
             }
@@ -1645,7 +1741,7 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
     
     this.levels = {};
     this.blocks = {'' : ''}; //an empty initial block in case of headless
-    this.heading =  this.curname = '';
+    this.heading = this.curname = '';
     this.levels[0] = text;
     this.levels[1] = '';
     this.levels[2] = '';
@@ -1664,6 +1760,8 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
     this.indicator = this.parent.indicator;
     this.wrapAsync = parent.wrapAsync;
     this.wrapSync = parent.wrapSync;
+    this.wrapDefaults = parent.wrapDefaults;
+    this.uniq = parent.uniq();
     this.sync = Folder.sync;
     this.async = Folder.async;
     this.defSubCommand = Folder.defSubCommand;
