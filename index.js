@@ -231,6 +231,24 @@ var Folder = function (actions) {
             });
         }
     );
+    
+    gcd.on("push ready", "finish push");
+    
+    gcd.action("finish push", function (data, evObj) {
+            var gcd = evObj.emitter;
+            
+            var name = evObj.pieces[0];
+            var file = evObj.pieces[1]; 
+            var doc = gcd.parent.docs[file];
+            
+            if (doc) {
+                doc.store(name, data);
+            } else {
+                gcd.emit("error:impossible:action push", 
+                    [data, evObj.pieces]);
+            }
+        }
+    );
 
     if (actions) {
         apply(gcd, actions);
@@ -613,6 +631,7 @@ Folder.prototype.subnameTransform = function (subname, lname, mainblock) {
     var doc = this;
     var colon = doc.colon;
 
+
     if (subname[0] === ":") {
         if (mainblock) {
             //console.log(mainblock)
@@ -681,7 +700,6 @@ Folder.prototype.subnameTransform = function (subname, lname, mainblock) {
     
     }
    
-
     return subname;
 
 };
@@ -1031,6 +1049,15 @@ Folder.commands = {   eval : sync(function ( text, args ) {
         }
         return ret;
     }, "pop"),
+    "." : sync(function (input, args) {
+        var propname = args.shift();
+        var prop = input[propname];
+        if (typeof prop === "function") {
+            return prop.apply(input, args);
+        } else {
+            return prop;
+        }
+    }, "."),
     "if" : function (input, args, name) {
         var doc = this;
         var gcd = doc.gcd;
@@ -1390,6 +1417,35 @@ Folder.directives = {
         this.parent.flags[args.link.trim()] = true;
     
     },
+    "push" : dirFactory(function (state) {
+        var doc = this;
+        state.name = doc.colon.escape(state.linkname + ":"  + 
+            state.start + ":" + state.input);
+        state.emitname =  "for push:" + doc.file + ":" + state.name;
+        state.donename =  "push bit:" + doc.file + ":" + state.name;
+        state.goname =  "push ready:" + doc.file + ":" + state.linkname;
+    }, function (state) {
+        var doc = this;
+        var gcd = doc.gcd;
+    
+    
+        var f = function (data) {
+            gcd.emit(state.donename, data);
+        };
+        f._label =  "push;;" + state.name;
+        
+        state.handler = f;
+    }, function (state) {
+        var doc = this;
+        var gcd = this.gcd;
+        var name = state.name;
+        var start = state.start;
+        var emitname = state.emitname;
+    
+        gcd.emit("waiting for:push bit:" + name, 
+            [emitname, name, doc.file, start]  );
+        gcd.flatWhen(state.donename, state.goname ); 
+    }),
     "version" : function (args) {
         var doc = this;
         var colon = doc.colon;

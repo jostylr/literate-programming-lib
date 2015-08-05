@@ -274,6 +274,8 @@ closure's sake and ease. Perhaps it will get revised.
     _"Ready to start compiling blocks |oa"
     
     _"what is waiting| oa"
+    
+    _"dir push:action | oa"
 
 
 [done when]()
@@ -1600,11 +1602,11 @@ the first escaped colon will be returned as mainblock.
         var doc = this;
         var colon = doc.colon;
 
+
         _":fix colon subname"
 
         _":h5 transform"
        
-
         return subname;
 
     }
@@ -3636,6 +3638,7 @@ Here we have some commands and directives that are of common use
         cat : sync(_"cat", "cat"),
         push : sync(_"push", "push"),
         pop : sync(_"pop", "pop"),
+        "." : sync(_"dot", "."),
         "if" : _"cmd if",
         "done" : _"cmd done",
         "when" : _"cmd when"
@@ -3927,6 +3930,63 @@ argument use case.
         return args.join(sep);
     }
 
+### Cmd Echo
+
+This is a simple command to echo the argument and ignore the input. Why?  This
+allows one to use subcommands and start it in the chain. `cat` kind of does
+this but just for text. 
+
+    function (input, args) {
+        return args[0];
+    }
+
+##### Cmd Sync
+
+    echo
+    ---
+    _"../"
+    ---
+    `echo arg` This returns the first argument to pass along the pipe flow.
+    Nothing else is done or passed. 
+
+### Cmd Arr
+
+This shunts the input and the arguments into an array to be passed onto the
+next pipe.
+
+    function (input, args) {
+        return args.unshift(input); 
+    }
+
+##### Cmd Sync
+
+    arr
+    ---
+    _"../"
+    ---
+    `arr arg1, arg2, ...` This generates an array to pass on that consists of
+    `[input, arg1, arg2, ...]`. 
+
+    
+### Dot
+
+This defines the command `.`  It takes the incoming thing as an object and
+uses the first argument as the method to call. The other arguments are just
+used in the calling of the method. 
+
+So for example if the input is an array, then we can use `. join ;\n` to join
+the array into text with a semicolon and a newline at each end. 
+
+    function (input, args) {
+        var propname = args.shift();
+        var prop = input[propname];
+        if (typeof prop === "function") {
+            return prop.apply(input, args);
+        } else {
+            return prop;
+        }
+    }
+
 ### Push
 
     function (input, args, name) {
@@ -4051,6 +4111,7 @@ for saving as well.
         "eval" : _"dir eval",
         "if" : _"dir if",
         "flag" : _"dir flag",
+        "push" : _"dir push",
         "version" : _"dir version",
         "npminfo" : _"dir npminfo",
     }
@@ -4910,6 +4971,106 @@ This sets the flag on the folder which is `this.parent`.
 
     }
 
+### Dir Push
+
+This is to add some text to a variable. It should only be used within a single
+document; multi-documents should use add locally and grab those exports more
+methodically. 
+
+The idea is that we have a directive of the form `[doc variable](#start "push: | ...")`
+
+It will then add a gcd.when named to `push:file:doc variable` and it will emit
+when ready an add ready event. This will generate the doc variable as an
+appended list in the order of appearance in the document.
+
+The motivation is to deal with putting in pieces of functionality into the
+code in a more distributed way in the compiled form while keeping it tightly
+localized. For example, in this document, we attach a basic function in the
+prototype for Folder. Then we might use that to initialize something in the
+doc. All of that seems best suited to be placed with the code itself. In
+particular, knowing what the function's name is can be useful. The starting
+prototype could be placed in the code as is, but the follow up setup is
+trickier.
+
+It generates an array which then needs to be assembled into text. For example,
+if one was pushing onto `awesome`, then we could use `_"awesome| . join \,,"` 
+okay that sucks. 
+
+The href hash tag has the variable value to retrieve and then it gets sent
+into the pipes. The stuff before the pipes is an options thing which is not
+currently used, but reserved to be in line with other directives, available
+for the future, and just looks a bit better (ha). The link text is a variable
+name to store. 
+
+
+    dirFactory(_":emitname", _":handler factory", _":other")
+
+[emitname]()
+
+We store the important name in state.name. Note that this includes the pipes as
+that may be the only distinguishing feature (see tests/store.md for example)
+
+    function (state) {
+        var doc = this;
+        state.name = doc.colon.escape(state.linkname + ":"  + 
+            state.start + ":" + state.input);
+        state.emitname =  "for push:" + doc.file + ":" + state.name;
+        state.donename =  "push bit:" + doc.file + ":" + state.name;
+        state.goname =  "push ready:" + doc.file + ":" + state.linkname;
+    }
+
+
+[handler factory]()
+
+
+    function (state) {
+        var doc = this;
+        var gcd = doc.gcd;
+
+
+        var f = function (data) {
+            gcd.emit(state.donename, data);
+        };
+        f._label =  "push;;" + state.name;
+        
+        state.handler = f;
+    }
+
+
+[other]()
+
+This sets up the when waiting.  
+
+    function (state) {
+        var doc = this;
+        var gcd = this.gcd;
+        var name = state.name;
+        var start = state.start;
+        var emitname = state.emitname;
+
+        gcd.emit("waiting for:push bit:" + name, 
+            [emitname, name, doc.file, start]  );
+        gcd.flatWhen(state.donename, state.goname ); 
+    }
+
+[action]()
+
+This responds to push events and stores the value. 
+
+    push ready --> finish push
+
+    var name = evObj.pieces[0];
+    var file = evObj.pieces[1]; 
+    var doc = gcd.parent.docs[file];
+
+    if (doc) {
+        doc.store(name, data);
+    } else {
+        gcd.emit("error:impossible:action push", 
+            [data, evObj.pieces]);
+    }
+
+
 ### Dir Version
 
 This gives the name and version of the program. 
@@ -5108,6 +5269,8 @@ The log array should be cleared between tests.
         "constructor.md",
         "transform.md",
         "defaults.md", // 30
+        "dirpush.md", 
+        "mainblock.md", 
         "linkquotes.md",
         "subcommands.md",
         "backslash.md",
@@ -5123,7 +5286,7 @@ The log array should be cleared between tests.
         "cycle.md"
     ].
     slice(0);
-    //slice(30, 31);
+    //slice(32, 33);
 
 
     Litpro.commands.readfile = Litpro.prototype.wrapAsync(_"test async", "readfile");
@@ -5238,7 +5401,7 @@ process the inputs.
 
          // setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
-        //  setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
+         //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
           // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
@@ -5901,6 +6064,10 @@ There are a variety of directives that come built in.
   before a double colon). You can use it to store variables in a different
   scope. Not terribly needed, but it was easy to expose the underlying
   functionality. 
+* **Push** `[var name](#start "push: |...")` This takes the stuff in start,
+  throws it through some pipes, and then stores it as an item in an array with
+  the array stored under var name. These are stored in the order of appearance
+  in the document. 
 * **Link Scope** `[alias name](# "link scope:scopename")` This creates an
   alias for an existing scope. This can be useful if you want to use one name
   and toggle between them. For example, you could use the alias `v` for `dev`
@@ -5959,7 +6126,7 @@ Note commands need to be one word.
   unorthodox. We'll see if I regret it. 
 * **Store** `variable name`  This stores the incoming text into the variable
   name.  This is good for stashing something in mid computation. For example,
-  `...|store temp | sub THIS, that | store awe | _"temp"` will stash the
+  `...|store temp | sub THIS, that | store awe | _"temp"`will stash the
   incoming text into temp, then substitute out THIS for that, then store that
   into awe, and finally restore back to the state of temp. Be careful that the
   variable temp could get overwritten if there are any async operations
@@ -5983,6 +6150,12 @@ Note commands need to be one word.
   for this pipe process.
 * **Pop** Replaces the incoming text with popping out the last unpopped pushed
   on text.
+* **.** `. propname, arg1, arg2,... ` This is the dot command and it accesses
+  property name which is the first argument; the object is the input
+  (typically a string, but can be anything). If the property is a method, then
+  the other arguments are passed in as arguments into the method. For the
+  inspirational example, the push directive creates an array and to join them
+  into text one could do `| . join, \,`
 * **If** `flag, cmd, arg1, arg2, ....` If the flag is present (think build
   flag), then the command will execute with the given input text and
   arguments. Otherwise, the input text is passed on.

@@ -146,7 +146,7 @@ var testrunner = function (file) {
 
      // setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
-    //  setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
+     //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
     });
       // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
@@ -200,6 +200,8 @@ var testfiles = [
     "constructor.md",
     "transform.md",
     "defaults.md", // 30
+    "dirpush.md", 
+    "mainblock.md", 
     "linkquotes.md",
     "subcommands.md",
     "backslash.md",
@@ -215,7 +217,7 @@ var testfiles = [
     "cycle.md"
 ].
 slice(0);
-//slice(30, 31);
+//slice(32, 33);
 
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {

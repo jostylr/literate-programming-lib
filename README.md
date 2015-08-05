@@ -493,6 +493,10 @@ There are a variety of directives that come built in.
   before a double colon). You can use it to store variables in a different
   scope. Not terribly needed, but it was easy to expose the underlying
   functionality. 
+* **Push** `[var name](#start "push: |...")` This takes the stuff in start,
+  throws it through some pipes, and then stores it as an item in an array with
+  the array stored under var name. These are stored in the order of appearance
+  in the document. 
 * **Link Scope** `[alias name](# "link scope:scopename")` This creates an
   alias for an existing scope. This can be useful if you want to use one name
   and toggle between them. For example, you could use the alias `v` for `dev`
@@ -551,7 +555,7 @@ Note commands need to be one word.
   unorthodox. We'll see if I regret it. 
 * **Store** `variable name`  This stores the incoming text into the variable
   name.  This is good for stashing something in mid computation. For example,
-  `...|store temp | sub THIS, that | store awe | _"temp"` will stash the
+  `...|store temp | sub THIS, that | store awe | _"temp"`will stash the
   incoming text into temp, then substitute out THIS for that, then store that
   into awe, and finally restore back to the state of temp. Be careful that the
   variable temp could get overwritten if there are any async operations
@@ -575,6 +579,12 @@ Note commands need to be one word.
   for this pipe process.
 * **Pop** Replaces the incoming text with popping out the last unpopped pushed
   on text.
+* **.** `. propname, arg1, arg2,... ` This is the dot command and it accesses
+  property name which is the first argument; the object is the input
+  (typically a string, but can be anything). If the property is a method, then
+  the other arguments are passed in as arguments into the method. For the
+  inspirational example, the push directive creates an array and to join them
+  into text one could do `| . join, \,`
 * **If** `flag, cmd, arg1, arg2, ....` If the flag is present (think build
   flag), then the command will execute with the given input text and
   arguments. Otherwise, the input text is passed on.
