@@ -1468,6 +1468,12 @@ Folder.directives = {
        
         var temp = doc.midPipes(args.input);
         var options = temp[0]; 
+    
+        if (options === "off") { 
+            gcd.emit("h5 off:" + colon.escape(heading));
+            return;
+        }
+        
         var pipes = temp[1];
         
         var name = colon.escape(args.link);
@@ -1477,11 +1483,6 @@ Folder.directives = {
         doc.pipeDirSetup(pipes, doc.file + ":" + name, function (data) {
             doc.store(name, data);
         }    , doc.curname ); 
-    
-        if (options === "off") { 
-            gcd.emit("h5 off:" + colon.escape(heading));
-            return;
-        }
         
         var handler = gcd.on("heading found:5:" + doc.file , function (data, evObj) {
            
@@ -1498,7 +1499,12 @@ Folder.directives = {
             gcd.off("heading found:5:" + doc.file, handler);
         });
     
-        gcd.flatWhen("parsing done:" + doc.file, whendone).silence();  
+        if (options === "full") {
+            gcd.when("parsing done:" + doc.file, whendone).silence();  
+        } else {
+            gcd.flatWhen("parsing done:" + doc.file, whendone).silence();  
+        }
+    
         
     
     },

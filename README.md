@@ -497,6 +497,12 @@ There are a variety of directives that come built in.
   throws it through some pipes, and then stores it as an item in an array with
   the array stored under var name. These are stored in the order of appearance
   in the document. 
+* **h5** `[varname](#heading "h5: opt | cmd1, ...")` This is a directive that
+  makes h5 headings that match `heading` act like the push above where it is
+  being pushed to an array that will eventually populate `varname`. It takes
+  an optional argument which could be `off` to stop listening for the headings
+  (this is useful to have scoped behavior) and `full` which will give the
+  event name as well as the text; the deafult is just the text.  
 * **Link Scope** `[alias name](# "link scope:scopename")` This creates an
   alias for an existing scope. This can be useful if you want to use one name
   and toggle between them. For example, you could use the alias `v` for `dev`
@@ -529,9 +535,10 @@ There are a variety of directives that come built in.
 
 ## Built in commands
 
-Note commands need to be one word. 
+Note commands need to be one word and are case-sensitive. They can be symbols
+as long as that does not conflict with anything (avoid pipes, commas, colons, quotes). 
 
-* **Eval** `code, arg1,...`  The first argument is the text of the code to
+* **eval** `code, arg1,...`  The first argument is the text of the code to
   eval. In its scope, it will have the incoming text as the `text` variable
   and the arguments, which could be objects, will be in the `args` array. The
   code is eval'd (first argument). The code text itself is available in the
@@ -540,20 +547,20 @@ Note commands need to be one word.
   inpsecting all sorts of stuff, like the current state of the blocks. If you
   want to evaluate the incoming text and use the result as text, then the line
   `text = eval(text)` as the first argument should work.
-* **Async** (async eval) `code1, code2, ...` Same deal as eval, except this
+* **async** (async eval) `code1, code2, ...` Same deal as eval, except this
   code expects a callback function to be called. It is in the variable
   callback. So you can read a file and have its callback call the callback to
   send the text along its merry way. 
-* **Compile** This compiles a block of text as if it was in the document
+* **compile** This compiles a block of text as if it was in the document
   originally. The compiled text will be the output. The arguments give the
   names of blocknames that are used if short-hand minor blocks are
   encountered. This is useful for templating. 
-* **Sub** `key1, val1, key2, val2, ...`  This replaces `key#` in the text with
+* **sub** `key1, val1, key2, val2, ...`  This replaces `key#` in the text with
   `val#`. The replacement is sorted based on the length of the key value. This
   is to help with SUBTITLE being replaced before TITLE, for example, while
   allowing one to write it in an order that makes reading make sense. A little
   unorthodox. We'll see if I regret it. 
-* **Store** `variable name`  This stores the incoming text into the variable
+* **store** `variable name`  This stores the incoming text into the variable
   name.  This is good for stashing something in mid computation. For example,
   `...|store temp | sub THIS, that | store awe | _"temp"`will stash the
   incoming text into temp, then substitute out THIS for that, then store that
@@ -561,39 +568,41 @@ Note commands need to be one word.
   variable temp could get overwritten if there are any async operations
   hanging about. Best to have unique names. See push and pop commands for a
   better way to do this. 
-* **Log** This will output a concatenated string to doc.log (default
+* **log** This will output a concatenated string to doc.log (default
   console.log) with the incoming text and the arguments. This is a good way to
   see what is going on in the middle of a transformation.
-* **Raw** `start, end` This will look for start in the raw text of the file
+* **raw** `start, end` This will look for start in the raw text of the file
   and end in the file and return everything in between. The start and end are
   considered stand-alone lines. 
-* **Trim** This trims the incoming text, both leading and trailing whitespace.
+* **trim** This trims the incoming text, both leading and trailing whitespace.
   Useful in some tests of mine. 
-* **Join** This will concatenate the incoming text and the arguments together
+* **join** This will concatenate the incoming text and the arguments together
   using the first argument as the separator. Note one can use `\n` as arg1 and
   it should give you a newline (use `\\n` if in a directive due to parser
   escaping backslashes!). No separator can be as easy as `|join ,1,2,...`.
-* **Cat**  The arguments are concatenated with the incoming text as is. Useful
+* **cat**  The arguments are concatenated with the incoming text as is. Useful
   for single arguments, often with no incoming text.
-* **Push** Simply pushes the current state of the incoming text on the stack
+* **push** Simply pushes the current state of the incoming text on the stack
   for this pipe process.
-* **Pop** Replaces the incoming text with popping out the last unpopped pushed
+* **pop** Replaces the incoming text with popping out the last unpopped pushed
   on text.
 * **.** `. propname, arg1, arg2,... ` This is the dot command and it accesses
   property name which is the first argument; the object is the input
   (typically a string, but can be anything). If the property is a method, then
   the other arguments are passed in as arguments into the method. For the
   inspirational example, the push directive creates an array and to join them
-  into text one could do `| . join, \,`
-* **If** `flag, cmd, arg1, arg2, ....` If the flag is present (think build
+  into text one could do `| . join, \,`. There is also an alias so that any
+  `.propname` as a command works. For example, we could do `| .join \,` above.
+  This avoids forgetting the comma after join in the prior example. 
+* **if** `flag, cmd, arg1, arg2, ....` If the flag is present (think build
   flag), then the command will execute with the given input text and
   arguments. Otherwise, the input text is passed on.
-* **When** `name1, name2, ...` This takes in the event names and waits for
+* **when** `name1, name2, ...` This takes in the event names and waits for
   them to be emitted by done or manually with a
   `doc.parent.done.gcd.once(name, "done")`. That would probably be used in
   directives. The idea of this setup is to wait to execute a cli command for
   when everything is setup. It passes through the incoming text. 
-* **Done** `name` This is a command to emit the done event for name. It just
+* **done** `name` This is a command to emit the done event for name. It just
   passes through the incoming text. The idea is that it would be, say, a
   filename of something that got saved. 
 
