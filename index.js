@@ -1053,10 +1053,18 @@ Folder.commands = {   eval : sync(function ( text, args ) {
         var propname = args.shift();
         var prop = input[propname];
         if (typeof prop === "function") {
-            return prop.apply(input, args);
-        } else {
-            return prop;
+            var ret = prop.apply(input, args);
+            if (typeof ret === "undefined") {
+                doc.log("method returned undefined", input, propname, args);
+                return input;
+            } else {
+                return ret;
+            }
+        } else if (typeof prop === "undefined") {
+            doc.log("property undefined", input, propname, args); 
+            return input; 
         }
+        return prop;
     }, "."),
     "if" : function (input, args, name) {
         var doc = this;
@@ -1490,7 +1498,7 @@ Folder.directives = {
             gcd.off("heading found:5:" + doc.file, handler);
         });
     
-        gcd.flatWhen("parsing done:" + doc.file, whendone);  
+        gcd.flatWhen("parsing done:" + doc.file, whendone).silence();  
         
     
     },
@@ -2235,7 +2243,7 @@ dp.pipeParsing = function (text, ind, quote, name, mainblock, toEmit, textEmit) 
         
         match = comreg.exec(text);
         if (match) {
-            command = match[1].trim().toLowerCase();
+            command = match[1].trim();
             chr = match[2];
             ind = comreg.lastIndex;
             if (command === '') {

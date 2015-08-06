@@ -1783,7 +1783,7 @@ automatically receive the previous bit as the incoming text.
 
     match = comreg.exec(text);
     if (match) {
-        command = match[1].trim().toLowerCase();
+        command = match[1].trim();
         chr = match[2];
         ind = comreg.lastIndex;
         if (command === '') {
@@ -3989,10 +3989,18 @@ the array into text with a semicolon and a newline at each end.
         var propname = args.shift();
         var prop = input[propname];
         if (typeof prop === "function") {
-            return prop.apply(input, args);
-        } else {
-            return prop;
+            var ret = prop.apply(input, args);
+            if (typeof ret === "undefined") {
+                doc.log("method returned undefined", input, propname, args);
+                return input;
+            } else {
+                return ret;
+            }
+        } else if (typeof prop === "undefined") {
+            doc.log("property undefined", input, propname, args); 
+            return input; 
         }
+        return prop;
     }
 
 ### Push
@@ -5133,7 +5141,7 @@ If href is empty, then we use the var name.
             gcd.off("heading found:5:" + doc.file, handler);
         });
 
-        gcd.flatWhen("parsing done:" + doc.file, whendone);  
+        gcd.flatWhen("parsing done:" + doc.file, whendone).silence();  
         
 
     }
@@ -6759,6 +6767,6 @@ A travis.yml file for continuous test integration!
 
 
 by [James Taylor](https://github.com/jostylr "npminfo: jostylr@gmail.com ; 
-    deps: event-when 1.4.1, commonmark 0.20.0, string.fromcodepoint 0.2.1;
+    deps: event-when 1.5.0, commonmark 0.20.0, string.fromcodepoint 0.2.1;
     dev: tape 4.0.0, litpro-jshint 0.2.1")
 

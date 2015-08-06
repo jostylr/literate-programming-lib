@@ -8,23 +8,25 @@ So this will see about h5 stuff
 
 [out](# "save:")
 
-[awesome](#cool "h5: | .slice  1")
+[awesome](#cool "h5: | .map  eval(`ret = function (el) {
+    return 'working ' + el;};`)")
+
 
 ##### Cool
 
-    working great
+    great
 
 ## blah
 
 ##### cool
 
-    working cool
+    cool
 
 ## blah blah
 
 ##### COol
 
-    working thrice
+    thrice
 
 ---
 working great
