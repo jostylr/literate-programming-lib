@@ -1446,6 +1446,54 @@ Folder.directives = {
             [emitname, name, doc.file, start]  );
         gcd.flatWhen(state.donename, state.goname ); 
     }),
+    "h5" : function (args) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var colon = doc.colon;
+    
+        var heading = args.href.slice(1); 
+        heading = heading.replace(/-/g, ' ').trim().toLowerCase();
+    
+        if (! heading ) {
+            heading = args.link;
+        }
+       
+        var temp = doc.midPipes(args.input);
+        var options = temp[0]; 
+        var pipes = temp[1];
+        
+        var name = colon.escape(args.link);
+        var whendone = "text ready:" + doc.file + ":" + name + colon.v  + "sp" ;
+        var alldone = "text ready:" + doc.file + ":" + name;
+    
+        doc.pipeDirSetup(pipes, doc.file + ":" + name, function (data) {
+            doc.store(name, data);
+        }    , doc.curname ); 
+    
+        if (options === "off") { 
+            gcd.emit("h5 off:" + colon.escape(heading));
+            return;
+        }
+        
+        var handler = gcd.on("heading found:5:" + doc.file , function (data, evObj) {
+           
+            var found = data.trim().toLowerCase();
+            var full; 
+        
+            if (found === heading) {
+                full = colon.escape(doc.levels[0]+'/'+found);
+                gcd.when("text ready:" + doc.file + ":" + full, whendone); 
+            }
+        });
+    
+        gcd.once("h5 off:" + colon.escape(heading), function () {
+            gcd.off("heading found:5:" + doc.file, handler);
+        });
+    
+        gcd.flatWhen("parsing done:" + doc.file, whendone);  
+        
+    
+    },
     "version" : function (args) {
         var doc = this;
         var colon = doc.colon;
@@ -2865,8 +2913,14 @@ dp.argFinishingHandler = function (comname) {
         args = data.slice(2).map(function (el) {
             return el[1];
         });
-    
-        var fun = doc.commands[command];
+        
+        var fun;
+        if ( (command[0] === ".") && (command.length > 1) ) {
+            fun = doc.commands["."];
+            args.unshift(command.slice(1) );
+        } else {
+            fun = doc.commands[command];
+        }
     
         if (fun) {
             fun.apply(doc, [input, args, comname, command]);

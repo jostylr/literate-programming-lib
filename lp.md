@@ -2831,8 +2831,18 @@ commands to modify the environment of the function.
         var input, args, command, han;
 
         _":extract data"
-    
-        var fun = doc.commands[command];
+        
+        var fun;
+
+ This allows property access. We are piggy backing off `.` sync command as
+ that is just easier to do -- keeps it tidy within the same flow. 
+
+        if ( (command[0] === ".") && (command.length > 1) ) {
+            fun = doc.commands["."];
+            args.unshift(command.slice(1) );
+        } else {
+            fun = doc.commands[command];
+        }
 
         if (fun) {
             fun.apply(doc, [input, args, comname, command]);
@@ -2851,8 +2861,6 @@ commands to modify the environment of the function.
 
 
     }
-
-
 
 
 [extract data]()
@@ -4112,6 +4120,7 @@ for saving as well.
         "if" : _"dir if",
         "flag" : _"dir flag",
         "push" : _"dir push",
+        "h5" : _"dir h5",
         "version" : _"dir version",
         "npminfo" : _"dir npminfo",
     }
@@ -5070,6 +5079,93 @@ This responds to push events and stores the value.
             [data, evObj.pieces]);
     }
 
+### Dir h5
+
+This will listen for certain h5 headings and do a push of them onto a
+variable. 
+
+`[var name](#heading "h5: off |pipe stuff")`
+
+We do a closure around the heading we are looking for. We need an exact match
+(case insensitive, trimmed) after transforming the href `#this-has-dashes` to
+`this has dashes`. Then we can obtain the full path and we define a
+gcd.when for it (the event name could be helpful).  
+
+We can also do pipe stuff that will act after everything is assembled. This
+could be used for a little common data formatting. 
+
+We also have the option of having an off option. If that is placed, then we
+emit an off event with the heading. This is so that we could scope the h5
+headers.
+
+If href is empty, then we use the var name.
+
+    function (args) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var colon = doc.colon;
+
+        var heading = args.href.slice(1); 
+        heading = heading.replace(/-/g, ' ').trim().toLowerCase();
+
+        if (! heading ) {
+            heading = args.link;
+        }
+       
+        var temp = doc.midPipes(args.input);
+        var options = temp[0]; 
+        var pipes = temp[1];
+        
+        var name = colon.escape(args.link);
+        var whendone = "text ready:" + doc.file + ":" + name + colon.v  + "sp" ;
+        var alldone = "text ready:" + doc.file + ":" + name;
+
+        doc.pipeDirSetup(pipes, doc.file + ":" + name, _":whendone", doc.curname ); 
+
+        if (options === "off") { 
+            gcd.emit("h5 off:" + colon.escape(heading));
+            return;
+        }
+        
+        var handler = gcd.on("heading found:5:" + doc.file , _":found");
+
+        gcd.once("h5 off:" + colon.escape(heading), function () {
+            gcd.off("heading found:5:" + doc.file, handler);
+        });
+
+        gcd.flatWhen("parsing done:" + doc.file, whendone);  
+        
+
+    }
+
+[found]() 
+
+We are assuming all is within one file. So we can use the doc and file and gcd
+as closures. 
+
+    function (data, evObj) {
+       
+        var found = data.trim().toLowerCase();
+        var full; 
+
+        if (found === heading) {
+            full = colon.escape(doc.levels[0]+'/'+found);
+            gcd.when("text ready:" + doc.file + ":" + full, whendone); 
+        }
+    }
+
+[whendone]()
+
+This executes when all the variables headings we have listened to have been
+computed.
+
+This largely will return a text ready if there are no pipes, but we also have
+the option of pipes.
+
+    function (data) {
+        doc.store(name, data);
+    }    
+
 
 ### Dir Version
 
@@ -5271,6 +5367,7 @@ The log array should be cleared between tests.
         "defaults.md", // 30
         "dirpush.md", 
         "mainblock.md", 
+        "h5push.md", 
         "linkquotes.md",
         "subcommands.md",
         "backslash.md",
@@ -5286,7 +5383,7 @@ The log array should be cleared between tests.
         "cycle.md"
     ].
     slice(0);
-    //slice(32, 33);
+    //slice(33, 34);
 
 
     Litpro.commands.readfile = Litpro.prototype.wrapAsync(_"test async", "readfile");
@@ -5342,7 +5439,7 @@ process the inputs.
         
         var log = td.log; 
 
-       //gcd.makeLog();
+       // gcd.makeLog();
 
         //gcd.monitor('', function (evt, data) { console.log(evt, data); });
 
@@ -5401,7 +5498,7 @@ process the inputs.
 
          // setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
-         //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
+        // setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
           // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
@@ -5794,19 +5891,19 @@ before storing it in the file `code.js`.
 If you want your own directive to process pipes, see the [save directive](https://github.com/jostylr/literate-programming-lib/blob/master/lp.md#save)  in
 lp.md. Pay particular attention to the "process" and "deal with start" minor
 blocks. The functionality of pipe parsing is in the `doc.pipeParsing` command,
-but there events that need to be respected in the setup. 
+but there are events that need to be respected in the setup. 
 
 Commands take arguments separated by commas and commands end with pipes or the
 block naming quote. One can also use a named code block as an argument, using
-any of the quote marks (same or different as surroung block name). To
+any of the quote marks (same or different as surround block name). To
 escape commas, quotes, pipes, underscores, spaces (spaces get trimmed from the
 beginning and ending of an argument), newlines, one can use a backslash, which
 also escapes itself. Note that the commonmark parser will escape all
 backslash-punctuation combinations outside of code blocks. So you may need a
 double backslash in directive command pipings. 
 
-You can also use `\n` to puta newline in line or `\u...` where the ... is a
-unicode codepoint per javascript spec implemented by [string.fromcodepoint](https://github.com/mathiasbynens/String.fromCodePoint).    
+You can also use `\n` to pu ta newline in line or `\u...` where the ... is a
+unicode codepoint per JavaScript spec implemented by [string.fromcodepoint](https://github.com/mathiasbynens/String.fromCodePoint).    
 
 
  ### Minor Block
@@ -6538,10 +6635,9 @@ Implement ability to switch syntax (say replace quotes with hash symbols).
 
 Go over docs (subcommands in particular)
 
-add directive `add`. This will use the pipe stuff and put the end result of it
-to the end of the named section: `[to add to](#start "add: pipe stuff")` This
-will append the section in order of appearance in the document. 
+h5 directive that does the push kind of thing. 
 
+check for lack of initial heading problems (mainblock remove header). 
 
 !----
 

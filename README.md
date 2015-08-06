@@ -223,19 +223,19 @@ before storing it in the file `code.js`.
 If you want your own directive to process pipes, see the [save directive](https://github.com/jostylr/literate-programming-lib/blob/master/lp.md#save)  in
 lp.md. Pay particular attention to the "process" and "deal with start" minor
 blocks. The functionality of pipe parsing is in the `doc.pipeParsing` command,
-but there events that need to be respected in the setup. 
+but there are events that need to be respected in the setup. 
 
 Commands take arguments separated by commas and commands end with pipes or the
 block naming quote. One can also use a named code block as an argument, using
-any of the quote marks (same or different as surroung block name). To
+any of the quote marks (same or different as surround block name). To
 escape commas, quotes, pipes, underscores, spaces (spaces get trimmed from the
 beginning and ending of an argument), newlines, one can use a backslash, which
 also escapes itself. Note that the commonmark parser will escape all
 backslash-punctuation combinations outside of code blocks. So you may need a
 double backslash in directive command pipings. 
 
-You can also use `\n` to puta newline in line or `\u...` where the ... is a
-unicode codepoint per javascript spec implemented by [string.fromcodepoint](https://github.com/mathiasbynens/String.fromCodePoint).    
+You can also use `\n` to pu ta newline in line or `\u...` where the ... is a
+unicode codepoint per JavaScript spec implemented by [string.fromcodepoint](https://github.com/mathiasbynens/String.fromCodePoint).    
 
 
 ### Minor Block
