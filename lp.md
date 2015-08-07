@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.6.6; A literate programming compiler. Write your program in markdown. This is the core library and does not know about files.")
+# [literate-programming-lib](# "version:1.7.0; A literate programming compiler. Write your program in markdown. This is the core library and does not know about files.")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -6184,7 +6184,7 @@ There are a variety of directives that come built in.
   being pushed to an array that will eventually populate `varname`. It takes
   an optional argument which could be `off` to stop listening for the headings
   (this is useful to have scoped behavior) and `full` which will give the
-  event name as well as the text; the deafult is just the text.  
+  event name as well as the text; the default is just the text.  
 * **Link Scope** `[alias name](# "link scope:scopename")` This creates an
   alias for an existing scope. This can be useful if you want to use one name
   and toggle between them. For example, you could use the alias `v` for `dev`

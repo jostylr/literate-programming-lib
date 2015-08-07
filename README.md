@@ -502,7 +502,7 @@ There are a variety of directives that come built in.
   being pushed to an array that will eventually populate `varname`. It takes
   an optional argument which could be `off` to stop listening for the headings
   (this is useful to have scoped behavior) and `full` which will give the
-  event name as well as the text; the deafult is just the text.  
+  event name as well as the text; the default is just the text.  
 * **Link Scope** `[alias name](# "link scope:scopename")` This creates an
   alias for an existing scope. This can be useful if you want to use one name
   and toggle between them. For example, you could use the alias `v` for `dev`
