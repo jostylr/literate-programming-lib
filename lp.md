@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.7.0; A literate programming compiler. Write your program in markdown. This is the core library and does not know about files.")
+# [literate-programming-lib](# "version:1.7.1; A literate programming compiler. Write your program in markdown. This is the core library and does not know about files.")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -6782,6 +6782,6 @@ A travis.yml file for continuous test integration!
 
 
 by [James Taylor](https://github.com/jostylr "npminfo: jostylr@gmail.com ; 
-    deps: event-when 1.5.0, commonmark 0.20.0, string.fromcodepoint 0.2.1;
-    dev: tape 4.0.0, litpro-jshint 0.2.1")
+    deps: event-when 1.5.0, commonmark 0.21.0, string.fromcodepoint 0.2.1;
+    dev: tape 4.0.3, litpro-jshint 0.2.1")
 
