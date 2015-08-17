@@ -21,7 +21,7 @@ This is the core library that is used as a module. See
 [litpro](http://github.com/jostylr/litpro) for the command
 line client. The [full](https://github.com/jostylr/literate-programming)
 version has a variety of useful standard
-plugins ("batteries included").
+plugins ("batteries included", not updated yet still at old version).
 
 ## Installation
 
