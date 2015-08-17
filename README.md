@@ -18,7 +18,7 @@ This processing does not care what language(s) your are programming in. But it
 may skew towards more useful for the web stack. 
 
 This is the core library that is used as a module. See 
-[-cli](https://github.com/jostylr/literate-programming-cli)  for the command
+[litpro](http://github.com/jostylr/litpro) for the command
 line client. The [full](https://github.com/jostylr/literate-programming)
 version has a variety of useful standard
 plugins ("batteries included").
