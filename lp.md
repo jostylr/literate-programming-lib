@@ -3652,6 +3652,22 @@ Here we have some commands and directives that are of common use
         "when" : _"cmd when"
     }
 
+###   h5 setups
+
+Here we setup the various h5 heading for commands. We start with the creation
+of the object above.
+
+* [cmd sync](#sync "h5: |") Sync gives something of the form `name : sync(function , name)`
+* [cmd async](#async "h5: |") Async is like sync just with an async in front. 
+* [cmd raw](#raw "h5: | ") Raw is just `name : function`
+* [cmd doc](#doc "h5: | ") With docs, we give the name and then the doc block. 
+* [cmd test](#test "h5| augment arr | push| .splitsep | push | .pluck 0 | 
+    store testfiles | pop | .pluck 1, -1 | store testunits | pop | pop") For tests, we demarcate it with three split lines. The first block is the set
+of name(s) that test the command in a file. The subsequent blocks are unit
+tests. The cmd test will have the unmodified stuff in the end. 
+
+
+
 ### Eval
 
 This implements the command `eval`. This evaluates the first argument as JavaScript. It
@@ -3962,20 +3978,39 @@ this but just for text.
 This shunts the input and the arguments into an array to be passed onto the
 next pipe.
 
+Slice is probably unnecessary, but in case args arrays got reused, this would
+protect from that. 
+
     function (input, args) {
-        return args.unshift(input); 
+        return args.slice().unshift(input); 
     }
 
-##### Cmd Sync
+##### sync
+
+    arr 
+    _"../"
+ 
+##### doc
 
     arr
-    ---
-    _"../"
-    ---
     `arr arg1, arg2, ...` This generates an array to pass on that consists of
     `[input, arg1, arg2, ...]`. 
 
-    
+
+##### test
+
+Basic test and also, having some inline stuff. 
+
+    arr.md
+    ---
+    var f = _"../";
+    var a = f("1", ["2", "3"]);
+    var b = ["1", "2", "3"];
+    t.deepEquals(a, b);
+    t.equals(a, b);
+
+
+
 ### Dot
 
 This defines the command `.`  It takes the incoming thing as an object and
@@ -4102,6 +4137,18 @@ list, something like `file saved:...`;
         var folder = this;
         folder.done.cache[evObj.ev] = true;
     }
+
+### End of Commands
+
+We turn off the command listeners
+
+
+[cmd sync](#sync "h5: off")
+[cmd async](#async "h5: off")
+[cmd raw](#raw "h5: off")
+[cmd doc](#doc "h5: off")
+[cmd test](#test "h5: off")
+
 
 
 ## Directives
