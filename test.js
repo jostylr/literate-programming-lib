@@ -148,7 +148,7 @@ var testrunner = function (file) {
 
    // setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
     });
-    //   setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+       setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
 };
 
@@ -218,8 +218,8 @@ var testfiles = [
     "reports.md",
     "cycle.md"
 ].
-slice(0);
-//slice(32, 33);
+//slice(0);
+slice(31, 32);
 
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {

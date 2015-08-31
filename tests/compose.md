@@ -20,12 +20,21 @@ lists!
     _"just some text | array 1, 2, 3 | .join -- "
 
     _"splitting | .split -- | augment arr | .trim |
-        .splitsep / |.pluck 1 | .trim | .join ! "
+        .splitsep / |.pluck 1 | .trim | .mapc rev | .join ! "
 
     _"splitting | .split \n--\n | augment arr | 
-        .splitsep / | minidoc :title |  
-        .apply :some, echo,  great |
-        .store nav | echo _"temp" | compile nav "
+        .splitsep / | minidoc :title | .mapc .trim |
+        | push | .clone | 
+        .apply :some, echo,  great | store obj |
+        .store nav | echo _"temp" | compile nav
+        | store final | 
+        | pop | .set :new, rad | .store cool | echo _"final" "
+
+    _"cool:some"
+
+    _"cool:new"
+
+    _"obj | .get :title "
 
 [out](# "save:")
 
@@ -58,6 +67,16 @@ Huh?
     --
     kicking
 
+## Command
+
+Let's define a command to use for mapc
+
+    function (input) {
+        return input.split('').reverse().join('');
+    }
+
+[rev](# "define:")
+
 ---
 ignore it all
 
@@ -65,10 +84,16 @@ Text and more
 
 this is great--1--2--3
 
-geese!text!
+eseeg!txet!
 
 kicking
 
- geese 
+geese
 
 great
+
+text
+
+rad
+
+kicking

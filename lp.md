@@ -4075,6 +4075,8 @@ The "." are intentional; they signify that this is a command method.
     { 
         ".store" : _"minidoc store",
         ".apply" : _"minidoc apply",
+        ".mapc" : _"minidoc mapc",
+        clone : _"minidoc clone",
         set : _"aug set",
         get : _"aug get"
     }
@@ -4103,6 +4105,40 @@ argument as an optional prefix to each key as to where it should get stored.
         gcd.emit("text ready:" + name, input); 
     }
 
+
+### minidoc mapc
+
+This maps commands to each element of the object. This does not create a new
+object; for that clone this first. 
+
+`.mapc cmd, arg1, arg2, ...`
+
+    function(obj, args, name) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var c = doc.colon.v;
+
+        var cmd = args[0];
+        var ename = name + c + ".mapc" + c + cmd; 
+        args = args.slice(1);
+
+        gcd.when("mapc setup:" + ename, "keying:" + ename).silence();
+        gcd.on("keying:"+ ename, function (data) {
+            data.forEach(function (el) {
+                var key = el[0].slice(el[0].lastIndexOf(c) + 1);
+                obj[key] = el[1];
+            });
+            gcd.emit("text ready:" + name, obj);
+        });
+        obj._augments.keys().forEach(function (key) {
+            var mname = ename + c + key; 
+            gcd.when("text ready:" + mname, "keying:" + ename );
+            doc.cmdworker(cmd, obj[key], args, mname);
+        });
+
+        gcd.emit("mapc setup:"+ename);
+
+    }
 
 ### minidoc apply
 
@@ -4136,7 +4172,7 @@ This clones an object. Most operations will act on it directly.
     function () {
         var input = this;
         var clone = {};
-        Object.keys(input).forEach(function (el) {
+        input._augments.keys().forEach(function (el) {
             clone[el] = input[el]; 
         });
         clone = input._augments.self(clone); 
@@ -4557,12 +4593,12 @@ stop the flow within the same pipeline.
             } else {
                 ret = prop.apply(input, args);
                 if (typeof ret === "undefined") {
-                    doc.log("method returned undefined", input, propname, args);
+                    doc.log("method returned undefined " + propname, input, propname, args);
                     ret = input;
                 } 
             }
         } else if (typeof prop === "undefined") {
-            doc.log("property undefined", input, propname, args); 
+            doc.log("property undefined " + propname, input, propname, args); 
             ret = input; 
         } else {
             ret = prop;
@@ -6188,8 +6224,8 @@ The log array should be cleared between tests.
         "reports.md",
         "cycle.md"
     ].
-    slice(0);
-    //slice(32, 33);
+    //slice(0);
+    slice(31, 32);
 
 
     Litpro.commands.readfile = Litpro.prototype.wrapAsync(_"test async", "readfile");
@@ -6306,7 +6342,7 @@ process the inputs.
 
        // setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
-        //   setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+           setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
     }
 

@@ -895,6 +895,41 @@ Folder.plugins.augment = {
             });
             doc.cmdworker(cmd, input[key], args, ename);
         },
+        ".mapc" : function(obj, args, name) {
+            var doc = this;
+            var gcd = doc.gcd;
+            var c = doc.colon.v;
+        
+            var cmd = args[0];
+            var ename = name + c + ".mapc" + c + cmd; 
+            args = args.slice(1);
+        
+            gcd.when("mapc setup:" + ename, "keying:" + ename).silence();
+            gcd.on("keying:"+ ename, function (data) {
+                data.forEach(function (el) {
+                    var key = el[0].slice(el[0].lastIndexOf(c) + 1);
+                    obj[key] = el[1];
+                });
+                gcd.emit("text ready:" + name, obj);
+            });
+            obj._augments.keys().forEach(function (key) {
+                var mname = ename + c + key; 
+                gcd.when("text ready:" + mname, "keying:" + ename );
+                doc.cmdworker(cmd, obj[key], args, mname);
+            });
+        
+            gcd.emit("mapc setup:"+ename);
+        
+        },
+        clone : function () {
+            var input = this;
+            var clone = {};
+            input._augments.keys().forEach(function (el) {
+                clone[el] = input[el]; 
+            });
+            clone = input._augments.self(clone); 
+            return clone;
+        },
         set : function (key, val) {
             this[key] = val;
             return this;
@@ -1300,12 +1335,12 @@ Folder.commands = {   eval : sync(function ( text, args ) {
             } else {
                 ret = prop.apply(input, args);
                 if (typeof ret === "undefined") {
-                    doc.log("method returned undefined", input, propname, args);
+                    doc.log("method returned undefined " + propname, input, propname, args);
                     ret = input;
                 } 
             }
         } else if (typeof prop === "undefined") {
-            doc.log("property undefined", input, propname, args); 
+            doc.log("property undefined " + propname, input, propname, args); 
             ret = input; 
         } else {
             ret = prop;
