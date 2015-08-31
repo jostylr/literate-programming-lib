@@ -424,6 +424,66 @@ Folder.prototype.log = function (text) { console.log(text); };
 
 Folder.prototype.indicator = "\u2AF6\u2AF6\u2AF6";
 
+Folder.prototype.augment = function self (obj, type) {
+
+    var selfaug = obj._augments;
+    if (!selfaug) {
+        selfaug = obj._augments = [];
+        selfaug.self = self;
+    }
+
+    selfaug.keys = function () {
+        var keys = Object.keys(obj);
+        var augkeys = obj._augments.map( function (el) {
+            return el[0];
+        });
+        augkeys.push("_augments");
+        return keys.filter(function (el) {
+            return  (augkeys.indexOf(el) === -1);
+        });
+    };
+    
+    var props; 
+
+    if ( typeof type === "string" ) {
+
+        var augs = this.plugins.augment;
+        props = augs[type];
+
+        Object.keys(props).forEach( function (el) {
+            obj[el] = props[el];
+            selfaug.push([el, props[el]]);
+        });
+
+    } else {
+        props = this;  
+        props.forEach(function (el) {
+            var key = el[0], val = el[1];
+            obj[key]  = val;
+            selfaug.push([key, val]);
+        });
+    }
+
+    return obj;
+}; 
+Folder.prototype.cmdworker = function (cmd, input, args, ename) {
+    var doc = this;
+    var gcd = doc.gcd;
+    var f;
+
+    if ( (cmd[0] === ".") && (cmd.length > 1) )  {
+        cmd = cmd.slice(1);
+        args.unshift(cmd);
+        doc.commands["."].call(doc, input, args, ename, ".");
+    } else if ( typeof (f = doc.commands[cmd] ) === "function" ) {
+        doc.commands[cmd].call(doc, input, args, ename, cmd );
+    } else {
+        gcd.once("command defined:" + cmd, function () {
+            doc.commands[cmd].call(doc, input, args, ename, cmd );
+        });
+    }
+}; 
+
 var sync  = Folder.prototype.wrapSync = function (fun, label) {
         var temp;
         if (typeof fun === "string") {
@@ -480,6 +540,7 @@ var async = Folder.prototype.wrapAsync = function (fun, label) {
                 gcd.emit("text ready:" + name, data);
             }
         };
+        callback.name = name; 
         args = doc.argsPrep(args, name, doc.subCommands, command);
         fun.call(doc, input, args, callback, name);
     };
@@ -734,6 +795,113 @@ Folder.plugins.npminfo = {
             }
         },
         save : "npm dev dependencies"
+    }
+};
+Folder.plugins.augment = {
+    arr : {
+        trim : function () {
+            var old = this;
+            var ret = old.map(function (el) {
+                if (typeof el === "undefined") {
+                    return '';
+                } else if (el.hasOwnProperty("trim")) {
+                    return el.trim();
+                } else {
+                    return el.toString().trim();
+                }
+            });
+            return old._augments.self(ret);
+        },
+        splitsep : function (sep) {
+            var old = this;
+            sep = sep || '\n---\n';
+            var ret = old.map(function (el) {
+                return el.split(sep);
+            });
+            return old._augments.self(ret);
+        },
+        ".mapc" : function(arr, args, name) {
+            var doc = this;
+            var gcd = doc.gcd;
+            var c = doc.colon.v;
+        
+            var cmd = args[0];
+            var ename = name + c + ".mapc" + c + cmd; 
+            args = args.slice(1);
+        
+            gcd.flatWhen("mapping setup:" + ename, "need augmenting:" + ename).silence();
+            gcd.on("need augmenting:"+ ename, function (data) {
+                data = arr._augments.self( data ); 
+                gcd.emit("text ready:" + name, data);
+            });
+            arr.forEach(function (el, ind) {
+                var mname = ename + c + ind; 
+                gcd.when("text ready:" + mname, "need augmenting:" + ename );
+                doc.cmdworker(cmd, el, args, mname);
+            });
+        
+            gcd.emit("mapping setup:"+ename);
+        
+        },
+        pluck : function (key) {
+            var arr = this;
+            var ret = arr.map(function (el) {
+                return el[key]; 
+            });
+            ret = arr._augments.self(ret);
+            return ret;
+        },
+        put : function (key, full) {
+            var vals = this;
+            full.forEach(function (el, ind) {
+                el[key] = vals[ind];
+            });
+            return full;
+        },
+        get : function (key) {
+            return this[key];
+        },
+        set : function (key, val) {
+            this[key] = val;
+            return this;
+        }
+    },
+    minidoc : { 
+        ".store" : function (input, args, name, cmdname) {
+            var doc = this;
+            var gcd = doc.gcd;
+            var prefix = args[0] || '';
+            try {
+                input._augments.keys().forEach(function (el) {
+                    doc.store(doc.colon.escape(prefix + el), input[el]); 
+                });
+        
+            } catch(e) {
+                this.gcd.emit("error:fromDoc:" + name, [e, input, args]);
+            }
+            gcd.emit("text ready:" + name, input); 
+        },
+        ".apply" : function (input, args, name) {
+            var doc = this;
+            var gcd = doc.gcd;
+            var c = doc.colon.v;
+            var key = args[0];
+            var cmd = args[1];
+            var ename = name + c + ".apply" + c + key + c + cmd ; 
+            args = args.slice(2);
+            gcd.once("text ready:" + ename, function (data) {
+                input[key] = data;
+                gcd.emit("text ready:" + name, input);
+            });
+            doc.cmdworker(cmd, input[key], args, ename);
+        },
+        set : function (key, val) {
+            this[key] = val;
+            return this;
+        },
+        get : function (key) {
+            return this[key];
+        }
     }
 };
 
@@ -1021,6 +1189,69 @@ Folder.commands = {   eval : sync(function ( text, args ) {
         }
         return args.join(sep);
     }, "cat"),
+    // new
+    echo : sync(function (input, args) {
+        return args[0];
+    }, "echo"),
+    array : sync(function (input, args) {
+        var doc = this;
+        var ret = args.slice();
+        ret.unshift(input);
+        ret = doc.augment(ret, "arr");
+        return ret;
+    }, "array"),
+    minidoc : sync(function (input, args, name) {
+        var doc = this;
+        var gcd = this.gcd;
+        var ret = {}; 
+        if (typeof input.forEach === "function" ) {
+            input.forEach( function (el) {
+                if (Array.isArray(el) ) {
+                    if (el.length === 1) {
+                        ret[args.pop()] = el[0];
+                    } else {
+                        ret[el[0].trim()] = el[1];
+                    }
+                } else {
+                    ret[args.pop()] = el;
+                }
+            });
+        } else {
+            gcd.emit("error:incorect type:toDoc:" + name, [input, args]);
+            return input;
+        }
+        doc.augment(ret, "minidoc");
+        return ret;
+    
+    }, "miniDoc"),
+    augment : function (input, args, name, cmdname) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var c = doc.colon.v;
+        var augs = doc.plugins.augment;
+        args = doc.argsPrep(args, name, doc.subCommands, cmdname);
+    
+        gcd.flatWhen("augment setup:" + name, "text ready:" + name);
+            
+        args.forEach(function (el, ind) {
+            if (augs.hasOwnProperty(el) ) {
+               input = doc.augment(input, el);
+            } else {
+                gcd.when("augment defined:" + el, "define extension:" + name);
+                gcd.when("augment:" + name + c + ind , "text ready:" +
+                    name).silence();
+                gcd.once("define extension:" + name, function () {
+                    input = doc.augment(input, el); 
+                    gcd.emit("augment:" + name + c + ind);
+                });
+            }
+        });
+        
+        gcd.emit("augment setup:" + name, input);
+    
+    
+    }, 
+    
     push : sync(function (input, args, name) {
         var folder = this.parent;
         var stack = folder.stack;
@@ -1049,23 +1280,38 @@ Folder.commands = {   eval : sync(function ( text, args ) {
         }
         return ret;
     }, "pop"),
-    "." : sync(function (input, args) {
+    "." : function (input, args, name, cmdname) {
+        var doc = this;
+        var gcd = doc.gcd;
         var propname = args.shift();
-        var prop = input[propname];
+        args = doc.argsPrep(args, name, doc.subCommands, cmdname);
+        var async = false;
+        var prop;
+        if ( (prop = input["." + propname] ) ) {
+            async = true;
+        } else {
+            prop = input[propname];
+        }
+        var ret;
         if (typeof prop === "function") {
-            var ret = prop.apply(input, args);
-            if (typeof ret === "undefined") {
-                doc.log("method returned undefined", input, propname, args);
-                return input;
+            if (async) {
+                prop.call(doc, input, args, name, cmdname);
+                return;
             } else {
-                return ret;
+                ret = prop.apply(input, args);
+                if (typeof ret === "undefined") {
+                    doc.log("method returned undefined", input, propname, args);
+                    ret = input;
+                } 
             }
         } else if (typeof prop === "undefined") {
             doc.log("property undefined", input, propname, args); 
-            return input; 
+            ret = input; 
+        } else {
+            ret = prop;
         }
-        return prop;
-    }, "."),
+        gcd.emit("text ready:" + name, ret);
+    },
     "if" : function (input, args, name) {
         var doc = this;
         var gcd = doc.gcd;
@@ -1478,13 +1724,12 @@ Folder.directives = {
         
         var name = colon.escape(args.link);
         var whendone = "text ready:" + doc.file + ":" + name + colon.v  + "sp" ;
-        var alldone = "text ready:" + doc.file + ":" + name;
     
         doc.pipeDirSetup(pipes, doc.file + ":" + name, function (data) {
             doc.store(name, data);
         }    , doc.curname ); 
         
-        var handler = gcd.on("heading found:5:" + doc.file , function (data, evObj) {
+        var handler = gcd.on("heading found:5:" + doc.file , function (data ) {
            
             var found = data.trim().toLowerCase();
             var full; 
@@ -1873,6 +2118,8 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
     this.colon = Object.create(parent.colon); 
     this.join = parent.join;
     this.log = this.parent.log;
+    this.augment = this.parent.augment;
+    this.cmdworker = this.parent.cmdworker;
     this.scopes = this.parent.scopes;
     this.subnameTransform = this.parent.subnameTransform;
     this.indicator = this.parent.indicator;

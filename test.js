@@ -87,7 +87,7 @@ var testrunner = function (file) {
     
     var log = td.log; 
 
-   // gcd.makeLog();
+    //gcd.makeLog();
 
     //gcd.monitor('', function (evt, data) { console.log(evt, data); });
 
@@ -142,13 +142,13 @@ var testrunner = function (file) {
             });
         };
 
-       // notEmit();
+      // notEmit();
 
-     // setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
+     //setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
-    // setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
+   // setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
     });
-      // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+    //   setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
 };
 
@@ -200,6 +200,7 @@ var testfiles = [
     "constructor.md",
     "transform.md",
     "defaults.md", // 30
+    "compose.md",
     "dirpush.md", 
     "mainblock.md", 
     "h5push.md", 
@@ -218,7 +219,7 @@ var testfiles = [
     "cycle.md"
 ].
 slice(0);
-//slice(33, 34);
+//slice(32, 33);
 
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {

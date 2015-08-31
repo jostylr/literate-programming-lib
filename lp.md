@@ -135,6 +135,9 @@ Each doc within a folder shares all the directives and commands.
     Folder.prototype.log = function (text) { console.log(text); };
 
     Folder.prototype.indicator = "\u2AF6\u2AF6\u2AF6";
+
+    Folder.prototype.augment = _"augment:on doc"; 
+    Folder.prototype.cmdworker = _"command worker"; 
     
     var sync  = Folder.prototype.wrapSync = _"Command wrapper sync";
     Folder.sync = function (name, fun) {
@@ -164,6 +167,10 @@ Each doc within a folder shares all the directives and commands.
     Folder.postInit = function () {}; //a hook for plugin this modification
     Folder.plugins = {};
     Folder.plugins.npminfo = _"dir npminfo:types";
+    Folder.plugins.augment = {
+        arr : _"augment arr",
+        minidoc : _"minidoc methods"
+    };
 
     Folder.reporters = {
         save : _"save:reporter",
@@ -329,6 +336,8 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.colon = Object.create(parent.colon); 
         this.join = parent.join;
         this.log = this.parent.log;
+        this.augment = this.parent.augment;
+        this.cmdworker = this.parent.cmdworker;
         this.scopes = this.parent.scopes;
         this.subnameTransform = this.parent.subnameTransform;
         this.indicator = this.parent.indicator;
@@ -2956,6 +2965,7 @@ receive `err, data` where data is the text to emit.
                     gcd.emit("text ready:" + name, data);
                 }
             };
+            callback.name = name; 
             args = doc.argsPrep(args, name, doc.subCommands, command);
             fun.call(doc, input, args, callback, name);
         };
@@ -3644,9 +3654,15 @@ Here we have some commands and directives that are of common use
         trim : sync(_"trim", "trim"),
         join : sync(_"cmd join", "join"),
         cat : sync(_"cat", "cat"),
+        // new
+        echo : sync(_"cmd echo", "echo"),
+        array : sync(_"cmd array", "array"),
+        minidoc : sync(_"miniDoc", "miniDoc"),
+        augment : _"augment", 
+        
         push : sync(_"push", "push"),
         pop : sync(_"pop", "pop"),
-        "." : sync(_"dot", "."),
+        "." : _"dot",
         "if" : _"cmd if",
         "done" : _"cmd done",
         "when" : _"cmd when"
@@ -3657,15 +3673,16 @@ Here we have some commands and directives that are of common use
 Here we setup the various h5 heading for commands. We start with the creation
 of the object above.
 
+```ignore
 * [cmd sync](#sync "h5: |") Sync gives something of the form `name : sync(function , name)`
 * [cmd async](#async "h5: |") Async is like sync just with an async in front. 
 * [cmd raw](#raw "h5: | ") Raw is just `name : function`
 * [cmd doc](#doc "h5: | ") With docs, we give the name and then the doc block. 
 * [cmd test](#test "h5| augment arr | push| .splitsep | push | .pluck 0 | 
-    store testfiles | pop | .pluck 1, -1 | store testunits | pop | pop") For tests, we demarcate it with three split lines. The first block is the set
+    store testfiles | pop | .pluck 1..-1 | store testunits | pop | pop") For tests, we demarcate it with three split lines. The first block is the set
 of name(s) that test the command in a file. The subsequent blocks are unit
 tests. The cmd test will have the unmodified stuff in the end. 
-
+```
 
 
 ### Eval
@@ -3954,6 +3971,8 @@ argument use case.
         return args.join(sep);
     }
 
+
+
 ### Cmd Echo
 
 This is a simple command to echo the argument and ignore the input. Why?  This
@@ -3973,7 +3992,7 @@ this but just for text.
     `echo arg` This returns the first argument to pass along the pipe flow.
     Nothing else is done or passed. 
 
-### Cmd Arr
+### Cmd Array
 
 This shunts the input and the arguments into an array to be passed onto the
 next pipe.
@@ -3981,10 +4000,15 @@ next pipe.
 Slice is probably unnecessary, but in case args arrays got reused, this would
 protect from that. 
 
-    function (input, args) {
-        return args.slice().unshift(input); 
-    }
+We also augment the array to have the custom properties for the "arr" object.
 
+    function (input, args) {
+        var doc = this;
+        var ret = args.slice();
+        ret.unshift(input);
+        ret = doc.augment(ret, "arr");
+        return ret;
+    }
 ##### sync
 
     arr 
@@ -4011,7 +4035,493 @@ Basic test and also, having some inline stuff.
 
 
 
-### Dot
+### miniDoc
+
+This takes in an array and converts into an object whose keys would be
+suitable variable names and useful for storing. 
+
+`miniDoc :title, :body`  will create an object from an array whose form 
+`[a, [b, c], [d]]` will lead to `{title: a, b:c, body: d}`
+
+    function (input, args, name) {
+        var doc = this;
+        var gcd = this.gcd;
+        var ret = {}; 
+        if (typeof input.forEach === "function" ) {
+            input.forEach( function (el) {
+                if (Array.isArray(el) ) {
+                    if (el.length === 1) {
+                        ret[args.pop()] = el[0];
+                    } else {
+                        ret[el[0].trim()] = el[1];
+                    }
+                } else {
+                    ret[args.pop()] = el;
+                }
+            });
+        } else {
+            gcd.emit("error:incorect type:toDoc:" + name, [input, args]);
+            return input;
+        }
+        doc.augment(ret, "minidoc");
+        return ret;
+
+    }
+
+### minidoc methods
+
+The "." are intentional; they signify that this is a command method. 
+
+    { 
+        ".store" : _"minidoc store",
+        ".apply" : _"minidoc apply",
+        set : _"aug set",
+        get : _"aug get"
+    }
+
+### minidoc store
+
+This assumes this is an object with the store property. It uses the first
+argument as an optional prefix to each key as to where it should get stored.
+
+!!! need to filter out `_augments` and methods.  
+
+`.store nav`
+
+    function (input, args, name, cmdname) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var prefix = args[0] || '';
+        try {
+            input._augments.keys().forEach(function (el) {
+                doc.store(doc.colon.escape(prefix + el), input[el]); 
+            });
+
+        } catch(e) {
+            this.gcd.emit("error:fromDoc:" + name, [e, input, args]);
+        }
+        gcd.emit("text ready:" + name, input); 
+    }
+
+
+### minidoc apply
+
+This applies the supplied command and arguments to the minidoc specified
+property and stores the result. 
+
+`.apply key, cmd, args`  
+
+
+    function (input, args, name) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var c = doc.colon.v;
+        var key = args[0];
+        var cmd = args[1];
+        var ename = name + c + ".apply" + c + key + c + cmd ; 
+        args = args.slice(2);
+        gcd.once("text ready:" + ename, function (data) {
+            input[key] = data;
+            gcd.emit("text ready:" + name, input);
+        });
+        doc.cmdworker(cmd, input[key], args, ename);
+    }
+
+
+### minidoc clone
+
+This clones an object. Most operations will act on it directly. 
+
+
+    function () {
+        var input = this;
+        var clone = {};
+        Object.keys(input).forEach(function (el) {
+            clone[el] = input[el]; 
+        });
+        clone = input._augments.self(clone); 
+        return clone;
+    }
+
+
+### Command worker
+
+This deals with invoking a command in something like .apply or .mapc. 
+
+    function (cmd, input, args, ename) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var f;
+
+        if ( (cmd[0] === ".") && (cmd.length > 1) )  {
+            cmd = cmd.slice(1);
+            args.unshift(cmd);
+            doc.commands["."].call(doc, input, args, ename, ".");
+        } else if ( typeof (f = doc.commands[cmd] ) === "function" ) {
+            doc.commands[cmd].call(doc, input, args, ename, cmd );
+        } else {
+            gcd.once("command defined:" + cmd, function () {
+                doc.commands[cmd].call(doc, input, args, ename, cmd );
+            });
+        }
+    }
+
+
+### augment
+
+This adds properties and methods to the input object. If the input object is a
+string or number, it is converted into an object first and then augmented. 
+
+    function (input, args, name, cmdname) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var c = doc.colon.v;
+        var augs = doc.plugins.augment;
+        args = doc.argsPrep(args, name, doc.subCommands, cmdname);
+
+        gcd.flatWhen("augment setup:" + name, "text ready:" + name);
+            
+        args.forEach(function (el, ind) {
+            if (augs.hasOwnProperty(el) ) {
+               input = doc.augment(input, el);
+            } else {
+                gcd.when("augment defined:" + el, "define extension:" + name);
+                gcd.when("augment:" + name + c + ind , "text ready:" +
+                    name).silence();
+                gcd.once("define extension:" + name, function () {
+                    input = doc.augment(input, el); 
+                    gcd.emit("augment:" + name + c + ind);
+                });
+            }
+        });
+        
+        gcd.emit("augment setup:" + name, input);
+
+
+    }
+
+[on doc]()
+
+This is a direct function that augments objects; not a command, but on
+doc, folder prototypes. 
+
+We also want to leave a record of this so that when creating a new object, the
+augments continue, if reasonable. So we create an array of key, value pushed
+in order of augmentation. 
+
+When transferring augmentation from old to new, we call it as an object from
+the array and so we can access its data. We recognize this by the lack of a
+type variable.
+
+    function self (obj, type) {
+
+        var selfaug = obj._augments;
+        if (!selfaug) {
+            selfaug = obj._augments = [];
+            selfaug.self = self;
+        }
+
+        selfaug.keys = _":keys";
+        
+        var props; 
+
+        if ( typeof type === "string" ) {
+
+            var augs = this.plugins.augment;
+            props = augs[type];
+
+            Object.keys(props).forEach( function (el) {
+                obj[el] = props[el];
+                selfaug.push([el, props[el]]);
+            });
+
+        } else {
+            props = this;  
+            props.forEach(function (el) {
+                var key = el[0], val = el[1];
+                obj[key]  = val;
+                selfaug.push([key, val]);
+            });
+        }
+
+        return obj;
+    }
+
+[keys]() 
+
+This returns the object's keys without the augment properties. Hack of
+homemade prototypey thingy. 
+
+    function () {
+        var keys = Object.keys(obj);
+        var augkeys = obj._augments.map( function (el) {
+            return el[0];
+        });
+        augkeys.push("_augments");
+        return keys.filter(function (el) {
+            return  (augkeys.indexOf(el) === -1);
+        });
+    }
+
+
+#### augment arr 
+
+This defines the augmentation of the array object. 
+
+    {
+        trim : _":trim",
+        splitsep : _":splitsep",
+        ".mapc" : _"mapc",
+        pluck : _"pluck",
+        put : _"put",
+        get : _"aug get",
+        set : _"aug set"
+    }
+
+[trim]()
+
+Trims all the entries in the array. It also converts them all to strings if
+not already a string. 
+
+    function () {
+        var old = this;
+        var ret = old.map(function (el) {
+            if (typeof el === "undefined") {
+                return '';
+            } else if (el.hasOwnProperty("trim")) {
+                return el.trim();
+            } else {
+                return el.toString().trim();
+            }
+        });
+        return old._augments.self(ret);
+    }
+
+
+[splitsep]()
+
+This goes over each element of the array and splits the text on the separator
+element. The default is `\n---\n`. It returns a new array.
+
+    function (sep) {
+        var old = this;
+        sep = sep || '\n---\n';
+        var ret = old.map(function (el) {
+            return el.split(sep);
+        });
+        return old._augments.self(ret);
+    }
+
+#### Mapc
+
+This is maps commands to each element of an array. 
+
+`.mapc cmd, arg1, arg2, ...`
+
+    function(arr, args, name) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var c = doc.colon.v;
+
+        var cmd = args[0];
+        var ename = name + c + ".mapc" + c + cmd; 
+        args = args.slice(1);
+
+        gcd.flatWhen("mapping setup:" + ename, "need augmenting:" + ename).silence();
+        gcd.on("need augmenting:"+ ename, function (data) {
+            data = arr._augments.self( data ); 
+            gcd.emit("text ready:" + name, data);
+        });
+        arr.forEach(function (el, ind) {
+            var mname = ename + c + ind; 
+            gcd.when("text ready:" + mname, "need augmenting:" + ename );
+            doc.cmdworker(cmd, el, args, mname);
+        });
+
+        gcd.emit("mapping setup:"+ename);
+
+    }
+
+
+#### aug Get
+
+    function (key) {
+        return this[key];
+    }
+
+#### aug Set
+
+    function (key, val) {
+        this[key] = val;
+        return this;
+    }
+
+
+#### Pluck
+
+This takes in a common key for elements in an array and returns a new array
+with that. 
+
+    function (key) {
+        var arr = this;
+        var ret = arr.map(function (el) {
+            return el[key]; 
+        });
+        ret = arr._augments.self(ret);
+        return ret;
+    }
+
+#### Put
+
+This is the reverse of pluck in which an array is incoming and is to be used
+as values to place in the relevant key spot for each.  
+
+
+    function (key, full) {
+        var vals = this;
+        full.forEach(function (el, ind) {
+            el[key] = vals[ind];
+        });
+        return full;
+    }
+
+
+#### ignored pluck
+
+!! Ignore this. Maybe later. Not feeling the use case for the complexity
+
+This is a bit complicated. It assumes that this is an array and we want to
+extract elements of that array. 
+
+Multiple arguments lead to concatenating arrays. That is `.pluck 0, 2` will lead `[[a, c], [m, o]]` where the original is say `[[a, b, c], [m, n, o]]`. 
+
+We support `1..3` for slicing between 1 and 3; `3..1` reverses it.
+
+Negative numbers count from the end of the array.
+
+A formula such as `2n+1` as in the css nth selector syntax works as well. 
+
+There are several arrays: args are the arguments to make an array, 
+arr is the input array -- its length will not change, but it will get
+changed to lower levels, and val which should be an array and is what values
+are getting plucked out -- there is one val for each entry of arr. 
+
+    function () {
+        var input = this;
+        var args = Array.prototype.slice.call(arguments);
+        _":regs"
+        var ner = _":number maker"; 
+        _":one argument"
+
+    ( 
+        var arr = input.slice();
+        args.forEach(function (el) {
+            arr = arr.map(function (val) {
+                _":pluck out a new array"
+            });
+        });
+        arr = input._augments.self(arr);
+        return arr;
+    }
+
+[one argument]() 
+
+If there is only one argument and the argument matches a single number, then
+we extract the value and it reduces the array. Anything else is simply
+thinning the array.  
+
+    if (args.lengt === 1) {
+        if ( (match = args[0].match(numreg) ) {
+            ret = input.map( function (el) {
+                var n = el.length;
+                var num = ner(match[1], n);
+                return el[num];
+            });
+        } else if ( ({
+
+        }
+                (match = el.match(numreg) ) ) {
+                return [val[ner(match[1], n)]]; 
+            }
+
+
+[pluck out a new array]() 
+
+This does all the work of getting the elements. 
+
+    var n = val.length, i, cur, ret;
+    var match, mul, con, left, right;
+    var parts = el.split(";");
+    var ret;
+    parts = parts.map(function (el) {
+        _":get array bits"
+    });
+    ret = [].concat(parts);
+    if (ret.length === 1) {
+        
+    }
+
+
+[get array bits]()
+
+    if ( (match = el.match(slicereg) ) ) {
+        left = ner(match[1], n);
+        right =  ner(match[2], n);
+        if ( left >= right) {
+            return val.slice(left, right);
+        } else {
+            return val.slice(right, left).reverse();
+        }   
+    } else if ( (match = el.match(formreg) ) ) {
+        _":formula" 
+    } else if ( (match = el.match(numreg) ) ) {
+        // return array so concat does not flatten an array value
+        return [val[ner(match[1], n)]]; 
+    } else {
+        return [];
+    }
+
+
+[regs]()
+
+This is where we parse numbers, dots, and formulas. 
+
+    var slicereg =  /^(-?\d+)\.\.(-?\d+)$/;
+    var formreg = /^(-?\d+)\s*n\s*\+\s*(-?\d+)$/;
+    var numreg = /^(-?\d+)$/;
+
+[number maker]()
+
+    function (num, n) {
+        num = parseInt(num, 10);
+        if (num < 0) {
+            num = n + num + 1;
+        }
+        return num;
+    }
+
+
+[formula]()
+
+This formula starts at the constant (negatives interpreted from the end) and
+then adds the increment times the multiplier to get the next one in sequence.
+Negative multiplier goes down, naturally. 
+
+    ret = [];
+    mul = parseInt(match[1], 10);
+    con = ner(match[2], n); 
+    i = 0;
+    cur = con;
+    while ((cur >= 0) && ( cur < n) ) {
+        ret[i] = val[cur];
+        i += 1;
+        cur = mul*i + con;
+    }
+    return ret;
+
+
+
+## Dot
 
 This defines the command `.`  It takes the incoming thing as an object and
 uses the first argument as the method to call. The other arguments are just
@@ -4020,22 +4530,44 @@ used in the calling of the method.
 So for example if the input is an array, then we can use `. join ;\n` to join
 the array into text with a semicolon and a newline at each end. 
 
-    function (input, args) {
+Adding a little async option. If the object has a method that is the command,
+but with a `.` in front, then we call that as if it was a command. Otherwise,
+we assume a normal property. 
+
+If property does not exist yet, this causes a problem, but augmenting will
+stop the flow within the same pipeline. 
+
+    function (input, args, name, cmdname) {
+        var doc = this;
+        var gcd = doc.gcd;
         var propname = args.shift();
-        var prop = input[propname];
+        args = doc.argsPrep(args, name, doc.subCommands, cmdname);
+        var async = false;
+        var prop;
+        if ( (prop = input["." + propname] ) ) {
+            async = true;
+        } else {
+            prop = input[propname];
+        }
+        var ret;
         if (typeof prop === "function") {
-            var ret = prop.apply(input, args);
-            if (typeof ret === "undefined") {
-                doc.log("method returned undefined", input, propname, args);
-                return input;
+            if (async) {
+                prop.call(doc, input, args, name, cmdname);
+                return;
             } else {
-                return ret;
+                ret = prop.apply(input, args);
+                if (typeof ret === "undefined") {
+                    doc.log("method returned undefined", input, propname, args);
+                    ret = input;
+                } 
             }
         } else if (typeof prop === "undefined") {
             doc.log("property undefined", input, propname, args); 
-            return input; 
+            ret = input; 
+        } else {
+            ret = prop;
         }
-        return prop;
+        gcd.emit("text ready:" + name, ret);
     }
 
 ### Push
@@ -4911,6 +5443,217 @@ to a blank command name.
     }
 
 
+### dir compose
+
+This takes existing commands and composes them. This is helpful if you want to
+do the same sequence of commands repeatedly. 
+
+`[cmd name](#unused "compose: cmd1, arg1, arg2 | cmd2, $2, arg2, @1...")`
+
+So it is a sequence of commands separated by pipes. The `argi`'s fill in values
+into the command. There is a special syntax of `$i` to refer to the command
+argument of the composed command and `@i` to refer to temporarily shifting off an array in
+the ith position. `@i...`  will fill in the rest of the arguments from the
+array. Each array is "reset" between commands.  Probably best not to use the
+shifting too much.
+
+At least for now, this will be a fairly simple parsing algorithm. The
+assumption is that the arguments are either simple text or the substitutions.
+Will revisit later if need be. 
+
+This uses `folder.compose` to create a function that actually works. 
+
+
+    function (args) {
+        var doc = this;
+        
+        var cmdname = args.link;
+        var cmds = _":setup cmd array";
+
+        _":setup delayed command definition"
+    }
+
+
+[setup delayed command definition]()
+
+This loops over the unique command names and sets up a .when to define this
+command once all the other commands are defined. If all are defined, we define
+it immediately. 
+
+We do not check for the "." properties since there is no way to check for that
+at this point. 
+
+    var fcmd = doc.file + ":" + cmdname;
+    var compready = "composition ready:" + fcmd;
+    var compcheck = "composition command checking:" + fcmd;
+    var cmddefine = "command defined:" + cmdname;
+
+    var define = function () {
+        doc.commands[cmdname] =  doc.parent.compose.apply(null, cmds);
+        gcd.emit(cmddefine);
+    };
+
+    gcd.once(compready, define);
+
+    gcd.when(compcheck, compready);
+   
+    // get unique cmds
+    var obj = {};        
+    cmds.forEach(function (el) {
+       obj[el[0]] = 1;
+    });
+
+    Object.keys(obj).forEach(function (el) {
+        if (el[0] === "." ) {
+            return ;
+        }
+        if !(doc.commands.hasOwnProperty(el)) {
+            gcd.when("command defined:" +  el, cmddefine);
+        }
+    });
+
+    gcd.emit(compcheck);
+
+
+[folder compose]()
+
+This is takes in arrays of [cmd, arg1, ...],  and spits out a function that
+will see those commands in sequence as a command function.
+
+This is to be defined on the `Folder.prototype.compose`. 
+
+    function () {
+        var arrs = arguments;
+        var doc = this;
+        var colon = doc.colon;
+        var gcd = doc.gcd;
+
+        
+        return function (input, compargs, name, cmdname ) {
+            var endbit = cmdname+ ":" + name;
+            var go = "compose go:" + endbit;
+            var done = "text ready:" + name; 
+            
+            var exec = _":executes command";
+
+            var c = colon.v + cmdname + colon.v ;
+
+            var i, n = arrs.length;
+            for (i = 0; i += 1; i < n+1) {
+                gcd.flatWhen("text ready:" + name + c + i, "cmd execute:" + 
+                    name + c + (i + 1); 
+                gcd.on("cmd execute:" + name + c + i, exec); 
+            }
+            // when all done, the last one is sent as the final bit
+            gcd.on("cmd execute:" + name + c + (n+1), function (text) {
+               gcd.emit(done, text); 
+            }); 
+
+            //start it
+            gcd.emit("cmd execute:" + name + c + 0, input);
+        };
+
+    }
+
+
+[executes command]() 
+
+This executes the command in the ith position by splitting on colon in the
+emitname and taking the last bit.
+
+This relies on closures: the `arrs` is the [cmd arg1], listing given at
+definition time and the `cmdargs` are the arguments passed in at the invocation.
+
+    function (data, evObj) {
+        var ind = parseInt(evObj.pieces[0].split(colon.v).reverse()[0], 10);
+        var cmd = arrs[ind][0];
+        var args = arrs[ind].slice(1);
+
+        _":modify args";
+
+        doc.commands[cmd](data, args,  name + c + ind, cmd);
+
+    }
+    
+[modify args]() 
+
+This is the bit that enables the substituting behavior. Anything of the form
+`$i` is a direct substitution from the passed in arguments. `@i` leads to
+inserting the array, a bit at a time unless it is at the end, in which case
+unused ones get spread into it, e.g., `a, @1, b, $1, @1` leads to, if `@1 = [1, 2,
+3]`, to  `a, 1, b, [1, 2, 3], 2, 3`. If we had `a, @1, b` then it would be
+just `a, 1, b`.  Extra dollar signs or at signs reduce by 1, i.e., cheap
+collapse. 
+
+arrtracker will track what the arrays might be.
+
+
+    var arrtracker = {}; 
+    var ds = /^([$]+)(\d+)$/;
+    var at = /^([@]+)(\d+)$/;
+    var n = args.length;
+    var subnum;
+    var i, el; 
+
+    
+    for (i = 0; ind < n; ind +=1 ) {
+        el = args[i];
+        var match = el.match(ds);
+        var num;
+        if (match) {
+            if (match[1].length > 1) { //escaped
+                args[i] = el.slice(1);
+                continue;
+            } else {
+                num = parseInt(match[2], 10);
+                args[i] = cmdargs[num];
+                continue;
+            }
+        }
+        match = el.match(at);
+        if (match) {
+            if (match[1].length > 1) { //escaped
+                args[i] = el.slice(1); 
+                continue;
+            } else {
+                num = parseInt(match[2], 10);
+                if (arrtracker.hasOwnProperty(num)) {
+                    subnum = arrtracker[num] += 1;
+                } else {
+                    subnum = arrtracker[num] = 0;
+                }
+
+To deal with spreading operator, we need to for the index being the last one
+in the array. If it is we slice and foreach it into the args   
+
+                if (ind === n-1) {
+                    cmdargs[num].slice(subnum).forEach(function (el) {
+                        args.push(el);
+                    });
+                } else {
+                    args[i] = cmdargs[num][subnum];
+                }
+            }
+        }
+    });
+
+    
+
+[setup cmd array]() 
+
+This splits on pipes and commas, trimming. 
+
+
+    args.input.split("|").map(function (el) {
+        return el.split(",").map(function(arg, i) {
+            arg = arg.trim();
+            return arg;
+        });
+    });
+    
+
+
+
 ### dir eval
 
 Run any code you like. Now. 
@@ -5155,6 +5898,8 @@ headers.
 
 If href is empty, then we use the var name.
 
+This returns an array from the .when which is by default flattened. 
+
     function (args) {
         var doc = this;
         var gcd = doc.gcd;
@@ -5179,7 +5924,6 @@ If href is empty, then we use the var name.
         
         var name = colon.escape(args.link);
         var whendone = "text ready:" + doc.file + ":" + name + colon.v  + "sp" ;
-        var alldone = "text ready:" + doc.file + ":" + name;
 
         doc.pipeDirSetup(pipes, doc.file + ":" + name, _":whendone", doc.curname ); 
         
@@ -5204,7 +5948,7 @@ If href is empty, then we use the var name.
 We are assuming all is within one file. So we can use the doc and file and gcd
 as closures. 
 
-    function (data, evObj) {
+    function (data ) {
        
         var found = data.trim().toLowerCase();
         var full; 
@@ -5426,6 +6170,7 @@ The log array should be cleared between tests.
         "constructor.md",
         "transform.md",
         "defaults.md", // 30
+        "compose.md",
         "dirpush.md", 
         "mainblock.md", 
         "h5push.md", 
@@ -5444,7 +6189,7 @@ The log array should be cleared between tests.
         "cycle.md"
     ].
     slice(0);
-    //slice(33, 34);
+    //slice(32, 33);
 
 
     Litpro.commands.readfile = Litpro.prototype.wrapAsync(_"test async", "readfile");
@@ -5500,7 +6245,7 @@ process the inputs.
         
         var log = td.log; 
 
-       // gcd.makeLog();
+        //gcd.makeLog();
 
         //gcd.monitor('', function (evt, data) { console.log(evt, data); });
 
@@ -5555,13 +6300,13 @@ process the inputs.
                 });
             };
 
-           // notEmit();
+          // notEmit();
 
-         // setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
+         //setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
-        // setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
+       // setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
-          // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+        //   setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
     }
 
@@ -6697,6 +7442,9 @@ Some of the waiting is not done by the emitting, but rather by presence in
 !----
 
 ## TODO
+
+Think about the subcommand argument prepping needing to be done in each
+command -- raw commands will not have that feature unless purposefully put in. 
 
 Check problematic syntax for erroring and reporting. Make sure there are tests
 for every bit of syntax. 
