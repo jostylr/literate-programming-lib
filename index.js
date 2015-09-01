@@ -947,13 +947,6 @@ Folder.plugins.augment = {
             });
             return full;
         },
-        get : function (key) {
-            return this[key];
-        },
-        set : function (key, val) {
-            this[key] = val;
-            return this;
-        }
     },
     minidoc : { 
         ".store" : function (input, args, name ) {
@@ -1313,7 +1306,6 @@ Folder.commands = {   eval : sync(function ( text, args ) {
         }
         return args.join(sep);
     }, "cat"),
-    // new
     echo : sync(function (input, args) {
         return args[0];
     }, "echo"),
@@ -1375,7 +1367,6 @@ Folder.commands = {   eval : sync(function ( text, args ) {
     
     
     }, 
-    
     push : sync(function (input, args, name) {
         var folder = this.parent;
         var stack = folder.stack;

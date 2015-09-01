@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.7.1; A literate programming compiler. Write your program in markdown. This is the core library and does not know about files.")
+# [literate-programming-lib](# "version:1.8.0; A literate programming compiler. Write your program in markdown. This is the core library and does not know about files.")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -3656,12 +3656,10 @@ Here we have some commands and directives that are of common use
         trim : sync(_"trim", "trim"),
         join : sync(_"cmd join", "join"),
         cat : sync(_"cat", "cat"),
-        // new
         echo : sync(_"cmd echo", "echo"),
         array : sync(_"cmd array", "array"),
         minidoc : sync(_"miniDoc", "miniDoc"),
         augment : _"augment", 
-        
         push : sync(_"push", "push"),
         pop : sync(_"pop", "pop"),
         "." : _"dot",
@@ -4042,7 +4040,7 @@ Basic test and also, having some inline stuff.
 This takes in an array and converts into an object whose keys would be
 suitable variable names and useful for storing. 
 
-`miniDoc :title, :body`  will create an object from an array whose form 
+`minidoc :title, :body`  will create an object from an array whose form 
 `[a, [b, c], [d]]` will lead to `{title: a, b:c, body: d}`
 
     function (input, args, name) {
@@ -4088,7 +4086,6 @@ The "." are intentional; they signify that this is a command method.
 This assumes this is an object with the store property. It uses the first
 argument as an optional prefix to each key as to where it should get stored.
 
-!!! need to filter out `_augments` and methods.  
 
 `.store nav`
 
@@ -4312,8 +4309,6 @@ This defines the augmentation of the array object.
         ".mapc" : _"mapc",
         pluck : _"pluck",
         put : _"put",
-        get : _"aug get",
-        set : _"aug set"
     }
 
 [trim]()
@@ -6990,6 +6985,15 @@ There are a variety of directives that come built in.
     This defines the command only for current doc. To do it across docs in the
     project, define it in the lprc.js. The commandName should be one word. 
 
+* **Compose** `[cmdname](#useless "compose: cmd1, arg1, ..| cmd2, ...")` This
+  composes commands, even those not yet defined. The arguments specified here
+  are passed onto the commands as they are executed. There are no subcommands
+  used in these arguments, but subcommands can be used in the arguments
+  differently. If an argi syntax has `$i` then that numbered argument when the
+  command is invoked is subbed in. If the argi has `@i`, then it assumed the
+  incoming argument is an array and uses the next available array element; if
+  the @i appears at the end of the arg list, then it unloads the rest of its
+  elements there. This may be a little klunky and the syntax may change.
 * **Subcommand** `[subcommandname](#cmdName "subcommand:")` This defines
   subcommandname (one word) and attaches it to be active in the cmdName. If no
   cmdName, then it becomes available to all commands.  
@@ -7109,6 +7113,18 @@ as long as that does not conflict with anything (avoid pipes, commas, colons, qu
   escaping backslashes!). No separator can be as easy as `|join ,1,2,...`.
 * **cat**  The arguments are concatenated with the incoming text as is. Useful
   for single arguments, often with no incoming text.
+* **echo** `echo This is output` This terminates the input sequence and
+  creates a new one with the first argument as the outgoing. 
+* **array** `array a1, a2, ...` This creates an array out of the input and
+  arguments. This is an augmented array.
+* **minidoc** `minidoc :title, :body` This takes an array and converts into an
+  object where they key value is either the args as keys and the values the
+  relevant input items or the item in the array is a two-element array whose
+  first is the key and second is the value. The named keys in the arguments
+  skip over the two-element arrays. minidocs are augmented with some methods.
+  See the augment section.
+* **augment** `augment type` This augments the object with the methods
+  contained in the type augment object. See the augment section. 
 * **push** Simply pushes the current state of the incoming text on the stack
   for this pipe process.
 * **pop** Replaces the incoming text with popping out the last unpopped pushed
@@ -7132,6 +7148,40 @@ as long as that does not conflict with anything (avoid pipes, commas, colons, qu
 * **done** `name` This is a command to emit the done event for name. It just
   passes through the incoming text. The idea is that it would be, say, a
   filename of something that got saved. 
+
+ ### Augment
+
+We have `.` methods that we can invoke and the augment command adds in
+properties based on objects stored in `doc.plugins.augment`. Any key in that
+object is a valid type for the command. We currently have two pre-defined
+augment types: `minidoc` and `arr`. 
+
+ #### minidoc
+
+* `.store arg1` will take the object and store all of its properties with
+  prefix arg1 if supplied. If the key has a colon in it, it will be escaped so
+  that `{":title" : "cool"} | .store pre` can be accessed by `cool:title`.
+* `.mapc cmd, arg1, arg2, ...` Applies the cmd and args to each of the values
+  in the object, replacing the values with the new ones. 
+* `.apply key, cmd, arg1, arg2, ..` Applies the cmd and args with input being
+  `obj[key]` value. This overwrites the `obj[key]` value with the new value. 
+* `.clone` Makes a new object with same properties and methods. This is a
+  shallow clone. You can use this with push and pop to modify the object and
+  then go back to the original state.
+* `.set key, val` Sets the key to the value
+* `.get key` Gets the value of that key
+
+ #### arr
+
+These methods return new, augmented arrays.
+
+* `.trim` Trims every entry in the array if it has that property. Undefined
+  elements become empty strings. Other stuff becomes strings as well, trimmed
+  of course. 
+* `.splitsep sep` This splits each entry into an array using the separator.
+  The default separator is `\n---\n`. 
+* `.mapc cmd, arg1, arg2, ...` Maps each element through the commands as input
+  with the given arguments being used. 
 
  ## Built-in Subcommands
 
@@ -7444,6 +7494,11 @@ Inherited from folder
 * subnameTransform, overwriting will only affect doc
 * indicator, overwriting will only affect doc
 * wrapSync, wrapAsync, overwriting will only affect doc
+* augment, this augments the object with the type. 
+* cmdworker, this will call the command. needed as with the dot command, it
+  can get tricky. Used in .apply, .mapc, compose. 
+* compose, this creates a function from composing multiple commands 
+    
 
 Prototyped on Doc. Almost all are internal and are of little to no interest.
 
@@ -7631,6 +7686,6 @@ A travis.yml file for continuous test integration!
 
 
 by [James Taylor](https://github.com/jostylr "npminfo: jostylr@gmail.com ; 
-    deps: event-when 1.5.0, commonmark 0.21.0, string.fromcodepoint 0.2.1;
-    dev: tape 4.0.3, litpro-jshint 0.2.1")
+    deps: event-when 1.5.0, commonmark 0.22.0, string.fromcodepoint 0.2.1;
+    dev: tape 4.2.0, litpro-jshint 0.2.1")
 

@@ -10,7 +10,7 @@ Need to test composing.
 
 [out](# "save: ")
 
-[longsplit](# "compose: split $0 | join @1")
+[longsplit](# "compose: split $0 | join @1, kool, @1")
 
 [split](# "compose: .split $0 | augment arr | .trim | .join 5 ")
 
@@ -30,4 +30,4 @@ this is5great5Does it
 work5Yes
 
 this is5great5Does it 
-work5Yes;some;more
+work5Yes;kool;some;more
