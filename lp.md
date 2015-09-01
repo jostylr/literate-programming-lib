@@ -109,7 +109,7 @@ an object on Folder that are then used as prototypes for the folder instances.
 Each doc within a folder shares all the directives and commands. 
 
 
-    /*global require, module */
+    /*global require, module, console */
     /*jslint evil:true*/
 
     var EvW = require('event-when');
@@ -138,6 +138,7 @@ Each doc within a folder shares all the directives and commands.
 
     Folder.prototype.augment = _"augment:on doc"; 
     Folder.prototype.cmdworker = _"command worker"; 
+    Folder.prototype.compose = _"dir compose:folder compose";
     
     var sync  = Folder.prototype.wrapSync = _"Command wrapper sync";
     Folder.sync = function (name, fun) {
@@ -338,6 +339,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.log = this.parent.log;
         this.augment = this.parent.augment;
         this.cmdworker = this.parent.cmdworker;
+        this.compose = this.parent.compose;
         this.scopes = this.parent.scopes;
         this.subnameTransform = this.parent.subnameTransform;
         this.indicator = this.parent.indicator;
@@ -617,6 +619,7 @@ ignored. Or you could just put the code in its own block.
 
     code block found:ignore --> ignore code block
     evObj.stop = true;
+    gcd=gcd; //js hint quieting
 
 
 [directive]() 
@@ -3486,7 +3489,6 @@ This will convert an object to to JSON representation. If it fails (cyclical
 structures for example), then it emits an error.
 
     function (obj) {
-        var doc = this; 
         try {
             return JSON.stringify(obj);
         } catch (e) {
@@ -4090,7 +4092,7 @@ argument as an optional prefix to each key as to where it should get stored.
 
 `.store nav`
 
-    function (input, args, name, cmdname) {
+    function (input, args, name ) {
         var doc = this;
         var gcd = doc.gcd;
         var prefix = args[0] || '';
@@ -4744,6 +4746,7 @@ for saving as well.
         "flag" : _"dir flag",
         "push" : _"dir push",
         "h5" : _"dir h5",
+        "compose" : _"dir compose",
         "version" : _"dir version",
         "npminfo" : _"dir npminfo",
     }
@@ -5013,7 +5016,6 @@ Here we write the save function using the factory function.
 [handler factory]()
 
     function (state) {
-        var doc = this;
         var gcd = this.gcd;
         var linkname = state.linkname;
 
@@ -5178,7 +5180,6 @@ value, best to use `#` and not have any code in that block.
 
     function (state) {
         var doc = this;
-        var gcd = this.gcd;
         var linkname = state.linkname;
 
         var f = function (data) {
@@ -5502,9 +5503,10 @@ This uses `folder.compose` to create a function that actually works.
 
     function (args) {
         var doc = this;
+        var gcd = doc.gcd;
         
         var cmdname = args.link;
-        var cmds = _":setup cmd array";
+        _":setup cmd array"
 
         _":setup delayed command definition"
     }
@@ -5543,7 +5545,7 @@ at this point.
         if (el[0] === "." ) {
             return ;
         }
-        if !(doc.commands.hasOwnProperty(el)) {
+        if (!(doc.commands[el])) {
             gcd.when("command defined:" +  el, cmddefine);
         }
     });
@@ -5553,40 +5555,36 @@ at this point.
 
 [folder compose]()
 
-This is takes in arrays of [cmd, arg1, ...],  and spits out a function that
-will see those commands in sequence as a command function.
+This is takes in arrays of `arrs = [[cmd, arg1, ...],..]` and spits out a
+function that will see those commands in sequence as a command function.
 
 This is to be defined on the `Folder.prototype.compose`. 
 
     function () {
         var arrs = arguments;
-        var doc = this;
-        var colon = doc.colon;
-        var gcd = doc.gcd;
 
-        
-        return function (input, compargs, name, cmdname ) {
-            var endbit = cmdname+ ":" + name;
-            var go = "compose go:" + endbit;
+        return function (input, cmdargs, name, cmdname ) {
+            var doc = this;
+            var colon = doc.colon;
+            var gcd = doc.gcd;
             var done = "text ready:" + name; 
+            cmdargs = doc.argsPrep(cmdargs, name, doc.subCommands, cmdname);
             
             var exec = _":executes command";
 
             var c = colon.v + cmdname + colon.v ;
 
             var i, n = arrs.length;
-            for (i = 0; i += 1; i < n+1) {
-                gcd.flatWhen("text ready:" + name + c + i, "cmd execute:" + 
-                    name + c + (i + 1); 
-                gcd.on("cmd execute:" + name + c + i, exec); 
+            for (i = 0; i < n-1 ;i += 1) {
+                gcd.once("text ready:" + name + c + i, exec); 
             }
             // when all done, the last one is sent as the final bit
-            gcd.on("cmd execute:" + name + c + (n+1), function (text) {
+            gcd.once("text ready:" + name + c + (n-1), function (text) {
                gcd.emit(done, text); 
             }); 
 
             //start it
-            gcd.emit("cmd execute:" + name + c + 0, input);
+            exec(input, {pieces: [name+c+"-1"]});
         };
 
     }
@@ -5601,13 +5599,15 @@ This relies on closures: the `arrs` is the [cmd arg1], listing given at
 definition time and the `cmdargs` are the arguments passed in at the invocation.
 
     function (data, evObj) {
-        var ind = parseInt(evObj.pieces[0].split(colon.v).reverse()[0], 10);
-        var cmd = arrs[ind][0];
-        var args = arrs[ind].slice(1);
+        var bit = evObj.pieces[0];
+        var pos = parseInt(bit.slice(bit.lastIndexOf(colon.v) + 1), 10)+1;
+        var cmd = arrs[pos][0];
+        var args = arrs[pos].slice(1);
 
-        _":modify args";
+        _":modify args"
 
-        doc.commands[cmd](data, args,  name + c + ind, cmd);
+
+        doc.cmdworker(cmd, data, args, name + c + pos);
 
     }
     
@@ -5616,8 +5616,8 @@ definition time and the `cmdargs` are the arguments passed in at the invocation.
 This is the bit that enables the substituting behavior. Anything of the form
 `$i` is a direct substitution from the passed in arguments. `@i` leads to
 inserting the array, a bit at a time unless it is at the end, in which case
-unused ones get spread into it, e.g., `a, @1, b, $1, @1` leads to, if `@1 = [1, 2,
-3]`, to  `a, 1, b, [1, 2, 3], 2, 3`. If we had `a, @1, b` then it would be
+unused ones get spread into it, e.g., `a, @0, b, $1, @0` leads to, if `@0 = [1, 2,
+3]`, to  `a, 1, b, [1, 2, 3], 2, 3`. If we had `a, @0, b` then it would be
 just `a, 1, b`.  Extra dollar signs or at signs reduce by 1, i.e., cheap
 collapse. 
 
@@ -5630,9 +5630,15 @@ arrtracker will track what the arrays might be.
     var n = args.length;
     var subnum;
     var i, el; 
+    
+    var noloopfun = function (args) {
+        return function (el) {
+            args.push(el);
+        };
+    };
 
     
-    for (i = 0; ind < n; ind +=1 ) {
+    for (i = 0; i < n; i +=1 ) {
         el = args[i];
         var match = el.match(ds);
         var num;
@@ -5662,30 +5668,42 @@ arrtracker will track what the arrays might be.
 To deal with spreading operator, we need to for the index being the last one
 in the array. If it is we slice and foreach it into the args   
 
-                if (ind === n-1) {
-                    cmdargs[num].slice(subnum).forEach(function (el) {
-                        args.push(el);
-                    });
+                if (i === (n-1)) {
+                    args.pop(); // get rid of last one
+                    cmdargs[num].slice(subnum).forEach(
+                        noloopfun(args));
                 } else {
                     args[i] = cmdargs[num][subnum];
                 }
             }
         }
-    });
+    }
 
     
 
 [setup cmd array]() 
 
-This splits on pipes and commas, trimming. 
+This splits on pipes and commas, trimming.
 
 
-    args.input.split("|").map(function (el) {
-        return el.split(",").map(function(arg, i) {
+
+    var cmds = args.input.split("|").map(function (el) {
+        var arr = el.split(",").map(function(arg) {
             arg = arg.trim();
             return arg;
         });
+
+The command and first argument potentially are still together. Separate on
+first space. 
+
+        var ind = arr[0].indexOf(" ");
+        if (ind !== -1) {
+            arr.unshift(arr[0].slice(0, ind).trim());
+            arr[1] = arr[1].slice(ind).trim();
+        }
+        return arr;
     });
+    
     
 
 
@@ -5784,7 +5802,6 @@ referenced if need be.
         
         var doc = this;
         var folder = doc.parent;
-        var gcd = doc.gcd;
         
         var title = args.input;
         var ind = title.indexOf(";");
@@ -6207,6 +6224,7 @@ The log array should be cleared between tests.
         "transform.md",
         "defaults.md", // 30
         "compose.md",
+        "miniaugment.md",
         "dirpush.md", 
         "mainblock.md", 
         "h5push.md", 
@@ -6224,8 +6242,8 @@ The log array should be cleared between tests.
         "reports.md",
         "cycle.md"
     ].
-    //slice(0);
-    slice(31, 32);
+    slice(0);
+    //slice(31, 32);
 
 
     Litpro.commands.readfile = Litpro.prototype.wrapAsync(_"test async", "readfile");
@@ -6336,13 +6354,13 @@ process the inputs.
                 });
             };
 
-          // notEmit();
+           //notEmit();
 
          //setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
-       // setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
+        // setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
-           setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+        //   setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
     }
 
@@ -6397,8 +6415,7 @@ This is just a little function constructor to close around the handler for the
 output file name. 
 
     function (t, out) {
-        return function (text, evObj) {
-            var gcd = evObj.emitter;
+        return function (text) {
             if (text !== out) {
                 if ( (text[text.length-1] === "\n") && 
                     (out[out.length-1] !== "\n" ) ) {
@@ -7502,6 +7519,7 @@ check for lack of initial heading problems (mainblock remove header).
 
 This is compiled by litpro and uses the following lprc.js file
 
+    /*global module, require*/ 
     module.exports = function(Folder, args) {
 
         if (args.file.length === 0) {

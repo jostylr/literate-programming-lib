@@ -1,99 +1,33 @@
-compose -- testing the composition and related commands
+Compose -- testing simple composition
 ---
-# Compose
+# Composing
 
-Here we test the following:
+Need to test composing.
 
-* compose directive
-* echo
-* array
-* miniDoc
-* (minidoc).store
-* (minidoc).apply
-* augment
-* augment arr: .splitsep, .pluck, ?.mapc
+    _"stuff | split \n-!-\n "
 
-lists!
+    _"stuff | longsplit \n-!-\n, arr(;, some, more) "
 
-    _"just some text| echo ignore it all"
+[out](# "save: ")
 
-    _"just some text | array 1, 2, 3 | .join -- "
+[longsplit](# "compose: split $0 | join @1")
 
-    _"splitting | .split -- | augment arr | .trim |
-        .splitsep / |.pluck 1 | .trim | .mapc rev | .join ! "
+[split](# "compose: .split $0 | augment arr | .trim | .join 5 ")
 
-    _"splitting | .split \n--\n | augment arr | 
-        .splitsep / | minidoc :title | .mapc .trim |
-        | push | .clone | 
-        .apply :some, echo,  great | store obj |
-        .store nav | echo _"temp" | compile nav
-        | store final | 
-        | pop | .set :new, rad | .store cool | echo _"final" "
 
-    _"cool:some"
+## stuff
 
-    _"cool:new"
-
-    _"obj | .get :title "
-
-[out](# "save:")
-
-## Temp
-
-    \_":title"
-
-    \_":this is"
-
-    \_":some"
-
-[sub]()
-
-    hey
-
-## just some text
-
-Huh?
-
-    Text and more
-
-    this is great
-
-## splitting
-
-    :this is / geese 
-    --
-    :some /
-    text
-    --
-    kicking
-
-## Command
-
-Let's define a command to use for mapc
-
-    function (input) {
-        return input.split('').reverse().join('');
-    }
-
-[rev](# "define:")
-
+    this is
+    -!-
+    great
+    -!-
+    Does it 
+    work
+    -!-
+    Yes
 ---
-ignore it all
+this is5great5Does it 
+work5Yes
 
-Text and more
-
-this is great--1--2--3
-
-eseeg!txet!
-
-kicking
-
-geese
-
-great
-
-text
-
-rad
-
-kicking
+this is5great5Does it 
+work5Yes;some;more

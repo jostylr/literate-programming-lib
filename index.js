@@ -1,4 +1,4 @@
-/*global require, module */
+/*global require, module, console */
 /*jslint evil:true*/
 
 var EvW = require('event-when');
@@ -183,6 +183,7 @@ var Folder = function (actions) {
     gcd.action("ignore code block", function (data, evObj) {
             var gcd = evObj.emitter;
             evObj.stop = true;
+            gcd=gcd; //js hint quieting
         }
     );
     
@@ -483,6 +484,94 @@ Folder.prototype.cmdworker = function (cmd, input, args, ename) {
         });
     }
 }; 
+Folder.prototype.compose = function () {
+    var arrs = arguments;
+
+    return function (input, cmdargs, name, cmdname ) {
+        var doc = this;
+        var colon = doc.colon;
+        var gcd = doc.gcd;
+        var done = "text ready:" + name; 
+        cmdargs = doc.argsPrep(cmdargs, name, doc.subCommands, cmdname);
+        
+        var exec = function (data, evObj) {
+            var bit = evObj.pieces[0];
+            var pos = parseInt(bit.slice(bit.lastIndexOf(colon.v) + 1), 10)+1;
+            var cmd = arrs[pos][0];
+            var args = arrs[pos].slice(1);
+        
+            var arrtracker = {}; 
+            var ds = /^([$]+)(\d+)$/;
+            var at = /^([@]+)(\d+)$/;
+            var n = args.length;
+            var subnum;
+            var i, el; 
+            
+            var noloopfun = function (args) {
+                return function (el) {
+                    args.push(el);
+                };
+            };
+            
+            
+            for (i = 0; i < n; i +=1 ) {
+                el = args[i];
+                var match = el.match(ds);
+                var num;
+                if (match) {
+                    if (match[1].length > 1) { //escaped
+                        args[i] = el.slice(1);
+                        continue;
+                    } else {
+                        num = parseInt(match[2], 10);
+                        args[i] = cmdargs[num];
+                        continue;
+                    }
+                }
+                match = el.match(at);
+                if (match) {
+                    if (match[1].length > 1) { //escaped
+                        args[i] = el.slice(1); 
+                        continue;
+                    } else {
+                        num = parseInt(match[2], 10);
+                        if (arrtracker.hasOwnProperty(num)) {
+                            subnum = arrtracker[num] += 1;
+                        } else {
+                            subnum = arrtracker[num] = 0;
+                        }
+                        if (i === (n-1)) {
+                            args.pop(); // get rid of last one
+                            cmdargs[num].slice(subnum).forEach(
+                                noloopfun(args));
+                        } else {
+                            args[i] = cmdargs[num][subnum];
+                        }
+                    }
+                }
+            }
+        
+        
+            doc.cmdworker(cmd, data, args, name + c + pos);
+        
+        };
+
+        var c = colon.v + cmdname + colon.v ;
+
+        var i, n = arrs.length;
+        for (i = 0; i < n-1 ;i += 1) {
+            gcd.once("text ready:" + name + c + i, exec); 
+        }
+        // when all done, the last one is sent as the final bit
+        gcd.once("text ready:" + name + c + (n-1), function (text) {
+           gcd.emit(done, text); 
+        }); 
+
+        //start it
+        exec(input, {pieces: [name+c+"-1"]});
+    };
+
+};
 
 var sync  = Folder.prototype.wrapSync = function (fun, label) {
         var temp;
@@ -867,7 +956,7 @@ Folder.plugins.augment = {
         }
     },
     minidoc : { 
-        ".store" : function (input, args, name, cmdname) {
+        ".store" : function (input, args, name ) {
             var doc = this;
             var gcd = doc.gcd;
             var prefix = args[0] || '';
@@ -1393,7 +1482,6 @@ Folder.directives = {
     "save" : dirFactory(function (state) {
         state.emitname =  "for save:" + this.file + ":" + state.linkname;
     }, function (state) {
-        var doc = this;
         var gcd = this.gcd;
         var linkname = state.linkname;
     
@@ -1434,7 +1522,6 @@ Folder.directives = {
         state.emitname =  "for store:" + this.file + ":" + linkname;
     }, function (state) {
         var doc = this;
-        var gcd = this.gcd;
         var linkname = state.linkname;
     
         var f = function (data) {
@@ -1684,7 +1771,6 @@ Folder.directives = {
         
         var doc = this;
         var folder = doc.parent;
-        var gcd = doc.gcd;
         
         var title = args.input;
         var ind = title.indexOf(";");
@@ -1787,6 +1873,55 @@ Folder.directives = {
     
         
     
+    },
+    "compose" : function (args) {
+        var doc = this;
+        var gcd = doc.gcd;
+        
+        var cmdname = args.link;
+        var cmds = args.input.split("|").map(function (el) {
+            var arr = el.split(",").map(function(arg) {
+                arg = arg.trim();
+                return arg;
+            });
+            var ind = arr[0].indexOf(" ");
+            if (ind !== -1) {
+                arr.unshift(arr[0].slice(0, ind).trim());
+                arr[1] = arr[1].slice(ind).trim();
+            }
+            return arr;
+        });
+    
+        var fcmd = doc.file + ":" + cmdname;
+        var compready = "composition ready:" + fcmd;
+        var compcheck = "composition command checking:" + fcmd;
+        var cmddefine = "command defined:" + cmdname;
+        
+        var define = function () {
+            doc.commands[cmdname] =  doc.parent.compose.apply(null, cmds);
+            gcd.emit(cmddefine);
+        };
+        
+        gcd.once(compready, define);
+        
+        gcd.when(compcheck, compready);
+        
+        // get unique cmds
+        var obj = {};        
+        cmds.forEach(function (el) {
+           obj[el[0]] = 1;
+        });
+        
+        Object.keys(obj).forEach(function (el) {
+            if (el[0] === "." ) {
+                return ;
+            }
+            if (!(doc.commands[el])) {
+                gcd.when("command defined:" +  el, cmddefine);
+            }
+        });
+        
+        gcd.emit(compcheck);
     },
     "version" : function (args) {
         var doc = this;
@@ -1958,7 +2093,6 @@ Folder.subCommands = (function () {
     };
 
     ret.json = function (obj) {
-        var doc = this; 
         try {
             return JSON.stringify(obj);
         } catch (e) {
@@ -2155,6 +2289,7 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
     this.log = this.parent.log;
     this.augment = this.parent.augment;
     this.cmdworker = this.parent.cmdworker;
+    this.compose = this.parent.compose;
     this.scopes = this.parent.scopes;
     this.subnameTransform = this.parent.subnameTransform;
     this.indicator = this.parent.indicator;

@@ -142,19 +142,18 @@ var testrunner = function (file) {
             });
         };
 
-      // notEmit();
+       //notEmit();
 
      //setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
-   // setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
+    // setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
     });
-       setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+    //   setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
 };
 
 var equalizer = function (t, out) {
-    return function (text, evObj) {
-        var gcd = evObj.emitter;
+    return function (text) {
         if (text !== out) {
             if ( (text[text.length-1] === "\n") && 
                 (out[out.length-1] !== "\n" ) ) {
@@ -201,6 +200,7 @@ var testfiles = [
     "transform.md",
     "defaults.md", // 30
     "compose.md",
+    "miniaugment.md",
     "dirpush.md", 
     "mainblock.md", 
     "h5push.md", 
@@ -218,8 +218,8 @@ var testfiles = [
     "reports.md",
     "cycle.md"
 ].
-//slice(0);
-slice(31, 32);
+slice(0);
+//slice(31, 32);
 
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {

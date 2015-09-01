@@ -1,3 +1,4 @@
+/*global module, require*/ 
 module.exports = function(Folder, args) {
 
     if (args.file.length === 0) {
