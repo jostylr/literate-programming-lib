@@ -500,9 +500,39 @@ Folder.prototype.compose = function () {
             var cmd = arrs[pos][0];
             var args = arrs[pos].slice(1);
         
+            var m, a;
+            if (cmd === '') {
+                gcd.emit("text ready:" + name + c + pos, data);
+                return;
+            
+            // store into ith arg    
+            } else if ( (m = cmd.match(/^\-\>\$(\d+)$/) ) ) {
+                cmdargs[parseInt(m[1], 10)] = data; 
+                gcd.emit("text ready:" + name + c + pos, data);
+                return;
+            
+            // retrieve from ith arg
+            } else if ( (m = cmd.match(/^\$(\d+)\-\>$/) ) ) {
+                gcd.emit("text ready:" + name + c + pos, 
+                    cmdargs[parseInt(m[1], 10)]);
+                return;
+            
+            } else if ( (m = cmd.match(/^\-\>\@(\d+)$/) ) ) {
+                a = cmdargs[parseInt(m[1], 10)];
+                if (Array.isArray(a)) {
+                    a.push(data);
+                } else {
+                    cmdargs[parseInt(m[1], 10)] = 
+                        doc.augment([data], "arr");
+                }
+                gcd.emit("text ready:" + name + c + pos, data);
+                return;
+            }
+        
             var arrtracker = {}; 
             var ds = /^([$]+)(\d+)$/;
             var at = /^([@]+)(\d+)$/;
+            var nl = /\\n/g; // new line replacement
             var n = args.length;
             var subnum;
             var i, el; 
@@ -515,7 +545,7 @@ Folder.prototype.compose = function () {
             
             
             for (i = 0; i < n; i +=1 ) {
-                el = args[i];
+                el = args[i] =  args[i].replace(nl, '\n'); 
                 var match = el.match(ds);
                 var num;
                 if (match) {
@@ -947,6 +977,21 @@ Folder.plugins.augment = {
             });
             return full;
         },
+        get : function (key) {
+            key = parseInt(key, 10);
+            if (key < 0) {
+                key = this.length + key;
+            }
+            return this[key];
+        },
+        set : function (key, val) {
+            key = parseInt(key, 10);
+            if (key < 0) {
+                key = this.length + key;
+            }
+            this[key] = val;
+            return this;
+        }
     },
     minidoc : { 
         ".store" : function (input, args, name ) {
@@ -959,7 +1004,7 @@ Folder.plugins.augment = {
                 });
         
             } catch(e) {
-                this.gcd.emit("error:fromDoc:" + name, [e, input, args]);
+                this.gcd.emit("error:minidoc:store" + name, [e, input, args]);
             }
             gcd.emit("text ready:" + name, input); 
         },
@@ -1011,6 +1056,44 @@ Folder.plugins.augment = {
             });
             clone = input._augments.self(clone); 
             return clone;
+        },
+        ".compile" : function (input, args, name) {
+            var doc = this;
+            var gcd = doc.gcd;
+            var colon = doc.colon;
+        
+            var section = colon.escape(args[0]);
+        
+            var template =  name +  colon.v + ".compile" +
+                colon.v + "template";
+            var store =  name +  colon.v + ".compile" +
+                colon.v + "store";
+        
+            gcd.flatWhen( ["text ready:" + template, "text ready:" + store], 
+                ".compile ready:" + name);
+            gcd.once(".compile ready:" + name, function (data) { 
+                doc.cmdworker("compile", data[0], [name], name);
+                gcd.once("text ready:" + name, function () {
+                    doc.cmdworker(".clear", input, [name], name + 
+                        colon.v + ".clear");
+                });
+            });
+            
+            doc.retrieve(section, "text ready:" + template);
+            doc.cmdworker(".store", input, [name], store ); 
+        },
+        ".clear" :  function (input, args, name ) {
+            var doc = this;
+            var gcd = doc.gcd;
+            var prefix = args[0] || '';
+            try {
+                input._augments.keys().forEach(function (el) {
+                    doc.store(doc.colon.escape(prefix + el), null); 
+                });
+            } catch(e) {
+                this.gcd.emit("error:minidoc:clear:" + name, [e, input, args]);
+            }
+            gcd.emit("text ready:" + name, input); 
         },
         set : function (key, val) {
             this[key] = val;
@@ -1309,6 +1392,13 @@ Folder.commands = {   eval : sync(function ( text, args ) {
     echo : sync(function (input, args) {
         return args[0];
     }, "echo"),
+    get : function (input, args, name) {
+        var doc = this;
+        var colon = doc.colon;
+    
+        var section = colon.escape(args.shift());
+        doc.retrieve(section, "text ready:" + name);
+    },
     array : sync(function (input, args) {
         var doc = this;
         var ret = args.slice();
@@ -1324,18 +1414,22 @@ Folder.commands = {   eval : sync(function ( text, args ) {
             input.forEach( function (el) {
                 if (Array.isArray(el) ) {
                     if (el.length === 1) {
-                        ret[args.pop()] = el[0];
+                        ret[args.shift()] = el[0];
                     } else {
                         ret[el[0].trim()] = el[1];
                     }
                 } else {
-                    ret[args.pop()] = el;
+                    ret[args.shift()] = el;
                 }
             });
         } else {
             gcd.emit("error:incorect type:toDoc:" + name, [input, args]);
             return input;
         }
+        // put empty bits for rest
+        args.forEach(function (el) {
+            ret[el] = '';
+        });
         doc.augment(ret, "minidoc");
         return ret;
     
@@ -2766,13 +2860,19 @@ dp.store = function (name, text) {
     var old; 
     if (scope.hasOwnProperty(varname) ) {
         old = scope[varname];
-        scope[varname] = text;
-        gcd.emit("overwriting existing var:" + file + ":" + varname, 
-        {oldtext:old, newtext: text} );
+        if (text === null ) {
+            delete scope[varname];
+            gcd.emit("deleting existing var:" + file + ":" + varname, 
+                {oldtext: old});
+        } else {
+            scope[varname] = text;
+            gcd.emit("overwriting existing var:" + file + ":" + varname, 
+            {oldtext:old, newtext: text} );
+        }
     } else {
         scope[varname] = text;
+        gcd.emit("text stored:" + file + ":" + varname, text);
     }
-    gcd.emit("text stored:" + file + ":" + varname, text);
 };
 
 dp.getBlock = function (start, cur) {

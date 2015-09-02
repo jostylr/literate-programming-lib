@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.8.0; A literate programming compiler. Write your program in markdown. This is the core library and does not know about files.")
+# [literate-programming-lib](# "version:1.8.1; A literate programming compiler. Write your program in markdown. This is the core library and does not know about files.")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -2464,13 +2464,19 @@ location, this fact gets emitted with the old and the new.
         var old; 
         if (scope.hasOwnProperty(varname) ) {
             old = scope[varname];
-            scope[varname] = text;
-            gcd.emit("overwriting existing var:" + file + ":" + varname, 
-            {oldtext:old, newtext: text} );
+            if (text === null ) {
+                delete scope[varname];
+                gcd.emit("deleting existing var:" + file + ":" + varname, 
+                    {oldtext: old});
+            } else {
+                scope[varname] = text;
+                gcd.emit("overwriting existing var:" + file + ":" + varname, 
+                {oldtext:old, newtext: text} );
+            }
         } else {
             scope[varname] = text;
+            gcd.emit("text stored:" + file + ":" + varname, text);
         }
-        gcd.emit("text stored:" + file + ":" + varname, text);
     }
 
 [non-existent]()
@@ -3657,6 +3663,7 @@ Here we have some commands and directives that are of common use
         join : sync(_"cmd join", "join"),
         cat : sync(_"cat", "cat"),
         echo : sync(_"cmd echo", "echo"),
+        get : _"cmd get",
         array : sync(_"cmd array", "array"),
         minidoc : sync(_"miniDoc", "miniDoc"),
         augment : _"augment", 
@@ -3992,6 +3999,22 @@ this but just for text.
     `echo arg` This returns the first argument to pass along the pipe flow.
     Nothing else is done or passed. 
 
+
+### Cmd Get
+
+This gets a section from the document just as if one were using the
+substitution text. This is useful for compositions. 
+
+It takes an optional command
+
+    function (input, args, name) {
+        var doc = this;
+        var colon = doc.colon;
+
+        var section = colon.escape(args.shift());
+        doc.retrieve(section, "text ready:" + name);
+    }
+
 ### Cmd Array
 
 This shunts the input and the arguments into an array to be passed onto the
@@ -4051,18 +4074,22 @@ suitable variable names and useful for storing.
             input.forEach( function (el) {
                 if (Array.isArray(el) ) {
                     if (el.length === 1) {
-                        ret[args.pop()] = el[0];
+                        ret[args.shift()] = el[0];
                     } else {
                         ret[el[0].trim()] = el[1];
                     }
                 } else {
-                    ret[args.pop()] = el;
+                    ret[args.shift()] = el;
                 }
             });
         } else {
             gcd.emit("error:incorect type:toDoc:" + name, [input, args]);
             return input;
         }
+        // put empty bits for rest
+        args.forEach(function (el) {
+            ret[el] = '';
+        });
         doc.augment(ret, "minidoc");
         return ret;
 
@@ -4077,6 +4104,8 @@ The "." are intentional; they signify that this is a command method.
         ".apply" : _"minidoc apply",
         ".mapc" : _"minidoc mapc",
         clone : _"minidoc clone",
+        ".compile" : _"minidoc compile",
+        ".clear" : _"minidoc clear",
         set : _"aug set",
         get : _"aug get"
     }
@@ -4099,10 +4128,31 @@ argument as an optional prefix to each key as to where it should get stored.
             });
 
         } catch(e) {
-            this.gcd.emit("error:fromDoc:" + name, [e, input, args]);
+            this.gcd.emit("error:minidoc:store" + name, [e, input, args]);
         }
         gcd.emit("text ready:" + name, input); 
     }
+
+### minidoc clear
+
+This undoes the storing. Mainly used for `.compile`. 
+
+`.clear nav`
+
+     function (input, args, name ) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var prefix = args[0] || '';
+        try {
+            input._augments.keys().forEach(function (el) {
+                doc.store(doc.colon.escape(prefix + el), null); 
+            });
+        } catch(e) {
+            this.gcd.emit("error:minidoc:clear:" + name, [e, input, args]);
+        }
+        gcd.emit("text ready:" + name, input); 
+    }
+  
 
 
 ### minidoc mapc
@@ -4137,6 +4187,45 @@ object; for that clone this first.
 
         gcd.emit("mapc setup:"+ename);
 
+    }
+
+### minidoc compile
+
+This takes the object and compiles it. What it actually does is uses the
+.store command to store the object using that name and then calls the compile
+command using that name. Best not to tangle with multiple scopes??? 
+
+    function (input, args, name) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var colon = doc.colon;
+
+        var section = colon.escape(args[0]);
+
+        var template =  name +  colon.v + ".compile" +
+            colon.v + "template";
+        var store =  name +  colon.v + ".compile" +
+            colon.v + "store";
+
+        gcd.flatWhen( ["text ready:" + template, "text ready:" + store], 
+            ".compile ready:" + name);
+
+The first data entry is the template and we use the compile command. The name
+is the name we have stored the object keys under. 
+
+        gcd.once(".compile ready:" + name, function (data) { 
+            doc.cmdworker("compile", data[0], [name], name);
+            gcd.once("text ready:" + name, function () {
+                doc.cmdworker(".clear", input, [name], name + 
+                    colon.v + ".clear");
+            });
+        });
+        
+        doc.retrieve(section, "text ready:" + template);
+
+Evoke the store command, storing the keys with the prefix of name. 
+
+        doc.cmdworker(".store", input, [name], store ); 
     }
 
 ### minidoc apply
@@ -4309,6 +4398,8 @@ This defines the augmentation of the array object.
         ".mapc" : _"mapc",
         pluck : _"pluck",
         put : _"put",
+        get : _"arr get",
+        set : _"arr set"
     }
 
 [trim]()
@@ -4388,6 +4479,28 @@ This is maps commands to each element of an array.
         this[key] = val;
         return this;
     }
+
+#### arr Get
+
+    function (key) {
+        key = parseInt(key, 10);
+        if (key < 0) {
+            key = this.length + key;
+        }
+        return this[key];
+    }
+
+#### arr Set
+
+    function (key, val) {
+        key = parseInt(key, 10);
+        if (key < 0) {
+            key = this.length + key;
+        }
+        this[key] = val;
+        return this;
+    }
+
 
 
 #### Pluck
@@ -5599,6 +5712,8 @@ definition time and the `cmdargs` are the arguments passed in at the invocation.
         var cmd = arrs[pos][0];
         var args = arrs[pos].slice(1);
 
+        _":deal with special commands"
+
         _":modify args"
 
 
@@ -5619,9 +5734,14 @@ collapse.
 arrtracker will track what the arrays might be.
 
 
+This also replaces `\n` with the new line. May want to think about expanding
+this, but this deals with what I need right now. I could, for example, do an
+eval, quoting the object, to get JS's default sub behavior. 
+
     var arrtracker = {}; 
     var ds = /^([$]+)(\d+)$/;
     var at = /^([@]+)(\d+)$/;
+    var nl = /\\n/g; // new line replacement
     var n = args.length;
     var subnum;
     var i, el; 
@@ -5634,7 +5754,7 @@ arrtracker will track what the arrays might be.
 
     
     for (i = 0; i < n; i +=1 ) {
-        el = args[i];
+        el = args[i] =  args[i].replace(nl, '\n'); 
         var match = el.match(ds);
         var num;
         if (match) {
@@ -5699,7 +5819,43 @@ first space.
         return arr;
     });
     
-    
+[deal with special commands]()
+
+Here we want to implement a couple of custom commands that are useful in
+composing: blank which is just ignored (seems to be common for me to have a
+couple of pipes in a row), `->$i` which puts the input into the ith argument,
+`$i->` which replaces the input with the argument in `i`. And similarly with
+the @ symbol for an array for storage. The `$i` suffices for retrieving the
+array. 
+
+    var m, a;
+    if (cmd === '') {
+        gcd.emit("text ready:" + name + c + pos, data);
+        return;
+
+    // store into ith arg    
+    } else if ( (m = cmd.match(/^\-\>\$(\d+)$/) ) ) {
+        cmdargs[parseInt(m[1], 10)] = data; 
+        gcd.emit("text ready:" + name + c + pos, data);
+        return;
+
+    // retrieve from ith arg
+    } else if ( (m = cmd.match(/^\$(\d+)\-\>$/) ) ) {
+        gcd.emit("text ready:" + name + c + pos, 
+            cmdargs[parseInt(m[1], 10)]);
+        return;
+
+    } else if ( (m = cmd.match(/^\-\>\@(\d+)$/) ) ) {
+        a = cmdargs[parseInt(m[1], 10)];
+        if (Array.isArray(a)) {
+            a.push(data);
+        } else {
+            cmdargs[parseInt(m[1], 10)] = 
+                doc.augment([data], "arr");
+        }
+        gcd.emit("text ready:" + name + c + pos, data);
+        return;
+    }
 
 
 
@@ -6355,7 +6511,7 @@ process the inputs.
 
         // setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
-        //   setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+         // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
     }
 
@@ -6993,7 +7149,13 @@ There are a variety of directives that come built in.
   command is invoked is subbed in. If the argi has `@i`, then it assumed the
   incoming argument is an array and uses the next available array element; if
   the @i appears at the end of the arg list, then it unloads the rest of its
-  elements there. This may be a little klunky and the syntax may change.
+  elements there. This may be a little klunky and the syntax may change. We
+  also have as special commands in compose: `` which does nothing but handles
+  two accidental pipes in a row smoothly,  `->$i` which stores the incoming
+  into the ith variable to use later as a named dollar sign variable, `$i->`
+  which sends along the ith variable to the next pipe, `->@i` which pushes the
+  value onto the ith element, assuming it is an array (it creates an array if
+  no array is found).  
 * **Subcommand** `[subcommandname](#cmdName "subcommand:")` This defines
   subcommandname (one word) and attaches it to be active in the cmdName. If no
   cmdName, then it becomes available to all commands.  
@@ -7115,6 +7277,9 @@ as long as that does not conflict with anything (avoid pipes, commas, colons, qu
   for single arguments, often with no incoming text.
 * **echo** `echo This is output` This terminates the input sequence and
   creates a new one with the first argument as the outgoing. 
+* **get** `get blockname` This is just like using `_"blockname"` but that
+  fails to work in compositions. So get is its replacement. This ignores the
+  input and starts its own chain of inputs. 
 * **array** `array a1, a2, ...` This creates an array out of the input and
   arguments. This is an augmented array.
 * **minidoc** `minidoc :title, :body` This takes an array and converts into an
@@ -7161,6 +7326,10 @@ augment types: `minidoc` and `arr`.
 * `.store arg1` will take the object and store all of its properties with
   prefix arg1 if supplied. If the key has a colon in it, it will be escaped so
   that `{":title" : "cool"} | .store pre` can be accessed by `cool:title`.
+* `.clear arg1` Removes the variables stored in the scope (undoes store).
+  Mostly to be used in the `.compile` command for tidying up. Best not to rely
+  on the cleanup happening at any particular time so don't use unless your
+  sure.
 * `.mapc cmd, arg1, arg2, ...` Applies the cmd and args to each of the values
   in the object, replacing the values with the new ones. 
 * `.apply key, cmd, arg1, arg2, ..` Applies the cmd and args with input being
@@ -7168,6 +7337,10 @@ augment types: `minidoc` and `arr`.
 * `.clone` Makes a new object with same properties and methods. This is a
   shallow clone. You can use this with push and pop to modify the object and
   then go back to the original state.
+* `.compile blockname` This uses the blockname as a reference to a template
+  whose sections will be filled with the corresponding keys of the minidoc.
+  The assumption is that the keys stat with colons. Any that don't will
+  probably not match.
 * `.set key, val` Sets the key to the value
 * `.get key` Gets the value of that key
 
@@ -7182,6 +7355,14 @@ These methods return new, augmented arrays.
   The default separator is `\n---\n`. 
 * `.mapc cmd, arg1, arg2, ...` Maps each element through the commands as input
   with the given arguments being used. 
+* `.pluck i` This assumes the array is an array of arrays and takes the ith
+  element of each array, returning a new array. 
+* `.put i, full` This takes an incoming array and places each of the elements
+  in the ith position of the corresponding element in full. Reverse of pluck,
+  in some ways.
+* `.get i` Gets ith value. Negatives count down from last position, i.e., `get
+  -1` retrieves the last element of the array.
+* `.set i, val` Sets ith value to val. 
 
  ## Built-in Subcommands
 

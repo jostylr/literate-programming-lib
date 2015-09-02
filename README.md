@@ -471,7 +471,13 @@ There are a variety of directives that come built in.
   command is invoked is subbed in. If the argi has `@i`, then it assumed the
   incoming argument is an array and uses the next available array element; if
   the @i appears at the end of the arg list, then it unloads the rest of its
-  elements there. This may be a little klunky and the syntax may change.
+  elements there. This may be a little klunky and the syntax may change. We
+  also have as special commands in compose: `` which does nothing but handles
+  two accidental pipes in a row smoothly,  `->$i` which stores the incoming
+  into the ith variable to use later as a named dollar sign variable, `$i->`
+  which sends along the ith variable to the next pipe, `->@i` which pushes the
+  value onto the ith element, assuming it is an array (it creates an array if
+  no array is found).  
 * **Subcommand** `[subcommandname](#cmdName "subcommand:")` This defines
   subcommandname (one word) and attaches it to be active in the cmdName. If no
   cmdName, then it becomes available to all commands.  
@@ -593,6 +599,9 @@ as long as that does not conflict with anything (avoid pipes, commas, colons, qu
   for single arguments, often with no incoming text.
 * **echo** `echo This is output` This terminates the input sequence and
   creates a new one with the first argument as the outgoing. 
+* **get** `get blockname` This is just like using `_"blockname"` but that
+  fails to work in compositions. So get is its replacement. This ignores the
+  input and starts its own chain of inputs. 
 * **array** `array a1, a2, ...` This creates an array out of the input and
   arguments. This is an augmented array.
 * **minidoc** `minidoc :title, :body` This takes an array and converts into an
@@ -639,6 +648,10 @@ augment types: `minidoc` and `arr`.
 * `.store arg1` will take the object and store all of its properties with
   prefix arg1 if supplied. If the key has a colon in it, it will be escaped so
   that `{":title" : "cool"} | .store pre` can be accessed by `cool:title`.
+* `.clear arg1` Removes the variables stored in the scope (undoes store).
+  Mostly to be used in the `.compile` command for tidying up. Best not to rely
+  on the cleanup happening at any particular time so don't use unless your
+  sure.
 * `.mapc cmd, arg1, arg2, ...` Applies the cmd and args to each of the values
   in the object, replacing the values with the new ones. 
 * `.apply key, cmd, arg1, arg2, ..` Applies the cmd and args with input being
@@ -646,6 +659,10 @@ augment types: `minidoc` and `arr`.
 * `.clone` Makes a new object with same properties and methods. This is a
   shallow clone. You can use this with push and pop to modify the object and
   then go back to the original state.
+* `.compile blockname` This uses the blockname as a reference to a template
+  whose sections will be filled with the corresponding keys of the minidoc.
+  The assumption is that the keys stat with colons. Any that don't will
+  probably not match.
 * `.set key, val` Sets the key to the value
 * `.get key` Gets the value of that key
 
@@ -660,6 +677,14 @@ These methods return new, augmented arrays.
   The default separator is `\n---\n`. 
 * `.mapc cmd, arg1, arg2, ...` Maps each element through the commands as input
   with the given arguments being used. 
+* `.pluck i` This assumes the array is an array of arrays and takes the ith
+  element of each array, returning a new array. 
+* `.put i, full` This takes an incoming array and places each of the elements
+  in the ith position of the corresponding element in full. Reverse of pluck,
+  in some ways.
+* `.get i` Gets ith value. Negatives count down from last position, i.e., `get
+  -1` retrieves the last element of the array.
+* `.set i, val` Sets ith value to val. 
 
 ## Built-in Subcommands
 
