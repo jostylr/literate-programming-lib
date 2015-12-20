@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.8.1; A literate programming compiler. Write your program in markdown. This is the core library and does not know about files.")
+# [literate-programming-lib](# "version:1.8.2; A literate programming compiler. Write your program in markdown. This is the core library and does not know about files.")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -139,6 +139,7 @@ Each doc within a folder shares all the directives and commands.
     Folder.prototype.augment = _"augment:on doc"; 
     Folder.prototype.cmdworker = _"command worker"; 
     Folder.prototype.compose = _"dir compose:folder compose";
+    Folder.prototype.convertHeading = _"convert heading";
     
     var sync  = Folder.prototype.wrapSync = _"Command wrapper sync";
     Folder.sync = function (name, fun) {
@@ -352,6 +353,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.defSubCommand = Folder.defSubCommand;
         this.dirFactory = parent.dirFactory;
         this.plugins = Object.create(parent.plugins);
+        this.convertHeading = parent.convertHeading;
     
         if (actions) {
             apply(gcd, actions);
@@ -487,7 +489,7 @@ We use doc.levels to navigate
 
     heading found --> add block
     _":heading vars"
-    var text = data.trim().toLowerCase();
+    var text = doc.convertHeading(data);
     var curname = doc.heading = doc.curname = text;
     doc.levels[0] = text;
     doc.levels[1] = '';
@@ -501,7 +503,7 @@ The 5 level is one level below current heading. We stop the event propagation.
 
     heading found:5 --> add slashed block 
     _":heading vars"
-    var text = data.trim().toLowerCase();
+    var text = doc.convertHeading(data);
     doc.levels[1] = text;
     doc.levels[2] = '';
     var curname = doc.heading = doc.curname = doc.levels[0]+'/'+text;
@@ -516,7 +518,7 @@ The 6 level is one level below current heading. We stop the event propagation.
 
     heading found:6 --> add double slashed block 
     _":heading vars"
-    var text = data.trim().toLowerCase();
+    var text = doc.convertHeading(data);
     doc.levels[2] = text;
     var curname = doc.heading = doc.curname = doc.levels[0]+'/'+doc.levels[1]+'/'+text;
     _":init block"
@@ -544,7 +546,7 @@ problem.
     switch found  --> create minor block
     _":heading vars"
     var colon = doc.colon;
-    var text = data[0].trim().toLowerCase();
+    var text = doc.convertHeading(data[0]);
 
     var subEmit, textEmit, doneEmit;
 
@@ -644,7 +646,17 @@ bit easier for others to handle.
         fun.call(doc, data);
     }
 
+## Convert Heading
 
+This converts the heading to a normal form with lower caps, one space, no
+spaces at ends.
+
+    function (str) {
+        var reg = /\s+/g;
+        str = str.trim().toLowerCase();
+        str = str.replace(reg, " ");
+        return str;
+    }
 
 
 
@@ -1013,7 +1025,7 @@ empty link text though that becomes entirely hidden to the reader and is best no
 
 A nice customary directive found.
 
-    directive =  title.slice(0,ind).trim().toLowerCase(); 
+    directive =  doc.convertHeading(title.slice(0,ind));
     gcd.emit("directive found:" + 
         directive +  ":" + file, 
         {   link : ltext,
@@ -1567,7 +1579,7 @@ that in our reporting instead of yet another mechanism for it.
 
     ind = subreg.lastIndex;
     chr = match[2];
-    subname = match[1].trim().toLowerCase();
+    subname = doc.convertHeading(match[1]);
     subname = doc.subnameTransform(subname, lname, mainblock);
     subname = colon.escape(subname);
 
@@ -4917,7 +4929,7 @@ Note start (href) is not expected to have colon escapes, but cur might.
                 start = start.slice(1).replace(/-/g, " ");
             }
 
-            start = start.trim().toLowerCase();
+            start = doc.convertHeading(start);
 
             if (start[0] === ":") {
                 start = doc.stripSwitch(cur) + start;
@@ -5427,7 +5439,7 @@ error and do not load the file.
 
 We use the folder colon escape for the url since that is global to folders
 while the nickname is strictly internal and uses the local colon escape.
-Somehow I get the feelng I have made a mess of this escape stuff; it should
+Somehow I get the feeling I have made a mess of this escape stuff; it should
 not have been so flexible.
 
 `[alias](url "load:options")`
@@ -6110,7 +6122,7 @@ This returns an array from the .when which is by default flattened.
         var colon = doc.colon;
 
         var heading = args.href.slice(1); 
-        heading = heading.replace(/-/g, ' ').trim().toLowerCase();
+        heading = doc.convertHeading(heading.replace(/-/g, ' '));
 
         if (! heading ) {
             heading = args.link;
@@ -6154,7 +6166,7 @@ as closures.
 
     function (data ) {
        
-        var found = data.trim().toLowerCase();
+        var found = doc.convertHeading(data);
         var full; 
 
         if (found === heading) {
@@ -7731,6 +7743,9 @@ Some of the waiting is not done by the emitting, but rather by presence in
 !----
 
 ## TODO
+
+Need better error reporting for not saved fie due to a command in the pipeline
+not completing. Compile is a prime target for needing something more. 
 
 Think about the subcommand argument prepping needing to be done in each
 command -- raw commands will not have that feature unless purposefully put in. 

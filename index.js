@@ -70,7 +70,7 @@ var Folder = function (actions) {
             var gcd = evObj.emitter;
             var file = evObj.pieces[0];
             var doc = gcd.parent.docs[file];
-            var text = data.trim().toLowerCase();
+            var text = doc.convertHeading(data);
             var curname = doc.heading = doc.curname = text;
             doc.levels[0] = text;
             doc.levels[1] = '';
@@ -87,7 +87,7 @@ var Folder = function (actions) {
             var gcd = evObj.emitter;
             var file = evObj.pieces[0];
             var doc = gcd.parent.docs[file];
-            var text = data.trim().toLowerCase();
+            var text = doc.convertHeading(data);
             doc.levels[1] = text;
             doc.levels[2] = '';
             var curname = doc.heading = doc.curname = doc.levels[0]+'/'+text;
@@ -104,7 +104,7 @@ var Folder = function (actions) {
             var gcd = evObj.emitter;
             var file = evObj.pieces[0];
             var doc = gcd.parent.docs[file];
-            var text = data.trim().toLowerCase();
+            var text = doc.convertHeading(data);
             doc.levels[2] = text;
             var curname = doc.heading = doc.curname = doc.levels[0]+'/'+doc.levels[1]+'/'+text;
             if ( ! doc.blocks.hasOwnProperty(curname) ) {
@@ -121,7 +121,7 @@ var Folder = function (actions) {
             var file = evObj.pieces[0];
             var doc = gcd.parent.docs[file];
             var colon = doc.colon;
-            var text = data[0].trim().toLowerCase();
+            var text = doc.convertHeading(data[0]);
             
             var subEmit, textEmit, doneEmit;
             
@@ -330,7 +330,7 @@ Folder.prototype.parse = function (doc) {
                         gcd.emit("switch found:" + file, [ltext,pipes]);
                     }
                 } else if ( (ind = title.indexOf(":")) !== -1) {
-                    directive =  title.slice(0,ind).trim().toLowerCase(); 
+                    directive =  doc.convertHeading(title.slice(0,ind));
                     gcd.emit("directive found:" + 
                         directive +  ":" + file, 
                         {   link : ltext,
@@ -601,6 +601,12 @@ Folder.prototype.compose = function () {
         exec(input, {pieces: [name+c+"-1"]});
     };
 
+};
+Folder.prototype.convertHeading = function (str) {
+    var reg = /\s+/g;
+    str = str.trim().toLowerCase();
+    str = str.replace(reg, " ");
+    return str;
 };
 
 var sync  = Folder.prototype.wrapSync = function (fun, label) {
@@ -1912,7 +1918,7 @@ Folder.directives = {
         var colon = doc.colon;
     
         var heading = args.href.slice(1); 
-        heading = heading.replace(/-/g, ' ').trim().toLowerCase();
+        heading = doc.convertHeading(heading.replace(/-/g, ' '));
     
         if (! heading ) {
             heading = args.link;
@@ -1937,7 +1943,7 @@ Folder.directives = {
         
         var handler = gcd.on("heading found:5:" + doc.file , function (data ) {
            
-            var found = data.trim().toLowerCase();
+            var found = doc.convertHeading(data);
             var full; 
         
             if (found === heading) {
@@ -2387,6 +2393,7 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
     this.defSubCommand = Folder.defSubCommand;
     this.dirFactory = parent.dirFactory;
     this.plugins = Object.create(parent.plugins);
+    this.convertHeading = parent.convertHeading;
 
     if (actions) {
         apply(gcd, actions);
@@ -2703,7 +2710,7 @@ dp.substituteParsing = function (text, ind, quote, lname, mainblock ) {
     if (match) {
         ind = subreg.lastIndex;
         chr = match[2];
-        subname = match[1].trim().toLowerCase();
+        subname = doc.convertHeading(match[1]);
         subname = doc.subnameTransform(subname, lname, mainblock);
         subname = colon.escape(subname);
         if (chr === "|") {
@@ -2890,7 +2897,7 @@ dp.getBlock = function (start, cur) {
             start = start.slice(1).replace(/-/g, " ");
         }
 
-        start = start.trim().toLowerCase();
+        start = doc.convertHeading(start);
 
         if (start[0] === ":") {
             start = doc.stripSwitch(cur) + start;

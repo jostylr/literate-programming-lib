@@ -2,7 +2,9 @@ first - the most basic example. Just do a quick stitch and save
 ---
 # [First](# "version:")  **great**
 
-This is a first test. We save it [out](#begin "save:")
+This is a first test. We save it with a command in the section Begin to show
+that it the saving can happen after the section heading with capitalization
+issues.  
 
 ## End 
 
@@ -17,7 +19,8 @@ Just a postscript
 
     P.S. This works.
 
-## Begin
+# Begin  Here
+- [out](#BeGin---HERE "save:")
 
 And now for the beginning.
 
