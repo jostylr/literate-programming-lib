@@ -172,6 +172,11 @@ the sub finally gets run.
 A block of the form `_":first"` would look for a minor block, i.e., a block
 that has been created by a switch directive. See next section. 
 
+One can also visually hide parts of the document, without it being hidden to
+the compiler, by using html comments. If the start of a line is `<!--+` then
+it will strip that and the next occurrence of `-->` before doing the markdown
+compiling. 
+
 ### Directive
 
 A directive is a command that interacts with external input/output. Just about
@@ -406,10 +411,12 @@ There are a variety of directives that come built in.
   start into file filename. The options can be used in different ways, but in
   the command client it is an encoding string for saving the file; the default
   encoding is utf8.
-* **Store** `[name](#start "store:value|...")`  If the value is present, then
+* **Store** `[name|value](#start "store:value|...")`  If the value is present, then
   it is sent through the pipes. If there is no value, then the `#start`
   location is used for the value and that gets piped.  The name is used to
-  store the value. 
+  store the value. You can also use the pipe syntax in the linkname part for
+  the value instead. This dominates over the start or option value. A little
+  bit easer for the reader to see in rendered form. 
 * **Transform** `[des|name](#start "transform:|...)` or `[des|name](#start
   ":|...")`.  This takes the value that start points to and transforms it
   using the pipe commands. Note one can store the transformed values by
@@ -508,16 +515,19 @@ There are a variety of directives that come built in.
   before a double colon). You can use it to store variables in a different
   scope. Not terribly needed, but it was easy to expose the underlying
   functionality. 
-* **Push** `[var name](#start "push: |...")` This takes the stuff in start,
+* **Push** `[var name |value](#start "push: |...")` This takes the stuff in start,
   throws it through some pipes, and then stores it as an item in an array with
   the array stored under var name. These are stored in the order of appearance
-  in the document. 
+  in the document. The optional pipe syntax after var name will yield the
+  value that starts and we ignore `#start` in that case. This produces an
+  augmented array.
 * **h5** `[varname](#heading "h5: opt | cmd1, ...")` This is a directive that
   makes h5 headings that match `heading` act like the push above where it is
   being pushed to an array that will eventually populate `varname`. It takes
   an optional argument which could be `off` to stop listening for the headings
   (this is useful to have scoped behavior) and `full` which will give the
-  event name as well as the text; the default is just the text.  
+  event name as well as the text; the default is just the text.  This produces
+  an augmented array.
 * **Link Scope** `[alias name](# "link scope:scopename")` This creates an
   alias for an existing scope. This can be useful if you want to use one name
   and toggle between them. For example, you could use the alias `v` for `dev`

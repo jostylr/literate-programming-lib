@@ -242,6 +242,12 @@ var Folder = function (actions) {
             var file = evObj.pieces[1]; 
             var doc = gcd.parent.docs[file];
             
+            if (! Array.isArray(data) ) {
+                data = [data];
+            }
+            doc.augment(data, "arr");
+            
+            
             if (doc) {
                 doc.store(name, data);
             } else {
@@ -270,9 +276,21 @@ Folder.prototype.parse = function (doc) {
         doc.parsed = true;
     });
 
-    
+    var text = doc.text;
+    var bits = text.split("\n<!--+");
+    if (bits.length > 1) {
+        text = bits[0] + "\n" + bits.slice(1).map(function (el) {
+            var ind = el.indexOf("-->"); 
+            if (ind !== -1) {
+                return el.slice(0, ind).trim() + el.slice(ind+3);
+            } else {
+                return el;
+            }
+        }).join("\n");
+    } 
+
     var reader = new commonmark.Parser();
-    var parsed = reader.parse(doc.text); 
+    var parsed = reader.parse(text); 
 
     var walker = parsed.walker();
     var event, node, entering, htext = false, ltext = false, lang, code;
@@ -801,7 +819,9 @@ var dirFactory = Folder.prototype.dirFactory = function (namefactory, handlerfac
         if (! state.value) {
             doc.retrieve(state.start, pipeEmitStart);
         } else {
-            gcd.emit(pipeEmitStart, state.value || "" );
+            gcd.once("parsing done:"+this.file, function () {
+                gcd.emit(pipeEmitStart, state.value || "" );
+            });
         }
     };
     
@@ -1616,7 +1636,7 @@ Folder.directives = {
         var linkname = state.linkname;
     
         var f = function (data) {
-             doc.store(linkname, data);
+             doc.store(state.varname, data);
         };
         f._label = "storeDir;;" + linkname;
     
@@ -1624,6 +1644,16 @@ Folder.directives = {
     
     }, function (state) {
     
+        var ln = state.linkname;
+        var ind = ln.indexOf("|");
+        if (ind !== -1) {
+            state.varname = ln.slice(0, ind).trim();
+            state.block = state.start;
+            state.start = '';
+            state.value = ln.slice(ind+1).trim();
+        } else {
+            state.varname = state.linkname;
+        }
     
         if (state.options) {
             state.block = state.start;
@@ -1885,11 +1915,23 @@ Folder.directives = {
     },
     "push" : dirFactory(function (state) {
         var doc = this;
+        
+        var ln = state.linkname;
+        var ind = ln.indexOf("|");
+        if (ind !== -1) {
+            state.varname = ln.slice(0, ind).trim();
+            state.block = state.start;
+            state.start = '';
+            state.value = ln.slice(ind+1).trim();
+        } else {
+            state.varname = state.linkname;
+        }
+        
         state.name = doc.colon.escape(state.linkname + ":"  + 
             state.start + ":" + state.input);
         state.emitname =  "for push:" + doc.file + ":" + state.name;
         state.donename =  "push bit:" + doc.file + ":" + state.name;
-        state.goname =  "push ready:" + doc.file + ":" + state.linkname;
+        state.goname =  "push ready:" + doc.file + ":" + state.varname;
     }, function (state) {
         var doc = this;
         var gcd = doc.gcd;
@@ -1938,6 +1980,13 @@ Folder.directives = {
         var whendone = "text ready:" + doc.file + ":" + name + colon.v  + "sp" ;
     
         doc.pipeDirSetup(pipes, doc.file + ":" + name, function (data) {
+            
+            if (! Array.isArray(data) ) {
+                data = [data];
+            }
+            
+            doc.augment(data, "arr");
+        
             doc.store(name, data);
         }    , doc.curname ); 
         

@@ -216,7 +216,9 @@ var testfiles = [
     "config.md",
     "log.md",
     "reports.md",
-    "cycle.md"
+    "cycle.md",
+    "store-pipe.md",
+    "comments.md"
 ].
 slice(0);
 //slice(31, 32);
