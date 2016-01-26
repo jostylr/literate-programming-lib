@@ -13,8 +13,8 @@ This tests the directive for storing.
 
 [generic:great|dude](# "store: ")
 
-[pushy | 1](# "push: ")
-[pushy | 2](# "push:")
+[ pushy me |1](# "push: ")
+[pushy me| 2](# "push:")
 
 [just one | a](# "push:")
 
@@ -28,7 +28,7 @@ This tests the directive for storing.
 
     _"janed"
 
-    _"pushy | .join +"
+    _"pushy me| .join +"
 
     _"just one | .join -"
 
