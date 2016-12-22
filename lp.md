@@ -1895,7 +1895,7 @@ argument; no arguments or commands put in`. In particular, jane is not
 considered a command. Is that reasonable? Presumably that should reduce
 unintentional conflicts and allow for passing in stuff to another level. 
 
-In terms of what ths function would do immediately, it would emit the first
+In terms of what the function would do immediately, it would emit the first
 and third arguments immediately. For the jack command, it would first setup
 waiting for the substitute to callback. After its arguments are assembled, it
 would hook evaluate jack in the command's context, passing in the return
@@ -2410,12 +2410,15 @@ The regex ignores the initial whitespace returning the word
 in 1 and the next character in 2. A failure to match should mean it is an
 empty string and the passthru can be used. 
 
+Using `.` in the regex is a problem because newline should be consumed as
+well. So we use (\S|\s)
+
     {
 
         command : {
-            "'" : /\s*([^|'\s]*)(.)/g,
-            '"' : /\s*([^|"\s]*)(.)/g,
-            "`" : /\s*([^|`\s]*)(.)/g
+            "'" : /\s*([^|'\s]*)([\S\s])/g,
+            '"' : /\s*([^|"\s]*)([\S\s])/g,
+            "`" : /\s*([^|`\s]*)([\S\s])/g
         },
 
 The argument is anything up to a comma, pipe, underscore, or the special
@@ -2425,9 +2428,9 @@ pipe ends command, comma ends argument, underscore may initiate substitution,
 and slash may initiate escaping).
 
         argument : {
-            "'" : /\s*([^,|\\']*)(.)/g,
-            '"' : /\s*([^,|\\"]*)(.)/g,
-            "`" : /\s*([^,|\\`]*)(.)/g
+            "'" : /\s*([^,|\\']*)([\S\s])/g,
+            '"' : /\s*([^,|\\"]*)([\S\s])/g,
+            "`" : /\s*([^,|\\`]*)([\S\s])/g
         },
         endarg : {
             "'" : /\s*([,|\\'])/g,
@@ -2439,9 +2442,9 @@ and slash may initiate escaping).
 And a super simple subname is to chunk up to pipes or quotes.
 
         subname : {
-            "'" : /\s*([^|']*)(.)/g,
-            '"' : /\s*([^|"]*)(.)/g,
-            "`" : /\s*([^|`]*)(.)/g
+            "'" : /\s*([^|']*)([\S\s])/g,
+            '"' : /\s*([^|"]*)([\S\s])/g,
+            "`" : /\s*([^|`]*)([\S\s])/g
         }
 
 
@@ -6470,9 +6473,10 @@ The log array should be cleared between tests.
         "reports.md",
         "cycle.md",
         "store-pipe.md",
-        "comments.md"
+        "comments.md",
+        "lineterm.md"
     ].
-    slice(0);
+    slice();
     //slice(31, 32);
 
 

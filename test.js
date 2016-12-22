@@ -218,9 +218,10 @@ var testfiles = [
     "reports.md",
     "cycle.md",
     "store-pipe.md",
-    "comments.md"
+    "comments.md",
+    "lineterm.md"
 ].
-slice(0);
+slice();
 //slice(31, 32);
 
 
