@@ -3794,66 +3794,41 @@ the simply emit the text ready event. The name also include the file name
 
 The stripped is to remove the starting filename. 
 
+There is only one argument which gives an alternate mainblock name for minor
+blocks to use. 
 
+To have multiple blocks with minors, you could use the sub command: `sub $1,
+dude, $2, man | compile`
 
     function (input, args, name) {
         var doc = this;
         var gcd = doc.gcd;
         var file = doc.file;
         var colon = doc.colon.v;
-        var escape = doc.colon.escape;
-        var i, n, start, nextname, oldname, firstname;
+        var i, n, start ;
 
         var stripped = name.slice(name.indexOf(":")+1) + colon + "c";
 
-
-        var hanMaker = _":handle maker";
-
-
-        if (args.length === 0) {
-            gcd.once("minor ready:" + name + colon + "c", function (text) {
-                gcd.emit("text ready:" + name, text); 
-            });
-            doc.blockCompiling(input, file, stripped);
+        if (args[0]) {
+            start = args[0];
         } else {
-            _":args"
+            _":mainblock name"
         }
+
+        gcd.once("minor ready:" + file + ":" + stripped, function (text) {
+            gcd.emit("text ready:" + name, text); 
+        });
+        doc.blockCompiling(input, file, stripped, start );
     }
 
-[args]()
+[mainblock name]()
 
-If there are arguments to use, then we interpret them as blocks to compile
-from.
+This gets the mainblock name if first argument does not give it. 
 
-
-    n = args.length;
-    firstname = oldname = escape(stripped + colon + ( args[0] || '') + colon + 0);
-    for (i = 1; i < n; i += 1) {
-        start = args[i] || '';
-        nextname = escape(stripped + colon + start + colon + i);
-        gcd.once("minor ready:" + file + ":" + oldname, hanMaker(file,
-            nextname, start) );
-        gcd.emit("waiting for:cmd compiling:" + nextname  + ":from:" + doc.file, 
-            ["minor ready:" + file + ":" + nextname, "compile", nextname, doc.file, start]);
-        oldname = nextname;
-    }
-    start =  args[0] || '';
-    gcd.once("minor ready:" + file + ":" + oldname, function (text) {
-        gcd.emit("text ready:"  + name, text);
-    });
-    doc.blockCompiling(input, file, firstname, start);
-
-[handle maker]()
-
-This returns a function that will be the handler. It closures around the
-relevant bits. 
-
-    function (file, nextname, start) {
-        return function (text) {
-            doc.blockCompiling(text, file, nextname, start);
-        };
-    }
-
+    i = name.indexOf(":")+1;
+    n = name.indexOf(":", i);
+    if (n === -1) { n = name.indexOf(colon); }
+    start = name.slice(i, n);
 
 
 
@@ -6433,7 +6408,6 @@ The log array should be cleared between tests.
         "savepipe.md",  
         "load.md",
         "asynceval.md",
-        "compile.md",
         "define.md",
         "blockoff.md",
         "raw.md",
@@ -6465,7 +6439,6 @@ The log array should be cleared between tests.
         "nameafterpipe.md",
         "headless.md",
         "fsubcommand.md",
-        "templateexample.md",
         "directivesubbing.md",
         "config.md",
         "log.md",
@@ -6475,7 +6448,9 @@ The log array should be cleared between tests.
         "comments.md",
         "lineterm.md",
         "trailingunderscore.md",
-        "echo.md"
+        "echo.md",
+        "compile.md",
+        "templateexample.md"
     ].
     slice();
     //slice(31, 32);
@@ -7038,7 +7013,7 @@ One use of minor blocks is as a templating mechanism.
 
     After the first compile, the numbers will be decremented, but the blocks
     will not be evaluated.
-    
+
         \1_":first"
 
         \2_":second"
@@ -7048,8 +7023,10 @@ One use of minor blocks is as a templating mechanism.
 
     This is now a template. We could use it as
 
-    [happy.txt](# "save:| compile basic, great")
-    [sad.txt](# "save:| compile basic, grumpy")
+    [jack](# "store:| compile basic ")
+
+    [happy.txt](#jack "save:| compile great")
+    [sad.txt](# "save:| compile basic | compile grumpy")
 
 
     # Basic
@@ -7075,10 +7052,25 @@ One use of minor blocks is as a templating mechanism.
 
         You are grumpy.
 
-This would produce two text files 
+    # Middle
 
+    [second]()
 
-happy.txt: 
+        You are okay.
+
+    ## Another
+
+        \_":first"
+
+        \_"$2:second"
+        
+        \_":final"
+
+    [middle.txt](# "save:| sub $2, middle | compile basic")
+
+This would produce the files: 
+
+happy.txt
 
     Greetings and Salutations
 
@@ -7087,21 +7079,28 @@ happy.txt:
     Sincerely,
     Jack
 
-sad.txt: 
-
+sad.txt
     
     Greetings and Salutations
 
     You are grumpy.
-    
+
+    Sincerely,
+    Jack
+
+middle.txt
+
+    Greetings and Salutations
+
+    You are okay.
 
     Sincerely,
     Jack
 
     
 Note that you need to be careful about feeding in the escaped commands into
-other parsers. For example, I was using Jade to generate HTML structure and
-then using this templating to inject content (using markdown). Well, Jade
+other parsers. For example, I was using Pugs to generate HTML structure and
+then using this templating to inject content (using markdown). Well, Pugs
 escapes quotes and this was causing troubles. So I used backticks to delimit
 the block name instead of quotes and it worked fine. Be flexible.
 
@@ -7339,9 +7338,10 @@ as long as that does not conflict with anything (avoid pipes, commas, colons, qu
   callback. So you can read a file and have its callback call the callback to
   send the text along its merry way. 
 * **compile** This compiles a block of text as if it was in the document
-  originally. The compiled text will be the output. The arguments give the
-  names of blocknames that are used if short-hand minor blocks are
-  encountered. This is useful for templating. 
+  originally. The compiled text will be the output. The first argument gives the
+  names of the blockname to use if short-hand minor blocks are
+  encountered. This is useful for templating. If no blockname is given, then
+  the current one is used.  
 * **sub** `key1, val1, key2, val2, ...`  This replaces `key#` in the text with
   `val#`. The replacement is sorted based on the length of the key value. This
   is to help with SUBTITLE being replaced before TITLE, for example, while

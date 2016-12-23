@@ -18,10 +18,10 @@ This processing does not care what language(s) your are programming in. But it
 may skew towards more useful for the web stack. 
 
 This is the core library that is used as a module. See 
-[litpro](https://github.com/jostylr/litpro)  for the command
-line client. ~~The [full](https://github.com/jostylr/literate-programming)
+[-cli](https://github.com/jostylr/literate-programming-cli)  for the command
+line client. The [full](https://github.com/jostylr/literate-programming)
 version has a variety of useful standard
-plugins ("batteries included")~~ [not yet implemented].
+plugins ("batteries included").
 
 ## Installation
 
@@ -276,7 +276,7 @@ One use of minor blocks is as a templating mechanism.
 
     After the first compile, the numbers will be decremented, but the blocks
     will not be evaluated.
-    
+
         \1_":first"
 
         \2_":second"
@@ -286,8 +286,10 @@ One use of minor blocks is as a templating mechanism.
 
     This is now a template. We could use it as
 
-    [happy.txt](# "save:| compile basic, great")
-    [sad.txt](# "save:| compile basic, grumpy")
+    [jack](# "store:| compile basic ")
+
+    [happy.txt](#jack "save:| compile great")
+    [sad.txt](# "save:| compile basic | compile grumpy")
 
 
     # Basic
@@ -313,10 +315,25 @@ One use of minor blocks is as a templating mechanism.
 
         You are grumpy.
 
-This would produce two text files 
+    # Middle
 
+    [second]()
 
-happy.txt: 
+        You are okay.
+
+    ## Another
+
+        \_":first"
+
+        \_"$2:second"
+        
+        \_":final"
+
+    [middle.txt](# "save:| sub $2, middle | compile basic")
+
+This would produce the files: 
+
+happy.txt
 
     Greetings and Salutations
 
@@ -325,21 +342,28 @@ happy.txt:
     Sincerely,
     Jack
 
-sad.txt: 
-
+sad.txt
     
     Greetings and Salutations
 
     You are grumpy.
-    
+
+    Sincerely,
+    Jack
+
+middle.txt
+
+    Greetings and Salutations
+
+    You are okay.
 
     Sincerely,
     Jack
 
     
 Note that you need to be careful about feeding in the escaped commands into
-other parsers. For example, I was using Jade to generate HTML structure and
-then using this templating to inject content (using markdown). Well, Jade
+other parsers. For example, I was using Pugs to generate HTML structure and
+then using this templating to inject content (using markdown). Well, Pugs
 escapes quotes and this was causing troubles. So I used backticks to delimit
 the block name instead of quotes and it worked fine. Be flexible.
 
@@ -577,9 +601,10 @@ as long as that does not conflict with anything (avoid pipes, commas, colons, qu
   callback. So you can read a file and have its callback call the callback to
   send the text along its merry way. 
 * **compile** This compiles a block of text as if it was in the document
-  originally. The compiled text will be the output. The arguments give the
-  names of blocknames that are used if short-hand minor blocks are
-  encountered. This is useful for templating. 
+  originally. The compiled text will be the output. The first argument gives the
+  names of the blockname to use if short-hand minor blocks are
+  encountered. This is useful for templating. If no blockname is given, then
+  the current one is used.  
 * **sub** `key1, val1, key2, val2, ...`  This replaces `key#` in the text with
   `val#`. The replacement is sorted based on the length of the key value. This
   is to help with SUBTITLE being replaced before TITLE, for example, while

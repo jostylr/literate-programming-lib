@@ -9,9 +9,22 @@ the subs and then see if it can make it through.
 
 ## Start
 
-    Cool. _"beans | store stub | compile"
+    Cool. _"beans | store stub | compile || "
 
     Raw. _"stub"
+
+    _"stuff | compile dude"
+
+    _"stuff | compile "
+
+[cool]()
+
+    ice
+
+[hot]()
+
+    steam
+
 
 ## Beans
 
@@ -22,7 +35,33 @@ We will have beans and more
 ## More
 
     kale
+
+
+## Stuff
+
+    This is a template \_":cool"
+
+    A second block \_":hot"
+
+## dude 
+
+[cool]()
+
+    is cool.
+
+[hot]() 
+
+    whatever.
 ---
+
 Cool. beans and kale
 
 Raw. beans and _"more"
+
+This is a template is cool.
+
+A second block whatever.
+
+This is a template ice
+
+A second block steam

@@ -1335,42 +1335,23 @@ Folder.commands = {   eval : sync(function ( text, args ) {
         var gcd = doc.gcd;
         var file = doc.file;
         var colon = doc.colon.v;
-        var escape = doc.colon.escape;
-        var i, n, start, nextname, oldname, firstname;
+        var i, n, start ;
     
         var stripped = name.slice(name.indexOf(":")+1) + colon + "c";
     
-    
-        var hanMaker = function (file, nextname, start) {
-            return function (text) {
-                doc.blockCompiling(text, file, nextname, start);
-            };
-        };
-    
-    
-        if (args.length === 0) {
-            gcd.once("minor ready:" + name + colon + "c", function (text) {
-                gcd.emit("text ready:" + name, text); 
-            });
-            doc.blockCompiling(input, file, stripped);
+        if (args[0]) {
+            start = args[0];
         } else {
-            n = args.length;
-            firstname = oldname = escape(stripped + colon + ( args[0] || '') + colon + 0);
-            for (i = 1; i < n; i += 1) {
-                start = args[i] || '';
-                nextname = escape(stripped + colon + start + colon + i);
-                gcd.once("minor ready:" + file + ":" + oldname, hanMaker(file,
-                    nextname, start) );
-                gcd.emit("waiting for:cmd compiling:" + nextname  + ":from:" + doc.file, 
-                    ["minor ready:" + file + ":" + nextname, "compile", nextname, doc.file, start]);
-                oldname = nextname;
-            }
-            start =  args[0] || '';
-            gcd.once("minor ready:" + file + ":" + oldname, function (text) {
-                gcd.emit("text ready:"  + name, text);
-            });
-            doc.blockCompiling(input, file, firstname, start);
+            i = name.indexOf(":")+1;
+            n = name.indexOf(":", i);
+            if (n === -1) { n = name.indexOf(colon); }
+            start = name.slice(i, n);
         }
+    
+        gcd.once("minor ready:" + file + ":" + stripped, function (text) {
+            gcd.emit("text ready:" + name, text); 
+        });
+        doc.blockCompiling(input, file, stripped, start );
     },
     raw : sync(function (input, args) {
         var doc = this;

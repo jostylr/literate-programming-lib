@@ -179,7 +179,6 @@ var testfiles = [
     "savepipe.md",  
     "load.md",
     "asynceval.md",
-    "compile.md",
     "define.md",
     "blockoff.md",
     "raw.md",
@@ -211,7 +210,6 @@ var testfiles = [
     "nameafterpipe.md",
     "headless.md",
     "fsubcommand.md",
-    "templateexample.md",
     "directivesubbing.md",
     "config.md",
     "log.md",
@@ -221,7 +219,9 @@ var testfiles = [
     "comments.md",
     "lineterm.md",
     "trailingunderscore.md",
-    "echo.md"
+    "echo.md",
+    "compile.md",
+    "templateexample.md"
 ].
 slice();
 //slice(31, 32);

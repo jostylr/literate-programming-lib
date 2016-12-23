@@ -14,8 +14,10 @@ will not be evaluated.
 
 This is now a template. We could use it as
 
-[happy.txt](# "save:| compile basic, great")
-[sad.txt](# "save:| compile basic, grumpy")
+[jack](# "store:| compile basic ")
+
+[happy.txt](#jack "save:| compile great")
+[sad.txt](# "save:| compile basic | compile grumpy")
 
 
 # Basic
@@ -40,6 +42,23 @@ This is now a template. We could use it as
 [second]()
 
     You are grumpy.
+
+# Middle
+
+[second]()
+
+    You are okay.
+
+## Another
+
+    \_":first"
+
+    \_"$2:second"
+    
+    \_":final"
+
+[middle.txt](# "save:| sub $2, middle | compile basic")
+
 ---out:happy.txt
 Greetings and Salutations
 
@@ -51,6 +70,13 @@ Jack
 Greetings and Salutations
 
 You are grumpy.
+
+Sincerely,
+Jack
+---out:middle.txt
+Greetings and Salutations
+
+You are okay.
 
 Sincerely,
 Jack

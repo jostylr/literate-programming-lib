@@ -10,7 +10,7 @@ This tests the backslashing numbering scheme.
     _"oops | compile"
     _"oops | compile | compile"
 
-    _"woops | compile jack, jean"
+    _"woops | compile jack | compile jean"
 
 [out](# "save:")
 
