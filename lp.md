@@ -1218,7 +1218,11 @@ and sets up the .when listener.
         
         while (ind < n) {
             ind = block.indexOf("\u005F", ind);
-            if (ind === -1) {
+
+If index reports no more underscores or if the index is at the end
+preventing a quote from happening, then we stop            
+            
+            if ( (ind === -1) || ( ind >= (n-1) ) ) {
                 gcd.emit(stitchfrag, block.slice(start) );
                 break;
             } else {
@@ -1237,7 +1241,7 @@ and sets up the .when listener.
                 
                 stitcher(start);
                 ind = start ;
-
+        
             }
         }
 
@@ -1310,7 +1314,7 @@ the quote in question so it should still allow for full expression.
         }
 
 
-We are defnitely in the stage of an escape situation if we have a number
+We are definitely in the stage of an escape situation if we have a number
 preceded by a backslash. The number needs to be
 positive. It will then decrement and print out a backslash and number escape,
 including 0.
@@ -6474,7 +6478,8 @@ The log array should be cleared between tests.
         "cycle.md",
         "store-pipe.md",
         "comments.md",
-        "lineterm.md"
+        "lineterm.md",
+        "trailingunderscore.md"
     ].
     slice();
     //slice(31, 32);

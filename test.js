@@ -219,7 +219,8 @@ var testfiles = [
     "cycle.md",
     "store-pipe.md",
     "comments.md",
-    "lineterm.md"
+    "lineterm.md",
+    "trailingunderscore.md"
 ].
 slice();
 //slice(31, 32);

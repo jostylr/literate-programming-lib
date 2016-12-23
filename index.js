@@ -2647,7 +2647,7 @@ dp.blockCompiling = function (block, file, bname, mainblock) {
     
     while (ind < n) {
         ind = block.indexOf("\u005F", ind);
-        if (ind === -1) {
+        if ( (ind === -1) || ( ind >= (n-1) ) ) {
             gcd.emit(stitchfrag, block.slice(start) );
             break;
         } else {
@@ -2726,7 +2726,7 @@ dp.blockCompiling = function (block, file, bname, mainblock) {
             
             stitcher(start);
             ind = start ;
-
+    
         }
     }
 
