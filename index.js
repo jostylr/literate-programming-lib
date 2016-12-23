@@ -510,7 +510,6 @@ Folder.prototype.compose = function () {
         var colon = doc.colon;
         var gcd = doc.gcd;
         var done = "text ready:" + name; 
-        cmdargs = doc.argsPrep(cmdargs, name, doc.subCommands, cmdname);
         
         var exec = function (data, evObj) {
             var bit = evObj.pieces[0];
@@ -640,7 +639,6 @@ var sync  = Folder.prototype.wrapSync = function (fun, label) {
         var gcd = doc.gcd;
 
         try {
-            args = doc.argsPrep(args, name, doc.subCommands, command);
             var out = fun.call(doc, input, args, name);
             gcd.scope(name, null); // wipes out scope for args
             gcd.emit("text ready:" + name, out); 
@@ -684,7 +682,6 @@ var async = Folder.prototype.wrapAsync = function (fun, label) {
             }
         };
         callback.name = name; 
-        args = doc.argsPrep(args, name, doc.subCommands, command);
         fun.call(doc, input, args, callback, name);
     };
     if (label)  {
@@ -737,8 +734,6 @@ var defaults = Folder.prototype.wrapDefaults = function (label, fun) {
         var gcd = doc.gcd;
         var v = doc.colon.v;
         
-        args = doc.argsPrep(args, name, doc.subCommands, command);
-
         var cbname = tag.call(doc, args);    
 
         gcd.when(cbname + v + "setup", cbname); 
@@ -1465,7 +1460,6 @@ Folder.commands = {   eval : sync(function ( text, args ) {
         var gcd = doc.gcd;
         var c = doc.colon.v;
         var augs = doc.plugins.augment;
-        args = doc.argsPrep(args, name, doc.subCommands, cmdname);
     
         gcd.flatWhen("augment setup:" + name, "text ready:" + name);
             
@@ -1519,7 +1513,6 @@ Folder.commands = {   eval : sync(function ( text, args ) {
         var doc = this;
         var gcd = doc.gcd;
         var propname = args.shift();
-        args = doc.argsPrep(args, name, doc.subCommands, cmdname);
         var async = false;
         var prop;
         if ( (prop = input["." + propname] ) ) {
@@ -3499,6 +3492,8 @@ dp.argFinishingHandler = function (comname) {
         } else {
             fun = doc.commands[command];
         }
+                
+        args = doc.argsPrep(args, comname, doc.subCommands, command);
     
         if (fun) {
             fun.apply(doc, [input, args, comname, command]);

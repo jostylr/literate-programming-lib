@@ -2872,8 +2872,8 @@ exists, we execute it and any subcommands. If it does not exist, we wait for
 it to exist and then use a handler to run it. But if it is still not a
 property on the needed doc, then we wait some more. 
 
-Subcommands are dealt with inside the command itself. This allows those
-commands to modify the environment of the function.
+Subcommands used to be dealt with inside the command itself, for some reason.
+Now they are executed before the command. Shortly, they will be made async. 
 
     function (comname) {
         var doc = this;
@@ -2902,6 +2902,8 @@ commands to modify the environment of the function.
         } else {
             fun = doc.commands[command];
         }
+                
+        args = doc.argsPrep(args, comname, doc.subCommands, command);
 
         if (fun) {
             fun.apply(doc, [input, args, comname, command]);
@@ -2958,7 +2960,6 @@ executing.
             var gcd = doc.gcd;
 
             try {
-                args = doc.argsPrep(args, name, doc.subCommands, command);
                 var out = fun.call(doc, input, args, name);
                 gcd.scope(name, null); // wipes out scope for args
                 gcd.emit("text ready:" + name, out); 
@@ -3016,7 +3017,6 @@ receive `err, data` where data is the text to emit.
                 }
             };
             callback.name = name; 
-            args = doc.argsPrep(args, name, doc.subCommands, command);
             fun.call(doc, input, args, callback, name);
         };
         if (label)  {
@@ -3075,8 +3075,6 @@ fun is actually an array whose last element is the final function to execute.
             var gcd = doc.gcd;
             var v = doc.colon.v;
             
-            args = doc.argsPrep(args, name, doc.subCommands, command);
-
             var cbname = tag.call(doc, args);    
 
             gcd.when(cbname + v + "setup", cbname); 
@@ -3187,7 +3185,7 @@ used for state from scoping. One can use this to stash configuration options,
 for example, that can then be removed from the argument list. 
 
 If an argument is an array, then it is a subcommand plus its own arguments. We
-call the function itself to recurse down until we are down with all arguments. 
+call the function itself to recurse down until we are done with all arguments. 
 
 The return object will be passed on as is unless it is an array. Then it
 should be of the form [type, val, ...]. Types can be: 
@@ -4342,7 +4340,6 @@ string or number, it is converted into an object first and then augmented.
         var gcd = doc.gcd;
         var c = doc.colon.v;
         var augs = doc.plugins.augment;
-        args = doc.argsPrep(args, name, doc.subCommands, cmdname);
 
         gcd.flatWhen("augment setup:" + name, "text ready:" + name);
             
@@ -4728,7 +4725,6 @@ stop the flow within the same pipeline.
         var doc = this;
         var gcd = doc.gcd;
         var propname = args.shift();
-        args = doc.argsPrep(args, name, doc.subCommands, cmdname);
         var async = false;
         var prop;
         if ( (prop = input["." + propname] ) ) {
@@ -5735,7 +5731,6 @@ This is to be defined on the `Folder.prototype.compose`.
             var colon = doc.colon;
             var gcd = doc.gcd;
             var done = "text ready:" + name; 
-            cmdargs = doc.argsPrep(cmdargs, name, doc.subCommands, cmdname);
             
             var exec = _":executes command";
 
@@ -6479,7 +6474,8 @@ The log array should be cleared between tests.
         "store-pipe.md",
         "comments.md",
         "lineterm.md",
-        "trailingunderscore.md"
+        "trailingunderscore.md",
+        "echo.md"
     ].
     slice();
     //slice(31, 32);
@@ -7832,9 +7828,6 @@ Some of the waiting is not done by the emitting, but rather by presence in
 
 Need better error reporting for not saved fie due to a command in the pipeline
 not completing. Compile is a prime target for needing something more. 
-
-Think about the subcommand argument prepping needing to be done in each
-command -- raw commands will not have that feature unless purposefully put in. 
 
 Check problematic syntax for erroring and reporting. Make sure there are tests
 for every bit of syntax. 

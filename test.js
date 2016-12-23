@@ -220,7 +220,8 @@ var testfiles = [
     "store-pipe.md",
     "comments.md",
     "lineterm.md",
-    "trailingunderscore.md"
+    "trailingunderscore.md",
+    "echo.md"
 ].
 slice();
 //slice(31, 32);
