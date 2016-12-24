@@ -6292,7 +6292,7 @@ This returns an array from the .when which is by default flattened.
         var whendone = "text ready:" + doc.file + ":" + name + colon.v  + "sp" ;
 
         doc.pipeDirSetup(pipes, doc.file + ":" + name, _":whendone", doc.curname ); 
-        
+        var seenAlready =[]; 
         var handler = gcd.on("heading found:5:" + doc.file , _":found");
 
         gcd.once("h5 off:" + colon.escape(heading), function () {
@@ -6321,7 +6321,10 @@ as closures.
 
         if (found === heading) {
             full = colon.escape(doc.levels[0]+'/'+found);
-            gcd.when("text ready:" + doc.file + ":" + full, whendone); 
+            if (seenAlready.indexOf(full) === -1) { 
+                gcd.when("text ready:" + doc.file + ":" + full, whendone); 
+                seenAlready.push(full);
+            }
         }
     }
 
@@ -6334,7 +6337,7 @@ This largely will return a text ready if there are no pipes, but we also have
 the option of pipes.
 
     function (data) {
-        
+
         if (! Array.isArray(data) ) {
             data = [data];
         }
@@ -6567,7 +6570,8 @@ The log array should be cleared between tests.
         "templateexample.md",
         "store.md",
         "partial.md",
-        "augarrsingle.md"
+        "augarrsingle.md",
+        "h5pushodd.md"
     ].
     slice();
     //slice(31, 32);
@@ -6628,7 +6632,7 @@ process the inputs.
 
         //gcd.makeLog();
 
-        //gcd.monitor(/first/, function (evt, data) { console.log(evt, data); });
+        //gcd.monitor('cool', function (evt, data) { console.log(evt, data); });
 
         test(name, function (t) {
             var outs, m, j, out;

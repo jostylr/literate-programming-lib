@@ -91,7 +91,7 @@ var testrunner = function (file) {
 
     //gcd.makeLog();
 
-    //gcd.monitor(/first/, function (evt, data) { console.log(evt, data); });
+    //gcd.monitor('cool', function (evt, data) { console.log(evt, data); });
 
     test(name, function (t) {
         var outs, m, j, out;
@@ -224,7 +224,8 @@ var testfiles = [
     "templateexample.md",
     "store.md",
     "partial.md",
-    "augarrsingle.md"
+    "augarrsingle.md",
+    "h5pushodd.md"
 ].
 slice();
 //slice(31, 32);

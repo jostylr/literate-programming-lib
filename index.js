@@ -1959,7 +1959,7 @@ Folder.directives = {
         var whendone = "text ready:" + doc.file + ":" + name + colon.v  + "sp" ;
     
         doc.pipeDirSetup(pipes, doc.file + ":" + name, function (data) {
-            
+        
             if (! Array.isArray(data) ) {
                 data = [data];
             }
@@ -1968,7 +1968,7 @@ Folder.directives = {
         
             doc.store(name, data);
         }    , doc.curname ); 
-        
+        var seenAlready =[]; 
         var handler = gcd.on("heading found:5:" + doc.file , function (data ) {
            
             var found = doc.convertHeading(data);
@@ -1976,7 +1976,10 @@ Folder.directives = {
         
             if (found === heading) {
                 full = colon.escape(doc.levels[0]+'/'+found);
-                gcd.when("text ready:" + doc.file + ":" + full, whendone); 
+                if (seenAlready.indexOf(full) === -1) { 
+                    gcd.when("text ready:" + doc.file + ":" + full, whendone); 
+                    seenAlready.push(full);
+                }
             }
         });
     
