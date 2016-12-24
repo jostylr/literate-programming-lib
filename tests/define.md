@@ -8,7 +8,7 @@ blocks.
 
 [out](#start "save:")
 
-[hot](#hotty "define:raw")
+[hot-cool](#hotty "define:raw")
 
 ## Start
 
@@ -16,7 +16,7 @@ Alright. We will have three commands that will produce three lines.
 
     _"cool | beans"
     _"warm | blanket two, three| sub two, 2"
-    _"|hot chocolate"
+    _"|hot-cool chocolate"
 
 
 
