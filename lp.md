@@ -4464,7 +4464,7 @@ This is maps commands to each element of an array.
         var ename = name + c + ".mapc" + c + cmd; 
         args = args.slice(1);
 
-        gcd.flatWhen("mapping setup:" + ename, "need augmenting:" + ename).silence();
+        gcd.flatArrWhen("mapping setup:" + ename, "need augmenting:" + ename).silence();
         gcd.on("need augmenting:"+ ename, function (data) {
             data = arr._augments.self( data ); 
             gcd.emit("text ready:" + name, data);
@@ -6566,7 +6566,8 @@ The log array should be cleared between tests.
         "compile.md",
         "templateexample.md",
         "store.md",
-        "partial.md"
+        "partial.md",
+        "augarrsingle.md"
     ].
     slice();
     //slice(31, 32);
@@ -8080,6 +8081,6 @@ A travis.yml file for continuous test integration!
 
 
 by [James Taylor](https://github.com/jostylr "npminfo: jostylr@gmail.com ; 
-    deps: event-when 1.5.0, commonmark 0.22.0, string.fromcodepoint 0.2.1;
+    deps: event-when 1.6.0, commonmark 0.22.0, string.fromcodepoint 0.2.1;
     dev: tape 4.2.0, litpro-jshint 0.2.1")
 

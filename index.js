@@ -969,7 +969,7 @@ Folder.plugins.augment = {
             var ename = name + c + ".mapc" + c + cmd; 
             args = args.slice(1);
         
-            gcd.flatWhen("mapping setup:" + ename, "need augmenting:" + ename).silence();
+            gcd.flatArrWhen("mapping setup:" + ename, "need augmenting:" + ename).silence();
             gcd.on("need augmenting:"+ ename, function (data) {
                 data = arr._augments.self( data ); 
                 gcd.emit("text ready:" + name, data);

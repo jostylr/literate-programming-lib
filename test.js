@@ -223,7 +223,8 @@ var testfiles = [
     "compile.md",
     "templateexample.md",
     "store.md",
-    "partial.md"
+    "partial.md",
+    "augarrsingle.md"
 ].
 slice();
 //slice(31, 32);
