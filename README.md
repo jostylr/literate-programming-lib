@@ -509,6 +509,10 @@ There are a variety of directives that come built in.
   which sends along the ith variable to the next pipe, `->@i` which pushes the
   value onto the ith element, assuming it is an array (it creates an array if
   no array is found).  
+* **Partial** `[cmdname](#block "partial: oldcmdname, argplace | pipes...")` This
+  takes a command, `oldcmdname`, and makes a new command, `cmdname`, by
+  replacing an argument slot, `argplace` zero-based, with whatever the block
+  and pipes result in. 
 * **Subcommand** `[subcommandname](#cmdName "subcommand:")` This defines
   subcommandname (one word) and attaches it to be active in the cmdName. If no
   cmdName, then it becomes available to all commands.  

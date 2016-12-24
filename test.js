@@ -148,9 +148,8 @@ var testrunner = function (file) {
 
      //setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
-     //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
     });
-     // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+      //setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
 };
 
@@ -223,9 +222,10 @@ var testfiles = [
     "echo.md",
     "compile.md",
     "templateexample.md",
-    "store.md"
+    "store.md",
+    "partial.md"
 ].
-slice();
+slice(-1);
 //slice(31, 32);
 
 

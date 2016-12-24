@@ -2042,6 +2042,91 @@ Folder.directives = {
         
         gcd.emit(compcheck);
     },
+    "partial" : dirFactory(function (state) {
+        state.emitname =  "cmddefine:" + state.linkname;
+    }, function (state) {
+        var cmdname = state.linkname;
+        var doc = this;
+        var gcd = this.gcd;
+    
+        var opts = state.options.split(",");
+        var command = opts[0]; //old command
+        var arg = (opts[1] ? parseInt(opts[1].trim(),10) : 0);
+        var propcommand = false;
+    
+        var fun;   //closure
+    
+        var han = function (block) {
+            if ( (command[0] === ".") && (command.length > 1) ) {
+                fun = doc.commands["."];
+                propcommand = command.slice(1);
+            } else {
+                fun = doc.commands[command];
+            }
+    
+            if (fun) {
+                doc.commands[cmdname] = 
+                    function (input, args, name, command) {
+                        var doc = this;
+                        var newargs; 
+                        var push = Array.prototype.push;
+                
+                        if (propcommand) {
+                            newargs = [propcommand];
+                         } else {
+                            newargs = [];
+                         }
+                         push.apply(newargs, args.slice(0, arg));
+                         newargs.push(block);
+                         push.apply(newargs, args.slice(arg));
+                
+                        fun.call (doc, input, newargs, name, command); 
+                    };
+                gcd.emit("command defined:" + cmdname);
+            } else {
+                var lasthand = function () {
+                    fun = doc.commands[command];
+                    if (fun) {
+                        doc.commands[cmdname] = 
+                            function (input, args, name, command) {
+                                var doc = this;
+                                var newargs; 
+                                var push = Array.prototype.push;
+                        
+                                if (propcommand) {
+                                    newargs = [propcommand];
+                                 } else {
+                                    newargs = [];
+                                 }
+                                 push.apply(newargs, args.slice(0, arg));
+                                 newargs.push(block);
+                                 push.apply(newargs, args.slice(arg));
+                        
+                                fun.call (doc, input, newargs, name, command); 
+                            };
+                        gcd.emit("command defined:" + cmdname);
+                    } else { // wait some more ? why
+                        gcd.once("command defined:" + command, lasthand);
+                    }
+                };
+                lasthand._label = "delayed command:" + command +
+                    ":" + cmdname;
+                gcd.once("command defined:" + command, lasthand);
+            }
+        };
+        han._label = "cmd define;;" + cmdname;
+    
+        state.handler=han;
+    
+    }, function (state) {
+        var cmdname = state.linkname;
+    
+        var file = this.file;
+        var gcd = this.gcd;
+    
+        gcd.emit("waiting for:command definition:" + cmdname, 
+            ["command defined:"+cmdname, cmdname, file, state.start]  );
+    }),
     "version" : function (args) {
         var doc = this;
         var colon = doc.colon;

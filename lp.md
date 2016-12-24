@@ -4867,6 +4867,7 @@ for saving as well.
         "push" : _"dir push",
         "h5" : _"dir h5",
         "compose" : _"dir compose",
+        "partial" : _"dir partial",
         "version" : _"dir version",
         "npminfo" : _"dir npminfo",
     }
@@ -5621,6 +5622,115 @@ to a blank command name.
         doc.defSubCommand( subCommandName, f, cmdName); 
          
     }
+
+### dir partial
+
+This takes in a command and returns a new command that feeds in a given
+argument.
+
+The syntax is `[name](#start "partial: existingcmd, number | cmds")`
+
+The name is the new command name, between the colon and pipe is the existing
+command name and the argument slot to fill; the default is 0. 
+The hashref and the commands are for creating the arguments. 
+
+    dirFactory(_":emitname", _":handler factory", _":other")
+
+[emitname]()
+
+This can be the same as the define command as we are creating a new command.
+
+    function (state) {
+        state.emitname =  "cmddefine:" + state.linkname;
+    }
+
+[handler factory]() 
+
+    function (state) {
+        var cmdname = state.linkname;
+        var doc = this;
+        var gcd = this.gcd;
+
+        var opts = state.options.split(",");
+        var command = opts[0]; //old command
+        var arg = (opts[1] ? parseInt(opts[1].trim(),10) : 0);
+        var propcommand = false;
+
+        var fun;   //closure
+
+        var han = function (block) {
+            if ( (command[0] === ".") && (command.length > 1) ) {
+                fun = doc.commands["."];
+                propcommand = command.slice(1);
+            } else {
+                fun = doc.commands[command];
+            }
+
+            if (fun) {
+                _":run fun"
+            } else {
+                var lasthand = function () {
+                    fun = doc.commands[command];
+                    if (fun) {
+                        _":run fun"
+                    } else { // wait some more ? why
+                        gcd.once("command defined:" + command, lasthand);
+                    }
+                };
+                lasthand._label = "delayed command:" + command +
+                    ":" + cmdname;
+                gcd.once("command defined:" + command, lasthand);
+            }
+        };
+        han._label = "cmd define;;" + cmdname;
+
+        state.handler=han;
+
+    }
+
+[run fun]()
+
+This is the bit that actually executes the partial function, once we have it. 
+
+We slice the args array, concatenating the new value in with the old. 
+
+    doc.commands[cmdname] = 
+        function (input, args, name, command) {
+            var doc = this;
+            var newargs; 
+            var push = Array.prototype.push;
+
+            if (propcommand) {
+                newargs = [propcommand];
+             } else {
+                newargs = [];
+             }
+             push.apply(newargs, args.slice(0, arg));
+             newargs.push(block);
+             push.apply(newargs, args.slice(arg));
+
+            fun.call (doc, input, newargs, name, command); 
+        };
+    gcd.emit("command defined:" + cmdname);
+
+    
+[other]() 
+
+This also seems reasonable to copy from the define. Not really sure what is
+being done here. 
+
+    function (state) {
+        var cmdname = state.linkname;
+
+        var file = this.file;
+        var gcd = this.gcd;
+
+        gcd.emit("waiting for:command definition:" + cmdname, 
+            ["command defined:"+cmdname, cmdname, file, state.start]  );
+    }
+
+
+
 
 
 ### dir compose
@@ -6455,9 +6565,10 @@ The log array should be cleared between tests.
         "echo.md",
         "compile.md",
         "templateexample.md",
-        "store.md"
+        "store.md",
+        "partial.md"
     ].
-    slice();
+    slice(-1);
     //slice(31, 32);
 
 
@@ -6573,9 +6684,8 @@ process the inputs.
 
          //setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
-         //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
-         // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+          //setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
     }
 
@@ -7253,6 +7363,10 @@ There are a variety of directives that come built in.
   which sends along the ith variable to the next pipe, `->@i` which pushes the
   value onto the ith element, assuming it is an array (it creates an array if
   no array is found).  
+* **Partial** `[cmdname](#block "partial: oldcmdname, argplace | pipes...")` This
+  takes a command, `oldcmdname`, and makes a new command, `cmdname`, by
+  replacing an argument slot, `argplace` zero-based, with whatever the block
+  and pipes result in. 
 * **Subcommand** `[subcommandname](#cmdName "subcommand:")` This defines
   subcommandname (one word) and attaches it to be active in the cmdName. If no
   cmdName, then it becomes available to all commands.  
