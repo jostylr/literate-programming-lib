@@ -1,9 +1,11 @@
 compile - compiling in a command and backslashing
----
+---start:in
 # Compiling
 
 This tests compiling a block of text. The idea is to use the backslashing of
 the subs and then see if it can make it through. 
+
+[first](first.md "load:")
 
 [out](#start "save:")
 
@@ -16,6 +18,10 @@ the subs and then see if it can make it through.
     _"stuff | compile dude"
 
     _"stuff | compile "
+
+    _"stuff | compile first::filler"
+
+    _"first::template | compile"
 
 [cool]()
 
@@ -52,7 +58,30 @@ We will have beans and more
 [hot]() 
 
     whatever.
----
+
+---in:first.md
+
+# filler
+
+This is a template section. 
+
+[hot]()
+
+    Rocking
+
+[cool]()
+
+    Sleeping
+
+## Template
+
+This is a simple template to see if it works as well.
+
+    \_":cool"
+
+    \_":hot"
+
+---out:out
 
 Cool. beans and kale
 
@@ -65,3 +94,11 @@ A second block whatever.
 This is a template ice
 
 A second block steam
+
+This is a template Sleeping
+
+A second block Rocking
+
+ice
+
+steam
