@@ -78,7 +78,9 @@ var testrunner = function (file) {
                 var filename = evObj.pieces[0];
                 var folder = gcd.parent;
             
-                folder.newdoc(filename, text);
+                setTimeout(function () {
+                    folder.newdoc(filename, text);
+                    }, 1);
             
             }]
           ]
@@ -89,7 +91,7 @@ var testrunner = function (file) {
 
     //gcd.makeLog();
 
-    //gcd.monitor('', function (evt, data) { console.log(evt, data); });
+    //gcd.monitor(/first/, function (evt, data) { console.log(evt, data); });
 
     test(name, function (t) {
         var outs, m, j, out;
@@ -146,7 +148,7 @@ var testrunner = function (file) {
 
      //setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
-    // setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
+     //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
     });
      // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
@@ -193,7 +195,6 @@ var testfiles = [
     "switchcmd.md",
     "pushpop.md",
     "version.md",
-    "store.md",
     "done.md", 
     "constructor.md",
     "transform.md",
@@ -221,7 +222,8 @@ var testfiles = [
     "trailingunderscore.md",
     "echo.md",
     "compile.md",
-    "templateexample.md"
+    "templateexample.md",
+    "store.md"
 ].
 slice();
 //slice(31, 32);

@@ -52,7 +52,7 @@ some documents, use the command line client and ignore this. Just saying the
 following is not pretty. At least, not yet!
 
 The thing to keep in mind is
-that this library is strutured around events 
+that this library is structured around events 
 using my [event-when](https://github.com/jostylr/event-when) library. The
 variable gcd is the event emitter (dispatcher if you will).
 

@@ -1607,10 +1607,15 @@ Folder.directives = {
         state.emitname =  "for store:" + this.file + ":" + linkname;
     }, function (state) {
         var doc = this;
+        var c = doc.colon.v;
         var linkname = state.linkname;
     
         var f = function (data) {
-             doc.store(state.varname, data);
+            if (state.varname[0] === c) {
+                //allowing minor blocks to get the major block directive is in
+                state.varname = state.cur.split(c)[0] + state.varname; 
+            }
+            doc.store(state.varname, data);
         };
         f._label = "storeDir;;" + linkname;
     

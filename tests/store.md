@@ -1,5 +1,5 @@
 storing -- testing the storing directive
----
+---start:in
 # Storing
 
 This tests the directive for storing. 
@@ -13,6 +13,12 @@ This tests the directive for storing.
 
 [generic:great](# "store:dude")
 
+[:good](# "store:programming")
+
+[whatever]()
+
+[:bad](# "store:work")
+
 ## Cat
 
     _"storing"
@@ -23,8 +29,25 @@ This tests the directive for storing.
 
     _"janed"
 
+    _"storing:bad"
+
+    _"storing:good"
+
+    _"first::head:right"
+
 [out](# "save:")
----
+[first](first.md "load:")
+
+---in:first.md
+# Head
+
+This is to check that the storage directive works with multiple files.
+
+    something
+
+[:right](# "store:")
+
+---out:out
 Jack runs up
 Jack runs down
 
@@ -35,3 +58,9 @@ dude
 
 Jane runs up
 Jane runs down
+
+work
+
+programming
+
+something

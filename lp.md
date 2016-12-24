@@ -5305,10 +5305,15 @@ value, best to use `#` and not have any code in that block.
 
     function (state) {
         var doc = this;
+        var c = doc.colon.v;
         var linkname = state.linkname;
 
         var f = function (data) {
-             doc.store(state.varname, data);
+            if (state.varname[0] === c) {
+                //allowing minor blocks to get the major block directive is in
+                state.varname = state.cur.split(c)[0] + state.varname; 
+            }
+            doc.store(state.varname, data);
         };
         f._label = "storeDir;;" + linkname;
 
@@ -6422,7 +6427,6 @@ The log array should be cleared between tests.
         "switchcmd.md",
         "pushpop.md",
         "version.md",
-        "store.md",
         "done.md", 
         "constructor.md",
         "transform.md",
@@ -6450,7 +6454,8 @@ The log array should be cleared between tests.
         "trailingunderscore.md",
         "echo.md",
         "compile.md",
-        "templateexample.md"
+        "templateexample.md",
+        "store.md"
     ].
     slice();
     //slice(31, 32);
@@ -6511,7 +6516,7 @@ process the inputs.
 
         //gcd.makeLog();
 
-        //gcd.monitor('', function (evt, data) { console.log(evt, data); });
+        //gcd.monitor(/first/, function (evt, data) { console.log(evt, data); });
 
         test(name, function (t) {
             var outs, m, j, out;
@@ -6568,7 +6573,7 @@ process the inputs.
 
          //setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
-        // setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
+         //setTimeout( function () {console.log(gcd.log.logs().join('\n')); console.log(folder.scopes)}, 100);
         });
          // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
@@ -6669,7 +6674,9 @@ This takes in the text of a file and compiles it.
         var filename = evObj.pieces[0];
         var folder = gcd.parent;
 
-        folder.newdoc(filename, text);
+        setTimeout(function () {
+            folder.newdoc(filename, text);
+            }, 1);
 
     }
 
@@ -6789,7 +6796,7 @@ some documents, use the command line client and ignore this. Just saying the
 following is not pretty. At least, not yet!
 
 The thing to keep in mind is
-that this library is strutured around events 
+that this library is structured around events 
 using my [event-when](https://github.com/jostylr/event-when) library. The
 variable gcd is the event emitter (dispatcher if you will).
 
