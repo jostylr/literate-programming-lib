@@ -301,7 +301,7 @@ Folder.prototype.parse = function (doc) {
         entering = event.entering;
 
         switch (node.type) {
-        case "Text" : 
+        case "text" : 
             if (htext) {
                 htext.push(node.literal);
             }
@@ -309,7 +309,7 @@ Folder.prototype.parse = function (doc) {
                 ltext.push(node.literal);
             }
         break;
-        case "Link" : 
+        case "link" : 
             if (entering) {
                 ltext = [];
             } else {
@@ -362,7 +362,7 @@ Folder.prototype.parse = function (doc) {
                 ltext = false;
             }
         break;
-        case "CodeBlock" :
+        case "code_block" :
             lang = node.info;
             code = node.literal || '';
             if (code[code.length -1] === "\n") {
@@ -374,7 +374,7 @@ Folder.prototype.parse = function (doc) {
                 gcd.emit("code block found:"+ file, code);
             }
         break;
-        case "Header" :
+        case "heading" :
             if (entering) {
                 htext = [];
             } else {

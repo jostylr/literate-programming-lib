@@ -917,22 +917,22 @@ The comment needs to start at a new line.
 [walk the tree]() 
 
 So we examine the nodes and decide when to do something of interest. The nodes
-of interest are of type Header, Link, Text, and CodeBlock. CodeBlock is easy
-as the literal is all we need. Both Header and Link require us to descend and
+of interest are of type Heading, Link, Text, and CodeBlock. CodeBlock is easy
+as the literal is all we need. Both Heading and Link require us to descend and
 string together the text. 
 
 
     switch (node.type) {
-    case "Text" : 
+    case "text" : 
         _":text"
     break;
-    case "Link" : 
+    case "link" : 
         _":link"
     break;
-    case "CodeBlock" :
+    case "code_block" :
         _":code"
     break;
-    case "Header" :
+    case "heading" :
         _":heading"
     break;
     }
@@ -8085,6 +8085,6 @@ A travis.yml file for continuous test integration!
 
 
 by [James Taylor](https://github.com/jostylr "npminfo: jostylr@gmail.com ; 
-    deps: event-when 1.6.0, commonmark 0.22.0, string.fromcodepoint 0.2.1;
-    dev: tape 4.2.0, litpro-jshint 0.2.1")
+    deps: event-when 1.6.0, commonmark 0.27.0, string.fromcodepoint 0.2.1;
+    dev: tape 4.6.3, litpro-jshint 0.3.0")
 
