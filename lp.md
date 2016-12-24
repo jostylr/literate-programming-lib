@@ -6568,7 +6568,7 @@ The log array should be cleared between tests.
         "store.md",
         "partial.md"
     ].
-    slice(-1);
+    slice();
     //slice(31, 32);
 
 

@@ -225,7 +225,7 @@ var testfiles = [
     "store.md",
     "partial.md"
 ].
-slice(-1);
+slice();
 //slice(31, 32);
 
 
