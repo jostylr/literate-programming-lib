@@ -1184,7 +1184,7 @@ Folder.reporters = {
     "cmd" : function (data) {
         var ind = data[1].lastIndexOf(this.colon.v);
         if (ind === -1) {
-            ind = data[1].length;
+            ind = data[1].length + 1;
         }
         var name = data[1].slice(0, ind);
         var hint = this.recording[name];
@@ -1572,7 +1572,8 @@ Folder.commands = {   eval : sync(function ( text, args ) {
 
 Folder.directives = {   
     "save" : dirFactory(function (state) {
-        state.emitname =  "for save:" + this.file + ":" + state.linkname;
+        state.emitname =  "for save:" + this.file + ":" + 
+          (state.saveprefix || '') + state.linkname;
     }, function (state) {
         var gcd = this.gcd;
         var linkname = (state.saveprefix || '') + state.linkname;
@@ -1590,7 +1591,7 @@ Folder.directives = {
     }, function (state) {
         var file = this.file;
         var gcd = this.gcd;
-        var linkname = state.linkname;
+        var linkname = (state.saveprefix || '') + state.linkname;
         var options = state.options;
         var start = state.start;
         // es6 var {linkname, options, start} = state; 

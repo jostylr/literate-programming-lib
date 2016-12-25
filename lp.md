@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.11.0; A literate programming compiler. Write your program in markdown. This is the core library and does not know about files.")
+# [literate-programming-lib](# "version:1.11.1; A literate programming compiler. Write your program in markdown. This is the core library and does not know about files.")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -799,7 +799,7 @@ This reports on somebody waiting for a command.
     function (data) {
         var ind = data[1].lastIndexOf(this.colon.v);
         if (ind === -1) {
-            ind = data[1].length;
+            ind = data[1].length + 1;
         }
         var name = data[1].slice(0, ind);
         var hint = this.recording[name];
@@ -5144,7 +5144,8 @@ Here we write the save function using the factory function.
 
 
     function (state) {
-        state.emitname =  "for save:" + this.file + ":" + state.linkname;
+        state.emitname =  "for save:" + this.file + ":" + 
+          (state.saveprefix || '') + state.linkname;
     }
 
 
@@ -5171,7 +5172,7 @@ Here we write the save function using the factory function.
     function (state) {
         var file = this.file;
         var gcd = this.gcd;
-        var linkname = state.linkname;
+        var linkname = (state.saveprefix || '') + state.linkname;
         var options = state.options;
         var start = state.start;
         // es6 var {linkname, options, start} = state; 
