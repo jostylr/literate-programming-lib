@@ -455,6 +455,12 @@ There are a variety of directives that come built in.
   in the loaded file. Options are open, but for the command line client it is
   the encoding string with default utf8. Note there are no pipes since there
   is no block to act on it.
+* **Cd** `[path](#ignore "cd: load/save")` This creates the ability to change
+  directories for either loading or saving. This is relative to the default
+  directory. `[](# "cd: load")` (or save)  will clear the path; it is always
+  good to do that when done. Ideally, this would be a tightly grouped of files
+  (listing like a directory) with the initial change right before the list and
+  the changing back after the list. 
 * **Define** `[commandName](#start "define: async/sync/raw/defaults|cmd")`
   This allows one to define commands in a lit pro document. Very handy. Order
   is irrelevant; anything requiring a command will wait for it to be defined.

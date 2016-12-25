@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.10.0; A literate programming compiler. Write your program in markdown. This is the core library and does not know about files.")
+# [literate-programming-lib](# "version:1.11.0; A literate programming compiler. Write your program in markdown. This is the core library and does not know about files.")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -1045,17 +1045,25 @@ empty link text though that becomes entirely hidden to the reader and is best no
 
 [directive]()
 
-A nice customary directive found.
+A nice customary directive found. The load and save prefixes allow for
+changing the path. Those directives need that data sent to them. 
 
-    directive =  doc.convertHeading(title.slice(0,ind));
-    gcd.emit("directive found:" + 
-        directive +  ":" + file, 
-        {   link : ltext,
+    directive =  doc.convertHeading(title.slice(0,ind)); 
+    var toSend = {   link : ltext,
             input : title.slice(ind+1),
             href: href, 
             cur: doc.curname, 
             directive : directive 
-        }
+        };
+    if (doc.loadprefix) {
+        toSend.loadprefix = doc.loadprefix;
+    }
+    if (doc.saveprefix) {
+        toSend.saveprefix = doc.saveprefix;
+    }
+    gcd.emit("directive found:" + 
+        directive +  ":" + file, 
+        toSend
     );
 
 
@@ -4855,6 +4863,7 @@ for saving as well.
         "log" : _"dir log",
         "out" : _"out",
         "load" : _"load",
+        "cd" : _"dir cd",
         "link scope" : _"link scope",
         "transform" : _"dir transform",
         "define" : _"define directive",
@@ -5143,7 +5152,7 @@ Here we write the save function using the factory function.
 
     function (state) {
         var gcd = this.gcd;
-        var linkname = state.linkname;
+        var linkname = (state.saveprefix || '') + state.linkname;
 
         var f = function (data) {
             if (data[data.length-1] !== "\n") {
@@ -5453,7 +5462,7 @@ nickname for the file.
  
 ### Load
 
-This loads files into the folder and asscoiates the nickname with it in the
+This loads files into the folder and associates the nickname with it in the
 local doc.
 
 All docs that are already loading or loaded will be present in the
@@ -5473,7 +5482,7 @@ not have been so flexible.
         var doc = this;
         var gcd = doc.gcd;
         var folder = doc.parent;
-        var url = args.href.trim();
+        var url = (args.loadprefix || '') + args.href.trim();
         var options = args.input;
         var urlesc = folder.colon.escape(url);
         var nickname = doc.colon.escape(args.link.trim());
@@ -5498,6 +5507,26 @@ This loads the url if needed. The file is loaded exactly once.
         gcd.emit("waiting for:loading for:" + doc.file, 
             "need document:" + urlesc);
         gcd.emit("need document:" + urlesc, url );
+    }
+
+### Dir cd
+
+This changes the directory, either for save or load. 
+
+Syntax `[prefix](#ignore "cd: load|save")` This sets a prefix for load or
+save, depending. To clear, use the same command but with empty prefix.
+
+
+    function (args) {
+        var doc = this;
+        var path = args.link.trim();
+        var type = args.input.trim();
+        if (type === "load") {
+            doc.loadprefix = path;
+        }
+        if (type === "save") {
+            doc.saveprefix = path;
+        }
     }
 
 ### Define directive
@@ -6571,7 +6600,8 @@ The log array should be cleared between tests.
         "store.md",
         "partial.md",
         "augarrsingle.md",
-        "h5pushodd.md"
+        "h5pushodd.md",
+        "cd.md"
     ].
     slice();
     //slice(31, 32);
@@ -7314,6 +7344,12 @@ There are a variety of directives that come built in.
   in the loaded file. Options are open, but for the command line client it is
   the encoding string with default utf8. Note there are no pipes since there
   is no block to act on it.
+* **Cd** `[path](#ignore "cd: load/save")` This creates the ability to change
+  directories for either loading or saving. This is relative to the default
+  directory. `[](# "cd: load")` (or save)  will clear the path; it is always
+  good to do that when done. Ideally, this would be a tightly grouped of files
+  (listing like a directory) with the initial change right before the list and
+  the changing back after the list. 
 * **Define** `[commandName](#start "define: async/sync/raw/defaults|cmd")`
   This allows one to define commands in a lit pro document. Very handy. Order
   is irrelevant; anything requiring a command will wait for it to be defined.

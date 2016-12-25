@@ -225,7 +225,8 @@ var testfiles = [
     "store.md",
     "partial.md",
     "augarrsingle.md",
-    "h5pushodd.md"
+    "h5pushodd.md",
+    "cd.md"
 ].
 slice();
 //slice(31, 32);

@@ -348,15 +348,22 @@ Folder.prototype.parse = function (doc) {
                         gcd.emit("switch found:" + file, [ltext,pipes]);
                     }
                 } else if ( (ind = title.indexOf(":")) !== -1) {
-                    directive =  doc.convertHeading(title.slice(0,ind));
-                    gcd.emit("directive found:" + 
-                        directive +  ":" + file, 
-                        {   link : ltext,
+                    directive =  doc.convertHeading(title.slice(0,ind)); 
+                    var toSend = {   link : ltext,
                             input : title.slice(ind+1),
                             href: href, 
                             cur: doc.curname, 
                             directive : directive 
-                        }
+                        };
+                    if (doc.loadprefix) {
+                        toSend.loadprefix = doc.loadprefix;
+                    }
+                    if (doc.saveprefix) {
+                        toSend.saveprefix = doc.saveprefix;
+                    }
+                    gcd.emit("directive found:" + 
+                        directive +  ":" + file, 
+                        toSend
                     );
                 }
                 ltext = false;
@@ -1568,7 +1575,7 @@ Folder.directives = {
         state.emitname =  "for save:" + this.file + ":" + state.linkname;
     }, function (state) {
         var gcd = this.gcd;
-        var linkname = state.linkname;
+        var linkname = (state.saveprefix || '') + state.linkname;
     
         var f = function (data) {
             if (data[data.length-1] !== "\n") {
@@ -1692,7 +1699,7 @@ Folder.directives = {
         var doc = this;
         var gcd = doc.gcd;
         var folder = doc.parent;
-        var url = args.href.trim();
+        var url = (args.loadprefix || '') + args.href.trim();
         var options = args.input;
         var urlesc = folder.colon.escape(url);
         var nickname = doc.colon.escape(args.link.trim());
@@ -1714,6 +1721,17 @@ Folder.directives = {
             }
         }
     
+    },
+    "cd" : function (args) {
+        var doc = this;
+        var path = args.link.trim();
+        var type = args.input.trim();
+        if (type === "load") {
+            doc.loadprefix = path;
+        }
+        if (type === "save") {
+            doc.saveprefix = path;
+        }
     },
     "link scope" : function (args) {
         var doc = this;
