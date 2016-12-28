@@ -3858,6 +3858,16 @@ of code.
         var doc = this;
         var gcd = this.gcd;
 
+This is to ensure all the objects are strings. Since we are sorting on their
+length, we need to make sure they are strings. Using toString seems
+reasonable. Other places are not often troubled because they are simply using
+them as strings in a way that they get typecast. 
+
+
+        args = args.map(function (el) {
+            return el.toString();
+        });
+        
         var index = 0, al = args.length, k, keys, obj = {}, 
             i, j, old, newstr, indented;
 
@@ -4112,7 +4122,7 @@ suitable variable names and useful for storing.
         args.forEach(function (el) {
             ret[el] = '';
         });
-        doc.augment(ret, "minidoc");
+        ret = doc.augment(ret, "minidoc");
         return ret;
 
     }
@@ -4374,6 +4384,12 @@ type variable.
 
             var augs = this.plugins.augment;
             props = augs[type];
+
+            if (type === "arr") {
+                if ( ! Array.isArray(obj) ) {
+                    obj = [obj];
+                }
+            }
 
             Object.keys(props).forEach( function (el) {
                 obj[el] = props[el];
@@ -6263,7 +6279,7 @@ This responds to push events and stores the value.
     if (! Array.isArray(data) ) {
         data = [data];
     }
-    doc.augment(data, "arr");
+    data = doc.augment(data, "arr");
 
 
     if (doc) {
@@ -6317,7 +6333,11 @@ This returns an array from the .when which is by default flattened.
         }
         
         var pipes = temp[1];
-        
+
+To ensure that the array is an augmented array, we inject a command here
+
+        pipes = "augment arr" + (pipes ? " |" + pipes : "");
+
         var name = colon.escape(args.link);
         var whendone = "text ready:" + doc.file + ":" + name + colon.v  + "sp" ;
 
@@ -6367,12 +6387,6 @@ This largely will return a text ready if there are no pipes, but we also have
 the option of pipes.
 
     function (data) {
-
-        if (! Array.isArray(data) ) {
-            data = [data];
-        }
-        
-        doc.augment(data, "arr");
 
         doc.store(name, data);
     }    
@@ -6578,7 +6592,6 @@ The log array should be cleared between tests.
         "miniaugment.md",
         "dirpush.md", 
         "mainblock.md", 
-        "h5push.md", 
         "linkquotes.md",
         "subcommands.md",
         "backslash.md",
@@ -6601,8 +6614,11 @@ The log array should be cleared between tests.
         "store.md",
         "partial.md",
         "augarrsingle.md",
+        "cd.md",
+        "empty-main.md",
+        "empty-minor.md",
         "h5pushodd.md",
-        "cd.md"
+        "h5push.md" 
     ].
     slice();
     //slice(31, 32);

@@ -245,7 +245,7 @@ var Folder = function (actions) {
             if (! Array.isArray(data) ) {
                 data = [data];
             }
-            doc.augment(data, "arr");
+            data = doc.augment(data, "arr");
             
             
             if (doc) {
@@ -475,6 +475,12 @@ Folder.prototype.augment = function self (obj, type) {
 
         var augs = this.plugins.augment;
         props = augs[type];
+
+        if (type === "arr") {
+            if ( ! Array.isArray(obj) ) {
+                obj = [obj];
+            }
+        }
 
         Object.keys(props).forEach( function (el) {
             obj[el] = props[el];
@@ -1267,7 +1273,10 @@ Folder.commands = {   eval : sync(function ( text, args ) {
     sub : function (str, args, name) {
         var doc = this;
         var gcd = this.gcd;
-    
+        args = args.map(function (el) {
+            return el.toString();
+        });
+        
         var index = 0, al = args.length, k, keys, obj = {}, 
             i, j, old, newstr, indented;
     
@@ -1439,7 +1448,7 @@ Folder.commands = {   eval : sync(function ( text, args ) {
         args.forEach(function (el) {
             ret[el] = '';
         });
-        doc.augment(ret, "minidoc");
+        ret = doc.augment(ret, "minidoc");
         return ret;
     
     }, "miniDoc"),
@@ -1973,17 +1982,12 @@ Folder.directives = {
         }
         
         var pipes = temp[1];
-        
+        pipes = "augment arr" + (pipes ? " |" + pipes : "");
+    
         var name = colon.escape(args.link);
         var whendone = "text ready:" + doc.file + ":" + name + colon.v  + "sp" ;
     
         doc.pipeDirSetup(pipes, doc.file + ":" + name, function (data) {
-        
-            if (! Array.isArray(data) ) {
-                data = [data];
-            }
-            
-            doc.augment(data, "arr");
         
             doc.store(name, data);
         }    , doc.curname ); 
