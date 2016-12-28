@@ -202,7 +202,6 @@ var testfiles = [
     "miniaugment.md",
     "dirpush.md", 
     "mainblock.md", 
-    "h5push.md", 
     "linkquotes.md",
     "subcommands.md",
     "backslash.md",
@@ -225,8 +224,11 @@ var testfiles = [
     "store.md",
     "partial.md",
     "augarrsingle.md",
+    "cd.md",
+    "empty-main.md",
+    "empty-minor.md",
     "h5pushodd.md",
-    "cd.md"
+    "h5push.md" 
 ].
 slice();
 //slice(31, 32);
