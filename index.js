@@ -844,7 +844,9 @@ Folder.prototype.subnameTransform = function (subname, lname, mainblock) {
     var colind, first, second, main;
     var doc = this;
     var colon = doc.colon;
-
+    
+    var reg = /\s*\:\s*/g;
+    subname = subname.replace(reg, ":");
 
     if (subname[0] === ":") {
         if (mainblock) {
@@ -1356,7 +1358,7 @@ Folder.commands = {   eval : sync(function ( text, args ) {
         var stripped = name.slice(name.indexOf(":")+1) + colon + "c";
     
         if (args[0]) {
-            start = args[0];
+            start = args[0].toLowerCase();
         } else {
             i = name.indexOf(":")+1;
             n = name.indexOf(":", i);

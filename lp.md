@@ -1659,7 +1659,9 @@ the first escaped colon will be returned as mainblock.
         var colind, first, second, main;
         var doc = this;
         var colon = doc.colon;
-
+        
+        var reg = /\s*\:\s*/g;
+        subname = subname.replace(reg, ":");
 
         _":fix colon subname"
 
@@ -3818,7 +3820,7 @@ dude, $2, man | compile`
         var stripped = name.slice(name.indexOf(":")+1) + colon + "c";
 
         if (args[0]) {
-            start = args[0];
+            start = args[0].toLowerCase();
         } else {
             _":mainblock name"
         }
@@ -6618,7 +6620,8 @@ The log array should be cleared between tests.
         "empty-main.md",
         "empty-minor.md",
         "h5pushodd.md",
-        "h5push.md" 
+        "h5push.md",
+        "capitalizations.md"
     ].
     slice();
     //slice(31, 32);
@@ -6737,7 +6740,7 @@ process the inputs.
          //setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
         });
-          //setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+         // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
     }
 

@@ -4,9 +4,9 @@ scope - an attempt to test scope creation and variable storage, retrieval
 
 Let's create some scopes and variables and then use them. 
 
-    _"a" _"b" _"other::c"
+    _"a" _"b" _"other :: c"
 
-    _"more" _"another::more"
+    _"more" _"another :: more"
     
     _"more" _"yester::more"
 
