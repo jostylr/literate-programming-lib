@@ -18,7 +18,6 @@ var apply = function (instance, obj) {
     }
 };
 
-
 var Folder = function (actions) {
     actions = actions || Folder.actions;
 
@@ -62,7 +61,6 @@ var Folder = function (actions) {
             doc.blockCompiling(block, file, blockname);
         }
     );
-    
     
     gcd.on("heading found", "add block");
     
@@ -424,214 +422,12 @@ Folder.prototype.colon = {   v : "\u2AF6",
     }
 };
 
-Folder.prototype.createScope = function (name) {
-    var folder = this;
-    var gcd = folder.gcd;
-    var scopes = folder.scopes;
-    var colon = folder.colon;
-
-    name = colon.escape(name);
-
-    if (! scopes.hasOwnProperty(name) ) {
-        scopes[name] = {};
-        gcd.emit("scope created:" + name);
-        gcd.emit("scope exists:" + name);
-    } else if (typeof scopes[name] === "string") {
-        gcd.emit("error:conflict in scope naming:" + name);
-        scopes[name] = {};
-    }
-
-    return scopes[name];
-};
-
 Folder.prototype.join = "\n";
 
 Folder.prototype.log = function (text) { console.log(text); };
 
 Folder.prototype.indicator = "\u2AF6\u2AF6\u2AF6";
 
-Folder.prototype.augment = function self (obj, type) {
-
-    var selfaug = obj._augments;
-    if (!selfaug) {
-        selfaug = obj._augments = [];
-        selfaug.self = self;
-    }
-
-    selfaug.keys = function () {
-        var keys = Object.keys(obj);
-        var augkeys = obj._augments.map( function (el) {
-            return el[0];
-        });
-        augkeys.push("_augments");
-        return keys.filter(function (el) {
-            return  (augkeys.indexOf(el) === -1);
-        });
-    };
-    
-    var props; 
-
-    if ( typeof type === "string" ) {
-
-        var augs = this.plugins.augment;
-        props = augs[type];
-
-        if (type === "arr") {
-            if ( ! Array.isArray(obj) ) {
-                obj = [obj];
-            }
-        }
-
-        Object.keys(props).forEach( function (el) {
-            obj[el] = props[el];
-            selfaug.push([el, props[el]]);
-        });
-
-    } else {
-        props = this;  
-        props.forEach(function (el) {
-            var key = el[0], val = el[1];
-            obj[key]  = val;
-            selfaug.push([key, val]);
-        });
-    }
-
-    return obj;
-}; 
-Folder.prototype.cmdworker = function (cmd, input, args, ename) {
-    var doc = this;
-    var gcd = doc.gcd;
-    var f;
-
-    if ( (cmd[0] === ".") && (cmd.length > 1) )  {
-        cmd = cmd.slice(1);
-        args.unshift(cmd);
-        doc.commands["."].call(doc, input, args, ename, ".");
-    } else if ( typeof (f = doc.commands[cmd] ) === "function" ) {
-        doc.commands[cmd].call(doc, input, args, ename, cmd );
-    } else {
-        gcd.once("command defined:" + cmd, function () {
-            doc.commands[cmd].call(doc, input, args, ename, cmd );
-        });
-    }
-}; 
-Folder.prototype.compose = function () {
-    var arrs = arguments;
-
-    return function (input, cmdargs, name, cmdname ) {
-        var doc = this;
-        var colon = doc.colon;
-        var gcd = doc.gcd;
-        var done = "text ready:" + name; 
-        
-        var exec = function (data, evObj) {
-            var bit = evObj.pieces[0];
-            var pos = parseInt(bit.slice(bit.lastIndexOf(colon.v) + 1), 10)+1;
-            var cmd = arrs[pos][0];
-            var args = arrs[pos].slice(1);
-        
-            var m, a;
-            if (cmd === '') {
-                gcd.emit("text ready:" + name + c + pos, data);
-                return;
-            
-            // store into ith arg    
-            } else if ( (m = cmd.match(/^\-\>\$(\d+)$/) ) ) {
-                cmdargs[parseInt(m[1], 10)] = data; 
-                gcd.emit("text ready:" + name + c + pos, data);
-                return;
-            
-            // retrieve from ith arg
-            } else if ( (m = cmd.match(/^\$(\d+)\-\>$/) ) ) {
-                gcd.emit("text ready:" + name + c + pos, 
-                    cmdargs[parseInt(m[1], 10)]);
-                return;
-            
-            } else if ( (m = cmd.match(/^\-\>\@(\d+)$/) ) ) {
-                a = cmdargs[parseInt(m[1], 10)];
-                if (Array.isArray(a)) {
-                    a.push(data);
-                } else {
-                    cmdargs[parseInt(m[1], 10)] = 
-                        doc.augment([data], "arr");
-                }
-                gcd.emit("text ready:" + name + c + pos, data);
-                return;
-            }
-        
-            var arrtracker = {}; 
-            var ds = /^([$]+)(\d+)$/;
-            var at = /^([@]+)(\d+)$/;
-            var nl = /\\n/g; // new line replacement
-            var n = args.length;
-            var subnum;
-            var i, el; 
-            
-            var noloopfun = function (args) {
-                return function (el) {
-                    args.push(el);
-                };
-            };
-            
-            
-            for (i = 0; i < n; i +=1 ) {
-                el = args[i] =  args[i].replace(nl, '\n'); 
-                var match = el.match(ds);
-                var num;
-                if (match) {
-                    if (match[1].length > 1) { //escaped
-                        args[i] = el.slice(1);
-                        continue;
-                    } else {
-                        num = parseInt(match[2], 10);
-                        args[i] = cmdargs[num];
-                        continue;
-                    }
-                }
-                match = el.match(at);
-                if (match) {
-                    if (match[1].length > 1) { //escaped
-                        args[i] = el.slice(1); 
-                        continue;
-                    } else {
-                        num = parseInt(match[2], 10);
-                        if (arrtracker.hasOwnProperty(num)) {
-                            subnum = arrtracker[num] += 1;
-                        } else {
-                            subnum = arrtracker[num] = 0;
-                        }
-                        if (i === (n-1)) {
-                            args.pop(); // get rid of last one
-                            cmdargs[num].slice(subnum).forEach(
-                                noloopfun(args));
-                        } else {
-                            args[i] = cmdargs[num][subnum];
-                        }
-                    }
-                }
-            }
-        
-        
-            doc.cmdworker(cmd, data, args, name + c + pos);
-        
-        };
-
-        var c = colon.v + cmdname + colon.v ;
-
-        var i, n = arrs.length;
-        for (i = 0; i < n-1 ;i += 1) {
-            gcd.once("text ready:" + name + c + i, exec); 
-        }
-        // when all done, the last one is sent as the final bit
-        gcd.once("text ready:" + name + c + (n-1), function (text) {
-           gcd.emit(done, text); 
-        }); 
-
-        //start it
-        exec(input, {pieces: [name+c+"-1"]});
-    };
-
-};
 Folder.prototype.convertHeading = function (str) {
     var reg = /\s+/g;
     str = str.trim().toLowerCase();
@@ -639,35 +435,35 @@ Folder.prototype.convertHeading = function (str) {
     return str;
 };
 
-var sync  = Folder.prototype.wrapSync = function (fun, label) {
-        var temp;
-        if (typeof fun === "string") {
-            temp = fun;
-            fun = label;
-            label = fun;
-        }
-
-    var f = function (input, args, name, command) {
-        var doc = this;
-        var gcd = doc.gcd;
-
-        try {
-            var out = fun.call(doc, input, args, name);
-            gcd.scope(name, null); // wipes out scope for args
-            gcd.emit("text ready:" + name, out); 
-        } catch (e) {
-            doc.log(e);
-            gcd.emit("error:command execution:" + name, 
-                [e, e.stack, input, args, command]); 
-        }
-    };
-
-    if (label) {
-        f._label = label;
-    }
-
-    return f;
-};
+ var sync  = Folder.prototype.wrapSync = function (fun, label) {
+         var temp;
+         if (typeof fun === "string") {
+             temp = fun;
+             fun = label;
+             label = fun;
+         }
+ 
+     var f = function (input, args, name, command) {
+         var doc = this;
+         var gcd = doc.gcd;
+ 
+         try {
+             var out = fun.call(doc, input, args, name);
+             gcd.scope(name, null); // wipes out scope for args
+             gcd.emit("text ready:" + name, out); 
+         } catch (e) {
+             doc.log(e);
+             gcd.emit("error:command execution:" + name, 
+                 [e, e.stack, input, args, command]); 
+         }
+     };
+ 
+     if (label) {
+         f._label = label;
+     }
+ 
+     return f;
+ };
 Folder.sync = function (name, fun) {
     return (Folder.commands[name] = sync(name, fun));
 };
@@ -738,6 +534,7 @@ var defaults = Folder.prototype.wrapDefaults = function (label, fun) {
             bad = false;
         } else {
             arr[i] = '';
+    
         }
     } 
     
@@ -798,48 +595,25 @@ Folder.prototype.uniq = function () {
     };
 };
 
-var dirFactory = Folder.prototype.dirFactory = function (namefactory, handlerfactory, other) {
+Folder.prototype.createScope = function (name) {
+    var folder = this;
+    var gcd = folder.gcd;
+    var scopes = folder.scopes;
+    var colon = folder.colon;
 
-    return function (state) {
-        var doc = this;
-        var gcd = doc.gcd;
-        var colon = doc.colon;
-        
-        state.linkname = colon.escape(state.link);
-        var temp;
-        
-        state.start =  doc.getBlock(state.href, state.cur);
-        
-        temp = doc.midPipes(state.input);
-        state.options = temp[0];
-        state.pipes = temp[1];
-        
-        namefactory.call(doc, state);
-        
-        handlerfactory.call(doc, state);
+    name = colon.escape(name);
 
-        other.call(doc, state);
+    if (! scopes.hasOwnProperty(name) ) {
+        scopes[name] = {};
+        gcd.emit("scope created:" + name);
+        gcd.emit("scope exists:" + name);
+    } else if (typeof scopes[name] === "string") {
+        gcd.emit("error:conflict in scope naming:" + name);
+        scopes[name] = {};
+    }
 
-        doc.pipeDirSetup(state.pipes, state.emitname, state.handler, 
-            ( state.start ||  state.block || '') );
-        
-        var pipeEmitStart = "text ready:" + state.emitname + colon.v + "sp";
-        if (! state.value) {
-            doc.retrieve(state.start, pipeEmitStart);
-        } else {
-            gcd.once("parsing done:"+this.file, function () {
-                gcd.emit(pipeEmitStart, state.value || "" );
-            });
-        }
-    };
-    
-
+    return scopes[name];
 };
-
-// communication between folders, say for caching read in files
-Folder.fcd = new EvW(); 
-
-
 Folder.prototype.subnameTransform = function (subname, lname, mainblock) {
     var colind, first, second, main;
     var doc = this;
@@ -920,226 +694,11 @@ Folder.prototype.subnameTransform = function (subname, lname, mainblock) {
 
 };
 
+// communication between folders, say for caching read in files
+Folder.fcd = new EvW(); 
+
 Folder.postInit = function () {}; //a hook for plugin this modification
 Folder.plugins = {};
-Folder.plugins.npminfo = { 
-    deps : {   val : function (arr) {return arr.join(",\n");},
-        element : function (str) {
-            var pieces;
-            
-            if (str) {
-                pieces = str.trim().split(/\s+/);
-                if (pieces.length === 2) {
-                    return '"' + pieces[0].trim() + '"' + " : " + '"^' + 
-                        pieces[1].trim() + '"';
-                } 
-            }
-        },
-        save : "npm dependencies" 
-    },
-    dev : {   val : function (arr) {return arr.join(",\n");},
-        element : function (str) {
-            var pieces;
-            
-            if (str) {
-                pieces = str.trim().split(/\s+/);
-                if (pieces.length === 2) {
-                    return '"' + pieces[0].trim() + '"' + " : " + '"^' + 
-                        pieces[1].trim() + '"';
-                } 
-            }
-        },
-        save : "npm dev dependencies"
-    }
-};
-Folder.plugins.augment = {
-    arr : {
-        trim : function () {
-            var old = this;
-            var ret = old.map(function (el) {
-                if (typeof el === "undefined") {
-                    return '';
-                } else if (el.hasOwnProperty("trim")) {
-                    return el.trim();
-                } else {
-                    return el.toString().trim();
-                }
-            });
-            return old._augments.self(ret);
-        },
-        splitsep : function (sep) {
-            var old = this;
-            sep = sep || '\n---\n';
-            var ret = old.map(function (el) {
-                return el.split(sep);
-            });
-            return old._augments.self(ret);
-        },
-        ".mapc" : function(arr, args, name) {
-            var doc = this;
-            var gcd = doc.gcd;
-            var c = doc.colon.v;
-        
-            var cmd = args[0];
-            var ename = name + c + ".mapc" + c + cmd; 
-            args = args.slice(1);
-        
-            gcd.flatArrWhen("mapping setup:" + ename, "need augmenting:" + ename).silence();
-            gcd.on("need augmenting:"+ ename, function (data) {
-                data = arr._augments.self( data ); 
-                gcd.emit("text ready:" + name, data);
-            });
-            arr.forEach(function (el, ind) {
-                var mname = ename + c + ind; 
-                gcd.when("text ready:" + mname, "need augmenting:" + ename );
-                doc.cmdworker(cmd, el, args, mname);
-            });
-        
-            gcd.emit("mapping setup:"+ename);
-        
-        },
-        pluck : function (key) {
-            var arr = this;
-            var ret = arr.map(function (el) {
-                return el[key]; 
-            });
-            ret = arr._augments.self(ret);
-            return ret;
-        },
-        put : function (key, full) {
-            var vals = this;
-            full.forEach(function (el, ind) {
-                el[key] = vals[ind];
-            });
-            return full;
-        },
-        get : function (key) {
-            key = parseInt(key, 10);
-            if (key < 0) {
-                key = this.length + key;
-            }
-            return this[key];
-        },
-        set : function (key, val) {
-            key = parseInt(key, 10);
-            if (key < 0) {
-                key = this.length + key;
-            }
-            this[key] = val;
-            return this;
-        }
-    },
-    minidoc : { 
-        ".store" : function (input, args, name ) {
-            var doc = this;
-            var gcd = doc.gcd;
-            var prefix = args[0] || '';
-            try {
-                input._augments.keys().forEach(function (el) {
-                    doc.store(doc.colon.escape(prefix + el), input[el]); 
-                });
-        
-            } catch(e) {
-                this.gcd.emit("error:minidoc:store" + name, [e, input, args]);
-            }
-            gcd.emit("text ready:" + name, input); 
-        },
-        ".apply" : function (input, args, name) {
-            var doc = this;
-            var gcd = doc.gcd;
-            var c = doc.colon.v;
-            var key = args[0];
-            var cmd = args[1];
-            var ename = name + c + ".apply" + c + key + c + cmd ; 
-            args = args.slice(2);
-            gcd.once("text ready:" + ename, function (data) {
-                input[key] = data;
-                gcd.emit("text ready:" + name, input);
-            });
-            doc.cmdworker(cmd, input[key], args, ename);
-        },
-        ".mapc" : function(obj, args, name) {
-            var doc = this;
-            var gcd = doc.gcd;
-            var c = doc.colon.v;
-        
-            var cmd = args[0];
-            var ename = name + c + ".mapc" + c + cmd; 
-            args = args.slice(1);
-        
-            gcd.when("mapc setup:" + ename, "keying:" + ename).silence();
-            gcd.on("keying:"+ ename, function (data) {
-                data.forEach(function (el) {
-                    var key = el[0].slice(el[0].lastIndexOf(c) + 1);
-                    obj[key] = el[1];
-                });
-                gcd.emit("text ready:" + name, obj);
-            });
-            obj._augments.keys().forEach(function (key) {
-                var mname = ename + c + key; 
-                gcd.when("text ready:" + mname, "keying:" + ename );
-                doc.cmdworker(cmd, obj[key], args, mname);
-            });
-        
-            gcd.emit("mapc setup:"+ename);
-        
-        },
-        clone : function () {
-            var input = this;
-            var clone = {};
-            input._augments.keys().forEach(function (el) {
-                clone[el] = input[el]; 
-            });
-            clone = input._augments.self(clone); 
-            return clone;
-        },
-        ".compile" : function (input, args, name) {
-            var doc = this;
-            var gcd = doc.gcd;
-            var colon = doc.colon;
-        
-            var section = colon.escape(args[0]);
-        
-            var template =  name +  colon.v + ".compile" +
-                colon.v + "template";
-            var store =  name +  colon.v + ".compile" +
-                colon.v + "store";
-        
-            gcd.flatWhen( ["text ready:" + template, "text ready:" + store], 
-                ".compile ready:" + name);
-            gcd.once(".compile ready:" + name, function (data) { 
-                doc.cmdworker("compile", data[0], [name], name);
-                gcd.once("text ready:" + name, function () {
-                    doc.cmdworker(".clear", input, [name], name + 
-                        colon.v + ".clear");
-                });
-            });
-            
-            doc.retrieve(section, "text ready:" + template);
-            doc.cmdworker(".store", input, [name], store ); 
-        },
-        ".clear" :  function (input, args, name ) {
-            var doc = this;
-            var gcd = doc.gcd;
-            var prefix = args[0] || '';
-            try {
-                input._augments.keys().forEach(function (el) {
-                    doc.store(doc.colon.escape(prefix + el), null); 
-                });
-            } catch(e) {
-                this.gcd.emit("error:minidoc:clear:" + name, [e, input, args]);
-            }
-            gcd.emit("text ready:" + name, input); 
-        },
-        set : function (key, val) {
-            this[key] = val;
-            return this;
-        },
-        get : function (key) {
-            return this[key];
-        }
-    }
-};
 
 Folder.reporters = {
     save : function (args) {
@@ -1200,7 +759,6 @@ Folder.reporters = {
     }
 
 };
-
 
 Folder.prototype.reportwaits = function () {
     var report = this.reports;
@@ -1464,7 +1022,7 @@ Folder.commands = {   eval : sync(function ( text, args ) {
         ret = doc.augment(ret, "minidoc");
         return ret;
     
-    }, "miniDoc"),
+    }, "minidoc"),
     augment : function (input, args, name, cmdname) {
         var doc = this;
         var gcd = doc.gcd;
@@ -1592,6 +1150,190 @@ Folder.commands = {   eval : sync(function ( text, args ) {
     }
 };
 
+var dirFactory = Folder.prototype.dirFactory = function (namefactory, handlerfactory, other) {
+
+    return function (state) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var colon = doc.colon;
+        
+        state.linkname = colon.escape(state.link);
+        var temp;
+        
+        state.start =  doc.getBlock(state.href, state.cur);
+        
+        temp = doc.midPipes(state.input);
+        state.options = temp[0];
+        state.pipes = temp[1];
+        
+        namefactory.call(doc, state);
+        
+        handlerfactory.call(doc, state);
+
+        other.call(doc, state);
+
+        doc.pipeDirSetup(state.pipes, state.emitname, state.handler, 
+            ( state.start ||  state.block || '') );
+        
+        var pipeEmitStart = "text ready:" + state.emitname + colon.v + "sp";
+        if (! state.value) {
+            doc.retrieve(state.start, pipeEmitStart);
+        } else {
+            gcd.once("parsing done:"+this.file, function () {
+                gcd.emit(pipeEmitStart, state.value || "" );
+            });
+        }
+    };
+    
+
+};
+Folder.plugins.npminfo = { 
+    deps : {   val : function (arr) {return arr.join(",\n");},
+        element : function (str) {
+            var pieces;
+            
+            if (str) {
+                pieces = str.trim().split(/\s+/);
+                if (pieces.length === 2) {
+                    return '"' + pieces[0].trim() + '"' + " : " + '"^' + 
+                        pieces[1].trim() + '"';
+                } 
+            }
+        },
+        save : "npm dependencies" 
+    },
+    dev : {   val : function (arr) {return arr.join(",\n");},
+        element : function (str) {
+            var pieces;
+            
+            if (str) {
+                pieces = str.trim().split(/\s+/);
+                if (pieces.length === 2) {
+                    return '"' + pieces[0].trim() + '"' + " : " + '"^' + 
+                        pieces[1].trim() + '"';
+                } 
+            }
+        },
+        save : "npm dev dependencies"
+    }
+};
+Folder.prototype.compose = function () {
+    var arrs = arguments;
+
+    return function (input, cmdargs, name, cmdname ) {
+        var doc = this;
+        var colon = doc.colon;
+        var gcd = doc.gcd;
+        var done = "text ready:" + name; 
+        
+        var exec = function (data, evObj) {
+            var bit = evObj.pieces[0];
+            var pos = parseInt(bit.slice(bit.lastIndexOf(colon.v) + 1), 10)+1;
+            var cmd = arrs[pos][0];
+            var args = arrs[pos].slice(1);
+        
+            var m, a;
+            if (cmd === '') {
+                gcd.emit("text ready:" + name + c + pos, data);
+                return;
+            
+            // store into ith arg    
+            } else if ( (m = cmd.match(/^\-\>\$(\d+)$/) ) ) {
+                cmdargs[parseInt(m[1], 10)] = data; 
+                gcd.emit("text ready:" + name + c + pos, data);
+                return;
+            
+            // retrieve from ith arg
+            } else if ( (m = cmd.match(/^\$(\d+)\-\>$/) ) ) {
+                gcd.emit("text ready:" + name + c + pos, 
+                    cmdargs[parseInt(m[1], 10)]);
+                return;
+            
+            } else if ( (m = cmd.match(/^\-\>\@(\d+)$/) ) ) {
+                a = cmdargs[parseInt(m[1], 10)];
+                if (Array.isArray(a)) {
+                    a.push(data);
+                } else {
+                    cmdargs[parseInt(m[1], 10)] = 
+                        doc.augment([data], "arr");
+                }
+                gcd.emit("text ready:" + name + c + pos, data);
+                return;
+            }
+        
+            var arrtracker = {}; 
+            var ds = /^([$]+)(\d+)$/;
+            var at = /^([@]+)(\d+)$/;
+            var nl = /\\n/g; // new line replacement
+            var n = args.length;
+            var subnum;
+            var i, el; 
+            
+            var noloopfun = function (args) {
+                return function (el) {
+                    args.push(el);
+                };
+            };
+            
+            
+            for (i = 0; i < n; i +=1 ) {
+                el = args[i] =  args[i].replace(nl, '\n'); 
+                var match = el.match(ds);
+                var num;
+                if (match) {
+                    if (match[1].length > 1) { //escaped
+                        args[i] = el.slice(1);
+                        continue;
+                    } else {
+                        num = parseInt(match[2], 10);
+                        args[i] = cmdargs[num];
+                        continue;
+                    }
+                }
+                match = el.match(at);
+                if (match) {
+                    if (match[1].length > 1) { //escaped
+                        args[i] = el.slice(1); 
+                        continue;
+                    } else {
+                        num = parseInt(match[2], 10);
+                        if (arrtracker.hasOwnProperty(num)) {
+                            subnum = arrtracker[num] += 1;
+                        } else {
+                            subnum = arrtracker[num] = 0;
+                        }
+                        if (i === (n-1)) {
+                            args.pop(); // get rid of last one
+                            cmdargs[num].slice(subnum).forEach(
+                                noloopfun(args));
+                        } else {
+                            args[i] = cmdargs[num][subnum];
+                        }
+                    }
+                }
+            }
+        
+        
+            doc.cmdworker(cmd, data, args, name + c + pos);
+        
+        };
+
+        var c = colon.v + cmdname + colon.v ;
+
+        var i, n = arrs.length;
+        for (i = 0; i < n-1 ;i += 1) {
+            gcd.once("text ready:" + name + c + i, exec); 
+        }
+        // when all done, the last one is sent as the final bit
+        gcd.once("text ready:" + name + c + (n-1), function (text) {
+           gcd.emit(done, text); 
+        }); 
+
+        //start it
+        exec(input, {pieces: [name+c+"-1"]});
+    };
+
+};
 Folder.directives = {   
     "save" : dirFactory(function (state) {
         state.emitname =  "for save:" + this.file + ":" + 
@@ -2500,6 +2242,259 @@ Folder.defSubCommand =function (sub, f, cmd) {
     }
 };
 
+Folder.prototype.augment = function self (obj, type) {
+
+    var selfaug = obj._augments;
+    if (!selfaug) {
+        selfaug = obj._augments = [];
+        selfaug.self = self;
+    }
+
+    selfaug.keys = function () {
+        var keys = Object.keys(obj);
+        var augkeys = obj._augments.map( function (el) {
+            return el[0];
+        });
+        augkeys.push("_augments");
+        return keys.filter(function (el) {
+            return  (augkeys.indexOf(el) === -1);
+        });
+    };
+    
+    var props; 
+
+    if ( typeof type === "string" ) {
+
+        var augs = this.plugins.augment;
+        props = augs[type];
+
+        if (type === "arr") {
+            if ( ! Array.isArray(obj) ) {
+                obj = [obj];
+            }
+        }
+
+        Object.keys(props).forEach( function (el) {
+            obj[el] = props[el];
+            selfaug.push([el, props[el]]);
+        });
+
+    } else {
+        props = this;  
+        props.forEach(function (el) {
+            var key = el[0], val = el[1];
+            obj[key]  = val;
+            selfaug.push([key, val]);
+        });
+    }
+
+    return obj;
+}; 
+Folder.prototype.cmdworker = function (cmd, input, args, ename) {
+    var doc = this;
+    var gcd = doc.gcd;
+    var f;
+
+    if ( (cmd[0] === ".") && (cmd.length > 1) )  {
+        cmd = cmd.slice(1);
+        args.unshift(cmd);
+        doc.commands["."].call(doc, input, args, ename, ".");
+    } else if ( typeof (f = doc.commands[cmd] ) === "function" ) {
+        doc.commands[cmd].call(doc, input, args, ename, cmd );
+    } else {
+        gcd.once("command defined:" + cmd, function () {
+            doc.commands[cmd].call(doc, input, args, ename, cmd );
+        });
+    }
+}; 
+Folder.plugins.augment = {
+    arr : {
+        trim : function () {
+            var old = this;
+            var ret = old.map(function (el) {
+                if (typeof el === "undefined") {
+                    return '';
+                } else if (el.hasOwnProperty("trim")) {
+                    return el.trim();
+                } else {
+                    return el.toString().trim();
+                }
+            });
+            return old._augments.self(ret);
+        },
+        splitsep : function (sep) {
+            var old = this;
+            sep = sep || '\n---\n';
+            var ret = old.map(function (el) {
+                return el.split(sep);
+            });
+            return old._augments.self(ret);
+        },
+        ".mapc" : function(arr, args, name) {
+            var doc = this;
+            var gcd = doc.gcd;
+            var c = doc.colon.v;
+        
+            var cmd = args[0];
+            var ename = name + c + ".mapc" + c + cmd; 
+            args = args.slice(1);
+        
+            gcd.flatArrWhen("mapping setup:" + ename, "need augmenting:" + ename).silence();
+            gcd.on("need augmenting:"+ ename, function (data) {
+                data = arr._augments.self( data ); 
+                gcd.emit("text ready:" + name, data);
+            });
+            arr.forEach(function (el, ind) {
+                var mname = ename + c + ind; 
+                gcd.when("text ready:" + mname, "need augmenting:" + ename );
+                doc.cmdworker(cmd, el, args, mname);
+            });
+        
+            gcd.emit("mapping setup:"+ename);
+        
+        },
+        pluck : function (key) {
+            var arr = this;
+            var ret = arr.map(function (el) {
+                return el[key]; 
+            });
+            ret = arr._augments.self(ret);
+            return ret;
+        },
+        put : function (key, full) {
+            var vals = this;
+            full.forEach(function (el, ind) {
+                el[key] = vals[ind];
+            });
+            return full;
+        },
+        get : function (key) {
+            key = parseInt(key, 10);
+            if (key < 0) {
+                key = this.length + key;
+            }
+            return this[key];
+        },
+        set : function (key, val) {
+            key = parseInt(key, 10);
+            if (key < 0) {
+                key = this.length + key;
+            }
+            this[key] = val;
+            return this;
+        }
+    },
+    minidoc : { 
+        ".store" : function (input, args, name ) {
+            var doc = this;
+            var gcd = doc.gcd;
+            var prefix = args[0] || '';
+            try {
+                input._augments.keys().forEach(function (el) {
+                    doc.store(doc.colon.escape(prefix + el), input[el]); 
+                });
+        
+            } catch(e) {
+                this.gcd.emit("error:minidoc:store" + name, [e, input, args]);
+            }
+            gcd.emit("text ready:" + name, input); 
+        },
+        ".apply" : function (input, args, name) {
+            var doc = this;
+            var gcd = doc.gcd;
+            var c = doc.colon.v;
+            var key = args[0];
+            var cmd = args[1];
+            var ename = name + c + ".apply" + c + key + c + cmd ; 
+            args = args.slice(2);
+            gcd.once("text ready:" + ename, function (data) {
+                input[key] = data;
+                gcd.emit("text ready:" + name, input);
+            });
+            doc.cmdworker(cmd, input[key], args, ename);
+        },
+        ".mapc" : function(obj, args, name) {
+            var doc = this;
+            var gcd = doc.gcd;
+            var c = doc.colon.v;
+        
+            var cmd = args[0];
+            var ename = name + c + ".mapc" + c + cmd; 
+            args = args.slice(1);
+        
+            gcd.when("mapc setup:" + ename, "keying:" + ename).silence();
+            gcd.on("keying:"+ ename, function (data) {
+                data.forEach(function (el) {
+                    var key = el[0].slice(el[0].lastIndexOf(c) + 1);
+                    obj[key] = el[1];
+                });
+                gcd.emit("text ready:" + name, obj);
+            });
+            obj._augments.keys().forEach(function (key) {
+                var mname = ename + c + key; 
+                gcd.when("text ready:" + mname, "keying:" + ename );
+                doc.cmdworker(cmd, obj[key], args, mname);
+            });
+        
+            gcd.emit("mapc setup:"+ename);
+        
+        },
+        clone : function () {
+            var input = this;
+            var clone = {};
+            input._augments.keys().forEach(function (el) {
+                clone[el] = input[el]; 
+            });
+            clone = input._augments.self(clone); 
+            return clone;
+        },
+        ".compile" : function (input, args, name) {
+            var doc = this;
+            var gcd = doc.gcd;
+            var colon = doc.colon;
+        
+            var section = colon.escape(args[0]);
+        
+            var template =  name +  colon.v + ".compile" +
+                colon.v + "template";
+            var store =  name +  colon.v + ".compile" +
+                colon.v + "store";
+        
+            gcd.flatWhen( ["text ready:" + template, "text ready:" + store], 
+                ".compile ready:" + name);
+            gcd.once(".compile ready:" + name, function (data) { 
+                doc.cmdworker("compile", data[0], [name], name);
+                gcd.once("text ready:" + name, function () {
+                    doc.cmdworker(".clear", input, [name], name + 
+                        colon.v + ".clear");
+                });
+            });
+            
+            doc.retrieve(section, "text ready:" + template);
+            doc.cmdworker(".store", input, [name], store ); 
+        },
+        ".clear" :  function (input, args, name ) {
+            var doc = this;
+            var gcd = doc.gcd;
+            var prefix = args[0] || '';
+            try {
+                input._augments.keys().forEach(function (el) {
+                    doc.store(doc.colon.escape(prefix + el), null); 
+                });
+            } catch(e) {
+                this.gcd.emit("error:minidoc:clear:" + name, [e, input, args]);
+            }
+            gcd.emit("text ready:" + name, input); 
+        },
+        set : function (key, val) {
+            this[key] = val;
+            return this;
+        },
+        get : function (key) {
+            return this[key];
+        }
+    }
+};
 
 var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
     this.parent = parent;
@@ -3034,6 +3029,7 @@ dp.store = function (name, text) {
     }
 };
 
+
 dp.getBlock = function (start, cur) {
     var doc = this;
     var colon = doc.colon;
@@ -3065,7 +3061,6 @@ dp.getBlock = function (start, cur) {
 
     return colon.escape(start);
 };
-
 dp.stripSwitch = function (name) {
     var ind, blockhead;
 
@@ -3082,7 +3077,6 @@ dp.stripSwitch = function (name) {
     return blockhead;
 
 };
-
 dp.midPipes = function (str) {
     var ind = str.indexOf("|");
     var options, pipes;
@@ -3098,7 +3092,14 @@ dp.midPipes = function (str) {
 
     return [options, pipes];
 };
-
+dp.getPostPipeName = function (name) {
+    var ind = name.indexOf("|") + 1;
+    if (ind) {
+        return name.slice(ind);
+    } else {
+        return '';
+    }
+} ;
 dp.pipeDirSetup = function (str, emitname, handler, start) {
     var doc = this;
     var gcd = doc.gcd;
@@ -3132,6 +3133,7 @@ dp.pipeDirSetup = function (str, emitname, handler, start) {
     }
 
 };
+
 
 dp.findMatchQuote = function (text, quote, ind) {
     var char;
@@ -3689,14 +3691,5 @@ dp.argsPrep = function self (args, name, subs, command ) {
     return retArgs;
 
 };  
-
-dp.getPostPipeName = function (name) {
-    var ind = name.indexOf("|") + 1;
-    if (ind) {
-        return name.slice(ind);
-    } else {
-        return '';
-    }
-} ;
 
 module.exports = Folder;
