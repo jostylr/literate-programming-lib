@@ -1366,6 +1366,17 @@ Folder.commands = {   eval : sync(function ( text, args ) {
             start = name.slice(i, n);
         }
     
+        n = args.length;
+        for (i = 1; i < n; i += 2) {
+            if (args[i] && (typeof args[i] === "string") ) {
+                if (typeof args[i+1] === "undefined") {
+                    doc.store(start + doc.colon.v + args[i].toLowerCase(), '');
+                } else {
+                    doc.store(start + doc.colon.v + args[i].toLowerCase(), args[i+1]);
+                }
+            }
+        }
+    
         gcd.once("minor ready:" + file + ":" + stripped, function (text) {
             gcd.emit("text ready:" + name, text); 
         });

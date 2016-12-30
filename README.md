@@ -603,18 +603,21 @@ as long as that does not conflict with anything (avoid pipes, commas, colons, qu
   code is eval'd (first argument). The code text itself is available in the
   `code` variable. The variable `text` is what is passed along.  This should
   make for quick hacking on text. The doc variable is also available for
-  inpsecting all sorts of stuff, like the current state of the blocks. If you
+  inspecting all sorts of stuff, like the current state of the blocks. If you
   want to evaluate the incoming text and use the result as text, then the line
   `text = eval(text)` as the first argument should work.
 * **async** (async eval) `code1, code2, ...` Same deal as eval, except this
   code expects a callback function to be called. It is in the variable
   callback. So you can read a file and have its callback call the callback to
   send the text along its merry way. 
-* **compile** This compiles a block of text as if it was in the document
+* **compile** `block, minor1, val1, minor2, val2,...`
+  This compiles a block of text as if it was in the document
   originally. The compiled text will be the output. The first argument gives the
   names of the blockname to use if short-hand minor blocks are
   encountered. This is useful for templating. If no blockname is given, then
-  the current one is used.  
+  the current one is used. Any further arguments should be in pairs, with the
+  second possibly empty, of a minor block name to fill in with the value in
+  the second place. 
 * **sub** `key1, val1, key2, val2, ...`  This replaces `key#` in the text with
   `val#`. The replacement is sorted based on the length of the key value. This
   is to help with SUBTITLE being replaced before TITLE, for example, while

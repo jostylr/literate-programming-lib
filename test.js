@@ -149,7 +149,7 @@ var testrunner = function (file) {
      //setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
     });
-     // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+    //  setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
 };
 
@@ -229,7 +229,8 @@ var testfiles = [
     "empty-minor.md",
     "h5pushodd.md",
     "h5push.md",
-    "capitalizations.md"
+    "capitalizations.md",
+    "compileminor.md"
 ].
 slice();
 //slice(31, 32);
