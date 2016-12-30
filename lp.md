@@ -7592,7 +7592,8 @@ as long as that does not conflict with anything (avoid pipes, commas, colons, qu
 We have `.` methods that we can invoke and the augment command adds in
 properties based on objects stored in `doc.plugins.augment`. Any key in that
 object is a valid type for the command. We currently have two pre-defined
-augment types: `minidoc` and `arr`. 
+augment types: `minidoc` and `arr`. The ones with just a `.` only make sense
+as commands.  
 
  #### minidoc
 
