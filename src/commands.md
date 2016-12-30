@@ -24,6 +24,31 @@ Here we have common commands.
         "when" : _"when"
     }
 
+## Doc
+
+This produces the command documentation. 
+
+    ## Built in commands
+
+    Note commands need to be one word and are case-sensitive. They can be
+    symbols as long as that does not conflict with anything (avoid pipes,
+    commas, colons, quotes).
+
+    _"comdoc | .join \n"    
+    * **minidoc** `minidoc :title, :body` This takes an array and converts
+      into an object where they key value is either the args as keys and the
+      values the relevant input items or the item in the array is a
+      two-element array whose first is the key and second is the value. The
+      named keys in the arguments skip over the two-element arrays. minidocs
+      are augmented with some methods.  See the augment section.
+    * **augment** `augment type` This augments the object with the methods
+      contained in the type augment object. See the augment section. 
+
+
+
+
+* [comdoc](#cdoc "h5: ")
+
 ## Folder prototype
     
      var sync  = Folder.prototype.wrapSync = _"Command wrapper sync";
@@ -281,6 +306,19 @@ one is shifted off to the code variable.
         }
     }
 
+##### cdoc
+
+    * **eval** `code, arg1,...`  The first argument is the text of the code to
+      eval. In its scope, it will have the incoming text as the `text`
+      variable and the arguments, which could be objects, will be in the
+      `args` array. The code is eval'd (first argument). The code text itself
+      is available in the `code` variable. The variable `text` is what is
+      passed along.  This should make for quick hacking on text. The doc
+      variable is also available for inspecting all sorts of stuff, like the
+      current state of the blocks. If you want to evaluate the incoming text
+      and use the result as text, then the line `text = eval(text)` as the
+      first argument should work.
+
 ### Async Eval
 
 This implements the ability to evaluate input asynchronously. This will
@@ -304,6 +342,13 @@ some mistakes.
              "\n\nACTING ON:\n" + text);
         }
     }
+
+##### cdoc
+
+    * **async** (async eval) `code1, code2, ...` Same deal as eval, except
+      this code expects a callback function to be called. It is in the
+      variable callback. So you can read a file and have its callback call the
+      callback to send the text along its merry way. 
 
 
 ### Compile
@@ -376,7 +421,17 @@ Reusing i,n. Want to jump by 2, start at 1 as 0 is the compile name.
         }
     }
     
-    
+ 
+ ##### hcdoc
+
+
+    * **compile** `block, minor1, val1, minor2, val2,...` This compiles a
+      block of text as if it was in the document originally. The compiled text
+      will be the output. The first argument gives the names of the blockname
+      to use if short-hand minor blocks are encountered. This is useful for
+      templating. If no blockname is given, then the current one is used. Any
+      further arguments should be in pairs, with the second possibly empty, of
+      a minor block name to fill in with the value in the second place. 
 
 ### Sub
 
@@ -451,6 +506,14 @@ This is the function that replaces a part of a string with another.
             index = i + indented.length;
         }
 
+##### cdoc
+
+    * **sub** `key1, val1, key2, val2, ...`  This replaces `key#` in the text
+      with `val#`. The replacement is sorted based on the length of the key
+      value. This is to help with SUBTITLE being replaced before TITLE, for
+      example, while allowing one to write it in an order that makes reading
+      make sense. A little unorthodox. We'll see if I regret it. 
+
 ### Store Command
 
 This is a thin wrapper of the store function. It returns the input immediately
@@ -467,6 +530,17 @@ even though the storing may not yet be done.
         return input; 
     }
 
+##### cdoc
+
+    * **store** `variable name`  This stores the incoming text into the
+      variable name.  This is good for stashing something in mid computation.
+      For example, `...|store temp | sub THIS, that | store awe | \_"temp"` will
+      stash the incoming text into temp, then substitute out THIS for that,
+      then store that into awe, and finally restore back to the state of temp.
+      Be careful that the variable temp could get overwritten if there are any
+      async operations hanging about. Best to have unique names. See push and
+      pop commands for a better way to do this. 
+
 ### Log
 
 This outputs the input and args to the doc.log function. In particular, it
@@ -482,6 +556,12 @@ joins the args and input with `\n---\n`
         return input;
     }
 
+
+##### cdoc
+
+    * **log** This will output a concatenated string to doc.log (default
+      console.log) with the incoming text and the arguments. This is a good
+      way to see what is going on in the middle of a transformation.
 
 ### Raw
 
@@ -511,6 +591,12 @@ irrelevant.
 
     }
 
+##### cdoc
+
+
+    * **raw** `start, end` This will look for start in the raw text of the
+      file and end in the file and return everything in between. The start and
+      end are considered stand-alone lines. 
 
 ### Trim
 
@@ -519,6 +605,11 @@ Bloody spaces and newlines
     function (input) {
         return input.trim();
     }
+
+##### cdoc
+
+    * **trim** This trims the incoming text, both leading and trailing
+      whitespace.  Useful in some tests of mine. 
 
 
 ## Join
@@ -535,6 +626,14 @@ sense when there is at least one argument.
         return args.join(sep);
     }
 
+##### cdoc
+
+    * **join** This will concatenate the incoming text and the arguments
+      together using the first argument as the separator. Note one can use
+      `\n` as arg1 and it should give you a newline (use `\\n` if in a
+      directive due to parser escaping backslashes!). No separator can be as
+      easy as `|join ,1,2,...`.
+
 ### Cat
 
 Concatenating text together and returning it. Probably mostly a single
@@ -549,6 +648,11 @@ argument use case.
     }
 
 
+##### cdoc
+
+
+    * **cat**  The arguments are concatenated with the incoming text as is.
+      Useful for single arguments, often with no incoming text.
 
 ### Echo
 
@@ -559,6 +663,11 @@ this but just for text.
     function (input, args) {
         return args[0];
     }
+
+##### cdoc
+
+    * **echo** `echo This is output` This terminates the input sequence and
+      creates a new one with the first argument as the outgoing. 
 
 ##### Sync
 
@@ -584,6 +693,12 @@ It takes an optional command
         var section = colon.escape(args.shift());
         doc.retrieve(section, "text ready:" + name);
     }
+
+##### cdoc
+
+    * **get** `get blockname` This is just like using `\_"blockname"` but that
+      fails to work in compositions. So get is its replacement. This ignores
+      the input and starts its own chain of inputs. 
 
 ### Array
 
@@ -627,6 +742,11 @@ Basic test and also, having some inline stuff.
     t.equals(a, b);
 
 
+##### cdoc
+
+
+    * **array** `array a1, a2, ...` This creates an array out of the input and
+      arguments. This is an augmented array.
 
 
 ## Dot
@@ -677,6 +797,18 @@ stop the flow within the same pipeline.
         gcd.emit("text ready:" + name, ret);
     }
 
+##### cdoc
+
+    * **.** `. propname, arg1, arg2,... ` This is the dot command and it
+      accesses property name which is the first argument; the object is the
+      input (typically a string, but can be anything). If the property is a
+      method, then the other arguments are passed in as arguments into the
+      method. For the inspirational example, the push directive creates an
+      array and to join them into text one could do `| . join, \,`. There is
+      also an alias so that any `.propname` as a command works. For example,
+      we could do `| .join \,` above.  This avoids forgetting the comma after
+      join in the prior example. 
+
 ### Push
 
     function (input, args, name) {
@@ -690,6 +822,11 @@ stop the flow within the same pipeline.
         }
         return input;
     }
+
+##### cdoc
+
+    * **push** Simply pushes the current state of the incoming text on the
+      stack for this pipe process.
 
 ### Pop 
 
@@ -711,6 +848,11 @@ stop the flow within the same pipeline.
         return ret;
     }
 
+##### cdoc
+
+    * **pop** Replaces the incoming text with popping out the last unpopped
+      pushed on text.
+
 ### if
 
 This checks a flag and then runs a command. 
@@ -728,6 +870,12 @@ This checks a flag and then runs a command.
         
 
     }
+
+##### cdoc
+
+    * **if** `flag, cmd, arg1, arg2, ....` If the flag is present (think build
+      flag), then the command will execute with the given input text and
+      arguments. Otherwise, the input text is passed on.
 
 ### when
 
@@ -756,6 +904,14 @@ This pauses the flow until the argument list of events is done.
         }
     }
 
+##### cdoc
+
+    * **when** `name1, name2, ...` This takes in the event names and waits for
+      them to be emitted by done or manually with a
+      `doc.parent.done.gcd.once(name, "done")`. That would probably be used in
+      directives. The idea of this setup is to wait to execute a cli command
+      for when everything is setup. It passes through the incoming text. 
+
 ### done
 
 This allows one to issue a command of done. 
@@ -776,5 +932,11 @@ list, something like `file saved:...`;
         var folder = this;
         folder.done.cache[evObj.ev] = true;
     }
+
+##### cdoc
+
+    * **done** `name` This is a command to emit the done event for name. It
+      just passes through the incoming text. The idea is that it would be,
+      say, a filename of something that got saved. 
 
 
