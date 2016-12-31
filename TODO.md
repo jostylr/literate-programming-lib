@@ -1,15 +1,19 @@
+Review docs, tests, better error and debugging reporting. 
 
-Need better error reporting for not saved fie due to a command in the pipeline
-not completing. Compile is a prime target for needing something more. 
+source maps? 
 
-Check problematic syntax for erroring and reporting. Make sure there are tests
-for every bit of syntax. 
+an escape function for Folder? it seems I keep writing that. 
 
-Implement ability to switch syntax (say replace quotes with hash symbols). 
+options parser for arguments in commands, 
+i.e.,  -o, object  to say an object is coming in
+instead of object detection? could shift arguments appropriately to clean them
+up; options would vanish from the inherited order, perhaps. 
 
-Go over docs (subcommands in particular)
+snippets:  `|s js-t obj, object` would be a boolean expression generated
+(type)
+`| s js-d obj, default` could generate (typeof obj !== "undefined") ? obj :
+default 
 
-h5 directive that does the push kind of thing. 
 
-check for lack of initial heading problems (mainblock remove header). 
+
 

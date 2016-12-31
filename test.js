@@ -46,8 +46,10 @@ var testrunner = function (file) {
                 td.in[piece.slice(6, newline)] = piece.slice(newline + 1);
             } else if (piece.slice(0,4) === "log:" ) {
                 td.log = piece.slice(newline + 1).split("\n!");
-                td.log.pop();
-                td.log[0] = td.log[0].slice(1);
+                td.log.pop(); // test log should end in an \n!
+                if( td.log[0]) {
+                    td.log[0] = td.log[0].slice(1);
+                }
             }
         }
     }
@@ -144,12 +146,12 @@ var testrunner = function (file) {
             });
         };
 
-       //notEmit();
+      // notEmit();
 
      //setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
     });
-    //  setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+    //setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
 };
 
@@ -198,8 +200,6 @@ var testfiles = [
     "constructor.md",
     "transform.md",
     "defaults.md", // 30
-    "compose.md",
-    "miniaugment.md",
     "dirpush.md", 
     "mainblock.md", 
     "linkquotes.md",
@@ -223,14 +223,28 @@ var testfiles = [
     "templateexample.md",
     "store.md",
     "partial.md",
-    "augarrsingle.md",
     "cd.md",
     "empty-main.md",
     "empty-minor.md",
     "h5pushodd.md",
     "h5push.md",
     "capitalizations.md",
-    "compileminor.md"
+    "compileminor.md",
+    "arrayify.md",
+    "merge.md",
+    "funify.md",
+    "ife.md",
+    "caps.md",
+    "augarrsingle.md",
+    "objectify.md",
+    "miniaugment.md",
+    "compose.md",
+    "assert.md",
+    "wrap.md",
+    "js-string.md",
+    "html-helpers.md",
+    "matrixify.md",
+    "snippets.md"
 ].
 slice();
 //slice(31, 32);

@@ -45,7 +45,11 @@ The "." are intentional; they signify that this is a command method.
         ".compile" : _"compile",
         ".clear" : _"clear",
         set : _"set",
-        get : _"get"
+        get : _"get",
+        keys : _"keys",
+        toString : _"toString",
+        forin : _"for in",
+        strip : _"strip"
     }
 
 ### store
@@ -61,7 +65,7 @@ argument as an optional prefix to each key as to where it should get stored.
         var gcd = doc.gcd;
         var prefix = args[0] || '';
         try {
-            input._augments.keys().forEach(function (el) {
+            input._augments.keys(input).forEach(function (el) {
                 doc.store(doc.colon.escape(prefix + el), input[el]); 
             });
 
@@ -82,7 +86,7 @@ This undoes the storing. Mainly used for `.compile`.
         var gcd = doc.gcd;
         var prefix = args[0] || '';
         try {
-            input._augments.keys().forEach(function (el) {
+            input.keys().forEach(function (el) {
                 doc.store(doc.colon.escape(prefix + el), null); 
             });
         } catch(e) {
@@ -117,7 +121,7 @@ object; for that clone this first.
             });
             gcd.emit("text ready:" + name, obj);
         });
-        obj._augments.keys().forEach(function (key) {
+        obj.keys().forEach(function (key) {
             var mname = ename + c + key; 
             gcd.when("text ready:" + mname, "keying:" + ename );
             doc.cmdworker(cmd, obj[key], args, mname);
@@ -198,7 +202,7 @@ This clones an object. Most operations will act on it directly.
     function () {
         var input = this;
         var clone = {};
-        input._augments.keys().forEach(function (el) {
+        input.keys().forEach(function (el) {
             clone[el] = input[el]; 
         });
         clone = input._augments.self(clone); 
@@ -218,4 +222,88 @@ This clones an object. Most operations will act on it directly.
         return this;
     }
 
+### keys
+
+Returns an augmented array of the keys.
+
+bf stands for boolean or function
+
+    function (bf) {
+        var aug = this._augments;
+        var keys = aug.keys(this);
+        if (bf === true) {
+            keys.sort();
+        } else if (typeof bf === "function") {
+            keys.sort(bf);
+        }
+        return keys;
+    }
+
+### toString 
+
+This implements a toString method. Its arguments include the key and value
+separators. The default is colon and newline with no wrapping. One can provide
+wrapping functions. 
+
+    function (keysep, valsep, fkey, fval) {
+        var obj = this;
+        keysep =  keysep || ':';
+        valsep = valsep || '\n';
+        fkey = fkey || function (key) {return key;};
+        fval = fval || function (val) {return val;};
+        var keys = obj.keys();
+        var str = '';
+        keys.forEach(function (el) {
+            str += fkey(el) + keysep + fval(obj[el]) + valsep;
+        });
+        return str;
+
+    }
+   
+## for in
+
+This does a forEach for the object, ignoring the augment keys. 
+
+The function takes in a function to act in the first argument, a pass-in
+object or value as second argument,  and has an
+optional sort object (true will sort by default order, nothing means whatever
+ordering it happens to be in ) for the third argument. 
+
+This can function as a foreach, a map, or a reduce. A defined val will get
+passed whenever the return value is not defined. If neither are defined, then
+the self object becomes the third object in the call. 
+
+If, at the end, the return value of f is undefined, then the object is passed
+along as is. 
+
+    function (f, val, s) {
+        var self = this;
+        var keys = self.keys(s);
+        var ret;
+        keys.forEach(function (el) {
+            if ( (typeof ret) !== "undefined") {
+                ret = f(el, self[el], ret, self);
+            } else if (typeof val !== "undefined") {
+                ret = f(el, self[el], val, self);
+            } else {
+                ret = f(el, self[el], self);
+            }
+        });
+        if (typeof ret !== "undefined") {
+            return ret;
+        } else {
+            return self;
+        }
+    }
+
+
+
+## strip
+
+This reveals the strip function. 
+
+    function () {
+        var self = this;
+        self._augments.strip(self);
+    }
 

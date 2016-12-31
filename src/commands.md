@@ -24,6 +24,44 @@ Here we have common commands.
         "when" : _"when"
     }
 
+## More
+
+These were written elsewhere and brought in. So they had a slightly different
+establishing convention. 
+
+    _"evil"
+
+    _"funify"
+
+    _"arrayify"
+
+    _"objectify"
+
+    _"immediate function execution"
+
+    _"caps"
+
+    _"assert"
+
+    _"wrap"
+
+    _"js-string"
+
+    _"html-wrap"
+
+    _"html-table"
+
+    _"html-escape"
+
+    _"html-unescape"
+
+    _"snippets"
+    
+    _"matrix::"
+
+
+    
+
 ## Doc
 
 This produces the command documentation. 
@@ -43,7 +81,7 @@ This produces the command documentation.
       are augmented with some methods.  See the augment section.
     * **augment** `augment type` This augments the object with the methods
       contained in the type augment object. See the augment section. 
-
+    _"matrix::doc"
 
 
 
@@ -350,6 +388,68 @@ some mistakes.
       variable callback. So you can read a file and have its callback call the
       callback to send the text along its merry way. 
 
+## evil
+
+This evaluates the input. The arguments are available in an array called args. It will pass along the value in ret which is, by default, the original value of code. 
+
+    
+    Folder.sync("evil", _":fun");
+
+[fun]()
+
+    function (code, args) {
+        var doc = this;
+        var ret = code;
+        try {
+            eval(code);
+            return ret;
+        } catch (e) {
+            doc.gcd.emit("error:command:evil:", [e, e.stack, code, args]);
+            return e.name + ":" + e.message +"\n" + code + "\nARGS: " + args; 
+        }
+
+
+    }
+
+
+##### cdoc
+
+    * **evil** While the eval commands thinks of the first argument as code
+      acting on the incoming text, its twin evil thinks of the incoming text
+      as the code and the arguments as just environment variables. The value
+      returned is the variable `ret` which defaults to the original code. 
+
+
+## funify
+
+This returns a function. It assumes the incoming text will compile to a
+function. 
+    
+    Folder.sync("funify", _":fun");
+
+[fun]()
+
+    function (code, args) {
+        var doc = this;
+        var f;
+        try {
+            eval("f=" + code);
+            return f;
+        } catch (e) {
+            doc.gcd.emit("error:command:evil:", [e, e.stack, code, args]);
+            return e.name + ":" + e.message +"\n" + code + "\nARGS: " + args; 
+        }
+
+
+    }
+
+
+##### cdoc
+
+    * **funify** This assumes the incoming text is a function-in-waiting and
+      it evals it to become so. This is great if you want to do a `.map` or if
+      you just want to mess with stuff. `.call , args..` will call the
+      function and return that result. 
 
 ### Compile
 
@@ -938,5 +1038,653 @@ list, something like `file saved:...`;
     * **done** `name` This is a command to emit the done event for name. It
       just passes through the incoming text. The idea is that it would be,
       say, a filename of something that got saved. 
+
+## Arrayify
+
+This is a convenience method for creating arrays from a block of text. 
+
+
+    Folder.plugins.arrayify = {
+        sep : "\n",
+        esc : "\\",
+        trim : true
+    };
+    Folder.sync("arrayify", _":fun");
+    
+
+[fun]()    
+    
+    function (input, args) {
+        var plug = this.plugins.arrayify;
+      if (typeof args[0] === "object") {
+            plug = merge(true, plug, args.shift());
+        } 
+        var sep = args[0] || plug.sep;
+        var esc = args[1] || plug.esc;
+        var trim = args[2] || plug.trim;
+
+        var ret = [];
+        var i, n = input.length, j = 0;
+        for (i = 0; i < n; i += 1) {
+
+            if (input[i] === sep) {
+                ret.push(input.slice(j,i));
+                j = i + 1;
+                continue;
+            }
+
+If we have an escape and the next one is escape or sep, then we slice it to
+exclude i, putting i+1 at i, and the next round will bump the i safely past it. 
+The only need to escape the escape is if there is a separator after the escape
+character and the escape character is not supposed to escape. 
+
+            if (input[i] === esc) {
+                if ( (input[i+1] === sep) || (input[i+1] === esc) ) {
+                    input = input.slice(0,i) + input.slice(i+1);
+                    continue;
+                }
+            }
+        }
+        ret.push(input.slice(j, i));
+
+        if (trim) {
+            ret = ret.map(function (el) {
+                return el.trim();
+            });
+        }
+         
+        ret = this.augment(ret, "arr");
+        return ret;
+
+    }
+
+
+##### cdoc
+
+    * **arrayify** This takes the incoming text and creates an array out of
+      it. The first argument is an object with keys `sep` to know what to
+      split on, `esc` to escape the separator and itself, `trim` a boolean
+      that will trim the text for each entry. The defaults are newline,
+      backslash, and true, respectively. You can also pass them as the first,
+      second, and third argument, respectively. 
+      Note that this assumes that both sep
+      and esc are single characters. You can have the usual block
+      substitutions, of course, but it might be safer to escape the block and
+      run it through compile, e.g., ` | arrayify | .mapc compile`. 
+      This also allows nesting of objects. To get a string representation of
+      the array, call `| .toString`.
+
+
+## Objectify
+
+
+This is a convenience method for creating objects from a block of text. 
+
+
+    Folder.plugins.objectify = {
+        key : ":",
+        val : "\n",
+        esc : "\\",
+        trim : true
+    };
+    Folder.sync("objectify", _":fun");
+    
+
+[fun]()    
+    
+    function (input, args) {
+        var plug = this.plugins.objectify;
+        if (typeof args[0] === "object") {
+            plug = merge(true, plug, args.shift());
+        } 
+        var keysep = args[0] || plug.key;
+        var valsep = args[1] || plug.val;
+        var esc = args[2] || plug.esc;
+        var trim = args[3] || plug.trim;
+
+        var ret = {};
+        var key = "";
+        var i, n = input.length, j = 0;
+        for (i = 0; i < n; i += 1) {
+
+            if (input[i] === keysep) {
+                key = input.slice(j,i).trim();
+                j =  i + 1;
+                continue;
+            }
+            if (input[i] === valsep) {
+                ret[key] = input.slice(j,i);
+                j =  i + 1;
+                continue;
+            }
+
+
+If we have an escape and the next one is escape or sep, then we slice it to
+exclude i, putting i+1 at i, and the next round will bump the i safely past it. 
+The only need to escape the escape is if there is a separator after the escape
+character and the escape character is not supposed to escape. 
+
+            if (input[i] === esc) {
+                if ( (input[i+1] === keysep) ||
+                     (input[i+1] === valsep) ||
+                     (input[i+1] === esc) ) {
+                   input = input.slice(0,i) + input.slice(i+1);
+                   continue;
+                }
+            }
+        }
+        
+        ret[key] = input.slice(j, i);
+            
+        if (trim) {
+            Object.keys(ret).forEach( function (key) {
+                 ret[key] =  ret[key].trim();
+            });
+        }
+
+        ret = this.augment(ret, "minidoc");
+        return ret;    
+
+    }
+
+
+##### cdoc
+
+    * **objectify** This takes the incoming text and creates an object out of
+      it. The first argument is an object with keys `key` to know what to
+      split on for the key, `val` to split on for the end of the value, `esc`
+      to escape the separator and itself, `trim` a boolean that will trim the
+      value for each entry; keys are automatically trimmed. The defaults
+      are colon, newline, backslash, and true, respectively. 
+      Note that this assumes
+      that all the characters are single characters. You can have the usual
+      block substitutions, of course, but it might be safer to escape the
+      block and run it through compile, e.g., ` | objectify | .mapc compile`.
+      This also allows nesting of objects. Call `|.toString()` to get a
+      string. 
+
+## Immediate Function Execution
+
+Nowadays, it is better to use   `{ let ... }`.  But this may still be of some
+use. 
+
+When writing this snippets of code everywhere, a problem arises as to where to
+place the scope of the variables. How do we avoid temporary variables from
+polluting the full scope? And how do we effectively write tests for such
+snippets?
+
+The solution is the immediate function expressions. If we enclose a snippet in
+function () {} () then we get a nice enclosed scope. If we also want to add in
+some parameters from the surrounding (say read-only parameters or something to
+be evaluated into a closure for later use), then we can do that as well.
+
+The syntax will be ife for the no parameter version and ` ife v, w=hidethis` to
+have parameters such as function(v,w) {} (v, hidethis) That is, the = is used
+to rename an outer parameter into a different variable name while just a
+single variable name is assumed to have the outer variable blocked.
+
+This is designed to detect whether it is a function or not (by first word
+being function) and then return the function or simply execute the code. To
+set the return value by piping, include return = text where text is what one
+would write after the return: return text
+
+    Folder.sync("ife", _":fun");
+
+
+[fun]()
+
+    function (code, args) {
+        var i, n = args.length;
+
+        var internal = [];
+        var external = [];
+        var arg,ret; 
+
+        for (i=0; i <n; i +=1 ) {
+            arg = args[i] || "";
+            arg = arg.split("=").map(function (el) {
+                return el.trim();
+            });
+            if (arg[0] === "return") {
+                ret = arg[1] || "";
+            } else if (arg.length === 1) {
+                internal.push(arg[0]);
+                external.push(arg[0]);
+            } else if (arg.length === 2) {
+                internal.push(arg[0]);
+                external.push(arg[1]);
+            }
+
+        }
+
+        var start = "(function ( "+internal.join(", ")+" ) {";
+        var end = "\n} ( "+external.join(",")+" ) )";
+
+        if (typeof ret === "string") {
+            return start + code + "\n return "+ret+";" + end;
+        } else if (code.search(/^\s*function/) === -1) {
+            return start + code + end;
+        } else {
+            return start + "\n return "+ code +";"+ end;
+        }
+    }
+
+##### cdoc
+
+    * **ife** This takes a snippet of code and creates an immediate function
+      execution string for embedding in code. the arguments become the
+      variable names in both the function call and the function definition. If
+      an equals is present, then the right-hand side is in the function call
+      and will not be hidden from access in the ife. 
+
+
+## caps
+
+The idea of this is to use capital letters as abbreviations. This is not
+elegant, but it is kind of cool.
+
+    Folder.plugins.caps = _":matches";
+    
+    Folder.sync("caps", _":fun");
+ 
+
+[fun]()
+
+    function (input, args) {
+        var matches = args[0] || this.plugins.caps;
+        var match, ret;
+
+        var i = 0; 
+        while (i < input.length) {
+            if (matches.hasOwnProperty(input[i]) ) {
+                match = matches[input[i]];
+                if (typeof match === "string") {
+                    //space after cap
+                    if ( (input[i+1] === " ") || 
+                        (input[i+1] === "\n") ||
+                        ( (i+1) === input.length) ) {
+                        input = input.slice(0, i) + match + input.slice(i+1);
+                        i += match.length;
+                    }
+                } else if (typeof match === "function") {
+                    ret = match(i, input);
+                    input = ret[0];
+                    i = ret[1];
+                }
+            }
+            i += 1;
+        }
+
+        return input;
+    }
+    
+`[test | M W>900px a](# "tranform: | caps | assert echo('@media (min-width: 900px) a') , caps test ")`
+
+[matches]()
+
+These are the matches. Each match is either a simple string or a function that
+takes in the index and string and returns the replaced string.
+    
+    {
+        M  : "@media",
+        W : function (ind, input) {
+                _":width"
+            }
+    }
+
+[width]()
+
+The width converts "<" and ">" into max and min widths. It is to be surrounded
+by parentheses. It should be of the form `W<600px `  with no spaces until
+after the unit. 
+
+    var reg = /\ |\n|$/g;
+    reg.lastIndex = ind;
+    reg.exec(input);
+    var end = reg.lastIndex -1; //input.indexOf(" ", ind);
+    var num = input.slice(ind+2, end);
+    var rep;
+    if (input[ind+1] === "<") {
+        rep = "(max-width: " + num + ")";
+    } else if (input[ind+1] === ">") {
+        rep = "(min-width: " + num + ")";
+    } else {
+        return [input, ind];
+    }
+    return [input.slice(0, ind) + rep + input.slice(end), ind+rep.length];
+
+##### cdoc
+
+    * **caps** This is a command that tries to match caps and replace them.
+      The idea comes from wanting to write `M W>900px` and get `@media
+      (min-width:900px)`. This does that. By passing in a JSON object of
+      possible matches as argument or setting the caps local object to an
+      object of such matches, you can change what it matches. But it only
+      will match a single character (though unicode is fine if you can input
+      that).  
+
+## assert
+
+This is a little command that should be more general. It tests for equality of
+the strings.
+
+
+    Folder.sync("assert", _":fun");
+
+
+[fun]()
+
+    function (input, args) {
+        var doc = this;
+        if (input !== args[0]) {
+            doc.log("FAIL: " + args[1] + "\nACTUAL: " + input + 
+                "\nEXPECTED: " + args[0]); 
+        }
+        return input;
+    }
+
+##### cdoc
+
+    * **assert** This asserts the equality of the input and first argument
+    and if it
+      fails, it reports both texts in a log with the second argument as a
+      message. `something | assert \_"else", darn that else`. This is a way to
+      check that certain things are happening as they should. 
+
+
+## wrap
+
+This takes the incoming text and wraps it between the first and second
+arguments. 
+
+    Folder.sync("wrap", _":fun");
+
+[fun]() 
+
+    function (code, args) {
+        return args[0] + code + args[1];
+    }
+
+##### cdoc
+
+    * **wrap** This wraps the incoming text in the first and second argument:
+      `some text | wrap <, >"  will result in `<some text>`. 
+
+## js-string
+
+
+If one is trying to insert a long text into a JavaScript function, it can have
+issues. So here is a little helper command that will split new lines, escape
+quotes, and then put it out as an array of strings joined with new lines.
+
+    Folder.sync("js-string", _":fun");
+
+[fun]()
+
+    function (code) {
+        code = code.replace(/\\/g, '\\\\');
+        code = code.replace(/"/g, '\\' + '"');
+        var arr = code.split("\n");
+        var i, n = arr.length;
+        for (i = 0; i < n; i += 1) {
+            arr[i] = '"' + arr[i] + '"';
+        }
+        code = arr.join(" +\n");
+        return code;
+    }
+
+##### cdoc
+
+    * **js-string** This breaks the incoming text of many lines into quoted
+      lines with appropriate plus signs added. 
+
+
+## Html-wrap
+
+This wraps content in a tag with arguments as attributes. 
+
+    Folder.sync("html-wrap", _":fun");
+
+[fun]()
+
+    function (code, options) {
+
+        var element = options.shift();
+
+        _":Create attribute list"
+
+        return "<" + element + " " + attributes + ">"+code+"</"+element+ ">";
+    }  
+    
+[Create attribute list]()
+
+We want to create an attribute list for html elements. The convention is that
+everything that does not have an equals sign is a class name. So we will
+string them together and throw them into the class, making sure each is a
+single word. The others we throw in as is.
+
+    var i, option, attributes = [], klass = [], str, ind;
+
+    for (i = 0; i < options.length; i += 1) {
+        option = options[i];
+        if ( ( ind = option.indexOf("=")) !== -1 ) {
+            str = option.slice(0, ind+1) + '"' + 
+                option.slice(ind+1).trim() + '"';
+            attributes.push(str);
+        } else { // class
+            klass.push(option.trim());
+        }
+    }
+    if (klass.length > 0 ) {
+       attributes.push('class="'+klass.join(" ")+'"');
+    }
+    attributes = attributes.join(" ");
+
+##### cdoc
+
+    * **html-wrap** This takes the incoming text and wraps it in a tag
+      element, using the first argument as the element and the rest of the
+      arguments as attributes. An equals sign creates an attribute with value,
+      no equals implies a class. An attribute value will get wrapped in
+      quotes. 
+      `text-> | html-wrap p data, pretty, data-var=right`
+      will lead to  `<p class="data pretty" data-var="right">text</p>`
+
+## Html-table
+
+This takes in a matrix (see augmented matrix type) and spits out an html table.
+
+This could also have been a property of matrices, but it feels like something
+that is a command on it to produce something new. 
+
+    Folder.sync("html-table", _":fun");
+
+[fun]()
+
+    function (mat, options) {
+        var type = options.shift();
+
+        _"html-wrap:create attribute list"
+
+        var ret = "<table" + (attributes.length ? " " + attributes : "") + ">\n";
+
+        if (Array.isArray(type) ) {
+            _":make row | sub td, th, row, type"
+        }
+       
+        mat.forEach(function (row) {
+            _":make row"    
+        });
+        ret += "</table>\n";
+        return ret; 
+    }
+
+[make row]()
+
+    ret += "<tr><td>" + row.join("</td><td>") + "</td></tr>\n";
+
+##### cdoc
+
+    * **html-table** This requires an array of arrays; augmented matrix is
+      good. The first argument should either be an array of headers or
+      nothing. It uses the same argument convention of html-wrap for the rest
+      of the arguments, being attributes on the html table element. We could
+      allow individual attributes and stuff on rows and columns, but that
+      seems best left to css and js kind of stuff. Still thinking on if we
+      could allow individual rows or entries to report something, but that
+      seems complicated. 
+
+
+## Html-escape
+
+An extremely simple-minded escaping of the given code to be safe in html, 
+e.g., javascript into an html pre element.
+
+Replace <>& with their equivalents.
+
+    Folder.plugins.html_escape = {
+        '<' : '&lt;',
+        '>' : '&gt;',
+        '&' : '&amp;'
+    };
+
+    Folder.sync("html-escape", _":fun");
+
+[fun]()
+
+
+    function (code) {
+        var chars = this.plugins.html_escape;
+        var record = [];
+        var i = 0, start = 0, n = code.length;
+        while (i< n) {
+            var char = chars[code[i]];
+            if ( char) {
+                record.push(code.slice(start, i), char);
+                start = i+1; 
+            }
+            i += 1;
+        }
+        record.push(code.slice(start));
+        return record.join('');
+    }
+
+##### cdoc
+    
+    * **html-escape** This escapes `<>&` in html. It is mainly intended for
+      needed uses, say in math writing. Very simple minded. One can modify the
+      characters escaped by adding to `Folder.plugins.html_escape`. This is
+      actually similar to caps and snippets. 
+
+## HTML-Unescape
+
+    Folder.plugins.html_unescape = {
+        'lt' : '<',
+        'gt' : '>',
+        'amp' : '&'
+    };
+
+    Folder.sync("html-unescape", _":fun");
+
+[fun]()
+
+
+    function (code) {
+        var reg = /\&(\w+)\;/g;
+        var chars = this.plugins.html_unescape;
+        var match;
+        var record = [];
+        var start = 0;
+        while ( (match = reg.exec(code) ) !== null)  {
+            var char = chars[match[1]];
+            if ( char) {
+                record.push(code.slice(start, match.index), char);
+                start = reg.lastIndex; 
+            }
+        }
+        record.push(code.slice(start));
+        return record.join('');
+    }
+
+
+##### cdoc
+
+    * **html-unescape** The reverse of html-escape, depending on what the
+      symbols are in `plugins.html_unescape`. 
+
+## Snippets
+
+This handles snippets. Currently it is empty of default snippets. Most likely,
+one would develop a standard lprc.js with the snippets in there. 
+
+    Folder.plugins.snippets = {};
+
+    Folder.sync("snippets", _":fun");
+    Folder.sync("s", _":fun");
+
+[fun]() 
+
+    function (code, args) {
+        var name = args[0];
+        var plug = this.plugins.snippets;
+        var snip, ret, reg, match, rep, num;
+        if (plug.hasOwnProperty(name)) {
+            snip = plug[name];
+            if (typeof snip === "function" ) {
+                ret = snip.apply(this, args);
+            } else if (typeof snip === "string") {
+                _":string"
+            } else {
+                this.log("Unknown type of snippet:"  + args.join(", "));
+                ret = args.join(",");
+            }
+            
+        } else {
+            this.log("Unknown snippet: " + args.join(", "));
+            rep = args.join(",");
+        }
+    return ret;
+    }
+
+[string]()
+
+So we want to be able to plug in simple parameters. 
+
+    ret = snip;
+    reg = /ARG(\d+)(?:\|\|([^|]*)\|)?/g;
+    while ( (match = reg.exec(ret) ) !== null ) {
+        num = parseInt(match[1],10) + 1;
+        if (typeof args[num]  !== "undefined") {
+            rep = args[num];
+        } else { //string or undefined
+            rep = match[2] || '';
+        }
+        ret = ret.slice(0, match.index) + rep + 
+            ret.slice( match.index + match[0].length );
+        // as string is changing, update lastIndex, but make sure we get past
+        reg.lastIndex = match.index + rep.length; 
+    }
+
+
+
+##### cdoc
+
+    * **snippets** (alias **s** ). This is a function for things that are
+      easily named, but long to write, such as a cdn download script tag for a
+      common js library, say jquery. `s jquery` could then do that. Currently,
+      there are no default snippets. To load them, the best bet is in the
+      lprc.js file and store the object as `Folder.plugins.snipets = obj` or,
+      if you are feeling generous, one could do
+      `Folder.merge(Folder.plugins.snippets, obj);`. This is really a
+      stand-alone command; incoming text is ignored. 
+
+      In writing a snippet, it can be a function which will take in the
+      arguments. Alternatively, you can sprinkle ``ARG#||...| `` 
+      in your code for
+      the Argument with numner # and the pipes give an optional default; if
+      none, then ARG# is eliminated. So `ARG0||1.9.0|` yields a default of
+      1.9.0. Pipes cannot be in the default
+
+      Be careful that the first argument is the snippet name. 
 
 

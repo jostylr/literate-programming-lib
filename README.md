@@ -613,6 +613,14 @@ commas, colons, quotes).
   this code expects a callback function to be called. It is in the
   variable callback. So you can read a file and have its callback call the
   callback to send the text along its merry way. 
+* **evil** While the eval commands thinks of the first argument as code
+  acting on the incoming text, its twin evil thinks of the incoming text
+  as the code and the arguments as just environment variables. The value
+  returned is the variable `ret` which defaults to the original code. 
+* **funify** This assumes the incoming text is a function-in-waiting and
+  it evals it to become so. This is great if you want to do a `.map` or if
+  you just want to mess with stuff. `.call , args..` will call the
+  function and return that result. 
 * **sub** `key1, val1, key2, val2, ...`  This replaces `key#` in the text
   with `val#`. The replacement is sorted based on the length of the key
   value. This is to help with SUBTITLE being replaced before TITLE, for
@@ -671,7 +679,88 @@ commas, colons, quotes).
   for when everything is setup. It passes through the incoming text. 
 * **done** `name` This is a command to emit the done event for name. It
   just passes through the incoming text. The idea is that it would be,
-  say, a filename of something that got saved.     
+  say, a filename of something that got saved. 
+* **arrayify** This takes the incoming text and creates an array out of
+  it. The first argument is an object with keys `sep` to know what to
+  split on, `esc` to escape the separator and itself, `trim` a boolean
+  that will trim the text for each entry. The defaults are newline,
+  backslash, and true, respectively. You can also pass them as the first,
+  second, and third argument, respectively. 
+  Note that this assumes that both sep
+  and esc are single characters. You can have the usual block
+  substitutions, of course, but it might be safer to escape the block and
+  run it through compile, e.g., ` | arrayify | .mapc compile`. 
+  This also allows nesting of objects. To get a string representation of
+  the array, call `| .toString`.
+* **objectify** This takes the incoming text and creates an object out of
+  it. The first argument is an object with keys `key` to know what to
+  split on for the key, `val` to split on for the end of the value, `esc`
+  to escape the separator and itself, `trim` a boolean that will trim the
+  value for each entry; keys are automatically trimmed. The defaults
+  are colon, newline, backslash, and true, respectively. 
+  Note that this assumes
+  that all the characters are single characters. You can have the usual
+  block substitutions, of course, but it might be safer to escape the
+  block and run it through compile, e.g., ` | objectify | .mapc compile`.
+  This also allows nesting of objects. Call `|.toString()` to get a
+  string. 
+* **ife** This takes a snippet of code and creates an immediate function
+  execution string for embedding in code. the arguments become the
+  variable names in both the function call and the function definition. If
+  an equals is present, then the right-hand side is in the function call
+  and will not be hidden from access in the ife. 
+* **caps** This is a command that tries to match caps and replace them.
+  The idea comes from wanting to write `M W>900px` and get `@media
+  (min-width:900px)`. This does that. By passing in a JSON object of
+  possible matches as argument or setting the caps local object to an
+  object of such matches, you can change what it matches. But it only
+  will match a single character (though unicode is fine if you can input
+  that).  
+* **assert** This asserts the equality of the input and first argument
+and if it
+  fails, it reports both texts in a log with the second argument as a
+  message. `something | assert _"else", darn that else`. This is a way to
+  check that certain things are happening as they should. 
+* **wrap** This wraps the incoming text in the first and second argument:
+  `some text | wrap <, >"  will result in `<some text>`. 
+* **js-string** This breaks the incoming text of many lines into quoted
+  lines with appropriate plus signs added. 
+* **html-wrap** This takes the incoming text and wraps it in a tag
+  element, using the first argument as the element and the rest of the
+  arguments as attributes. An equals sign creates an attribute with value,
+  no equals implies a class. An attribute value will get wrapped in
+  quotes. 
+  `text-> | html-wrap p data, pretty, data-var=right`
+  will lead to  `<p class="data pretty" data-var="right">text</p>`
+* **html-table** This requires an array of arrays; augmented matrix is
+  good. The first argument should either be an array of headers or
+  nothing. It uses the same argument convention of html-wrap for the rest
+  of the arguments, being attributes on the html table element. We could
+  allow individual attributes and stuff on rows and columns, but that
+  seems best left to css and js kind of stuff. Still thinking on if we
+  could allow individual rows or entries to report something, but that
+  seems complicated. 
+* **html-escape** This escapes `<>&` in html. It is mainly intended for
+  needed uses, say in math writing. Very simple minded. One can modify the
+  characters escaped by adding to `Folder.plugins.html_escape`. This is
+  actually similar to caps and snippets. 
+* **html-unescape** The reverse of html-escape, depending on what the
+  symbols are in `plugins.html_unescape`. 
+* **snippets** (alias **s** ). This is a function for things that are
+  easily named, but long to write, such as a cdn download script tag for a
+  common js library, say jquery. `s jquery` could then do that. Currently,
+  there are no default snippets. To load them, the best bet is in the
+  lprc.js file and store the object as `Folder.plugins.snipets = obj` or,
+  if you are feeling generous, one could do
+  `Folder.merge(Folder.plugins.snippets, obj);`. This is really a
+  stand-alone command; incoming text is ignored. 
+
+  In writing a snippet, it can be a function which will take in the
+  arguments. Alternatively, you can sprinkle ``ARG#||...| `` 
+  in your code for
+  the Argument with numner # and the pipes give an optional default; if
+  none, then ARG# is eliminated. So `ARG0||1.9.0|` yields a default of
+  1.9.0. Pipes cannot be in the default    
 * **minidoc** `minidoc :title, :body` This takes an array and converts
   into an object where they key value is either the args as keys and the
   values the relevant input items or the item in the array is a
@@ -680,6 +769,24 @@ commas, colons, quotes).
   are augmented with some methods.  See the augment section.
 * **augment** `augment type` This augments the object with the methods
   contained in the type augment object. See the augment section. 
+* **matrixify** This takes in some text and splits into a two dimensional
+  array using the passed in separators. The first separator divides the
+  columns, the second divides the rows. The result is an array each of
+  whose entries are the rows. There is also an escape character. The
+  defaults are commas, newlines, and backslashes, respectively. The escpae
+  character escapes the separators and itself, nothing else. There is also
+  a boolean for whether to trim entries; that is true by default. Pass in
+  `f()` in the fourth argument if not desired. All the characters should
+  be just that, of length 1. 
+
+  This returns an augmented object, a matrix that has the properties:
+  * `transpose` This returns a new matrix with flipped rows and columns.
+  * `trim` This trims the entries in the matrix, returning the original.
+  * `num` This converts every entry into a number, when possible. 
+  * `clone` This creates a copy. 
+  * `traverse` This runs through the matrix, applying a function to each
+    entry, the arguments being `element, inner index, outer index, the
+    row object, the matrix`. 
 
 ### Augment
 
@@ -711,6 +818,23 @@ as commands.
   probably not match.
 * `.set key, val` Sets the key to the value
 * `.get key` Gets the value of that key
+* `.keys` will give an array of the non-augmented keys. It takes one optional
+  argument; a true boolean will cause it to be sorted with the default sort; a
+  function will be presumed to be comparison function and it will be sorted
+  according to that. Otherwise, the keys are returned as is. 
+* `.toString` will print a representation of the original object. By default
+  the separators are colon and newlines, but the first two arguments can
+  change that. It is also possible to pass in a function that acts on each key
+  and value in third and fourth slots to wrap them. 
+* `.strip` This strips the object of its augmented properties. 
+* `.forIn` A foreach, map, or reduce rolled into one acting on the non-augment
+  properties. It takes three arguments. The first is mandatory and is the
+  function to be called on each pair. The second is an initial value or a
+  container object. The third is a sort order, as in keys. The signature of
+  the function is key, property value, intial value/last returned value, self.
+  If the third stuff is undefined, then self becomes third. The final returned
+  value of the function is what is returned, but if that is undefined, then
+  the object itself is returned. 
 
 #### arr
 

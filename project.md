@@ -48,6 +48,7 @@ These are loaded from the src directory.
 * [augments](augments.md "load:") The augment setup.
 * [arrays](arrays.md "load:") augmented arrays
 * [minidoc](minidoc.md "load:") augments of the minidoc variety
+* [matrix](matrix.md "load:") This implements 2d tables
 * [tests](tests.md "load:") This the setup for our tests. 
 * [debugging](debugging.md "load:") Woefully inadequate, but a start. 
 
@@ -109,6 +110,10 @@ Each doc within a folder shares all the directives and commands.
 
     var Folder = _"folder constructor";
 
+    var clone = Folder.clone = _"clone";
+    var typeit = Folder.typeit = _"typeit";
+    var merge = Folder.merge = _"merge";
+    
     Folder.prototype.parse = _"commonmark::";
 
     Folder.prototype.newdoc = _"Make a new document";
@@ -152,6 +157,8 @@ Each doc within a folder shares all the directives and commands.
 
     _"stitching::"
  
+    _"commands::more" 
+
     module.exports = Folder;
  
 
@@ -370,7 +377,145 @@ non-uniqueness effectively.
     }
 
 
+## Merge
 
+This is modified from yeikos https://github.com/yeikos/js.merge 
+with `Copyright 2014 yeikos - MIT license`
+
+This is for relatively simple objects. 
+
+The first two arguments are to determine whether the object should be cloned
+and, if so, whether it should be done recursively, that is, whether subitems
+should be cloned. 
+    
+    function (bclone, recursive) {
+        var merge_recursive = _":merge recurse";
+        var merge = _":top merge";
+        if ( typeit(bclone) !== 'boolean' ) {
+           return merge(false, false, arguments);
+        } else if (typeit(recursive) !== 'boolean') {
+            return merge(bclone, false, arguments);
+        } else {
+            return merge(bclone, recursive, arguments);
+        }
+    }
+
+
+
+[merge recurse]()
+
+	function merge_recursive(base, extend) {
+
+		if ( typeit(base) !== 'object') {
+			return extend;
+        }
+        
+        var i, key;
+        var keys = Object.keys(extend);
+        var n = keys.length;
+        for (i = 0; i < n; i += 1) {
+            key = keys[i];
+			if ( (typeit(base[key]) === 'object') && 
+                 (typeit(extend[key]) === 'object') ) {
+				base[key] = merge_recursive(base[key], extend[key]);
+			} else {
+				base[key] = extend[key];
+			}
+		}
+		return base;
+	}
+
+
+[top merge]()
+
+This merges two or more objects, recursively. 
+
+	function merge(bclone, recursive, argv) {
+
+		var result = argv[0];
+		var n = argv.length;
+
+        if (bclone || typeit(result) !== 'object') {
+			result = {};
+        }
+
+        var item, sitem, key, i, type, j, m, keys;
+		for ( i=0; i<n ; i+= 1 ) {
+
+			item = argv[i];
+		    type = typeit(item);
+
+			if (type !== 'object') {
+                continue;
+            }
+
+            keys = Object.keys(item);
+            m = keys.length;
+            for (j=0; j < m; j +=1) {
+                key = keys[j];
+				sitem = bclone ? clone(item[key]) : item[key];
+				if (recursive) {
+					result[key] = merge_recursive(result[key], sitem);
+				} else {
+					result[key] = sitem;
+				}
+			}
+		}
+		return result;
+	}
+
+### Clone
+
+This is a recursive clone of the object. 
+
+    function clone (input) {
+		var output = input;
+		var	type = typeit(input);
+		var	i, n, keys;
+		if (type === 'array') {
+			output = [];
+			n = input.length;
+			for ( i=0 ; i < n; i+=1 ) {
+			    output[i] = clone(input[i]);
+            }
+		} else if (type === 'object') {
+			output = {};
+            keys = Object.keys(input);
+            n = keys.length;
+            for ( i=0; i <n; i+=1) {
+				output[i] = clone(input[i]);
+            }
+		}
+		return output;
+	}
+
+## Typeit
+
+Mainly because of array typeof being object and null type. 
+    
+    function (input) {
+  
+        var type = ({}).toString.call(input);
+      
+        if (type === '[object Object]') {
+          return 'object';
+        } else if (type === '[object Array]') {
+          return 'array';
+        } else if (type === '[object String]') {
+          return 'string';
+        } else if (type === '[object Number]') {
+          return 'number';
+        } else if (type === '[object Function]') {
+          return 'function';
+        } else if (type === '[object Null]') {
+          return 'null';
+        } else if (type === '[object Bolean]') {
+            return 'boolean';
+        } else if (type === '[object Date]') {
+            return 'date';
+        }
+        return 'undefined';
+    }
 
 
 
@@ -1006,6 +1151,23 @@ as commands.
   probably not match.
 * `.set key, val` Sets the key to the value
 * `.get key` Gets the value of that key
+* `.keys` will give an array of the non-augmented keys. It takes one optional
+  argument; a true boolean will cause it to be sorted with the default sort; a
+  function will be presumed to be comparison function and it will be sorted
+  according to that. Otherwise, the keys are returned as is. 
+* `.toString` will print a representation of the original object. By default
+  the separators are colon and newlines, but the first two arguments can
+  change that. It is also possible to pass in a function that acts on each key
+  and value in third and fourth slots to wrap them. 
+* `.strip` This strips the object of its augmented properties. 
+* `.forIn` A foreach, map, or reduce rolled into one acting on the non-augment
+  properties. It takes three arguments. The first is mandatory and is the
+  function to be called on each pair. The second is an initial value or a
+  container object. The third is a sort order, as in keys. The signature of
+  the function is key, property value, intial value/last returned value, self.
+  If the third stuff is undefined, then self becomes third. The final returned
+  value of the function is what is returned, but if that is undefined, then
+  the object itself is returned. 
 
  #### arr
 

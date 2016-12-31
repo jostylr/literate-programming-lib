@@ -33,54 +33,94 @@ object first and then augmented.
 ## Doc augment
 
 This is a direct function that augments objects; not a command, but on
-doc, folder prototypes. 
+doc, folder prototypes. This creates a function, stored in augments, that
+allows its properties to be copied onto the next one.
 
 We also want to leave a record of this so that when creating a new object, the
 augments continue, if reasonable. So we create an array of key, value pushed
 in order of augmentation. 
 
-When transferring augmentation from old to new, we call it as an object from
-the array and so we can access its data. We recognize this by the lack of a
-type variable.
+When transferring augmentation from old to new, we use the stashed augment
+object to create it fresh. 
 
-    function self (obj, type) {
+We use an ife to encapsulate the shared functions as closures. 
 
-        var selfaug = obj._augments;
-        if (!selfaug) {
-            selfaug = obj._augments = [];
-            selfaug.self = self;
+Beaware that strip and keys requires the object to be passed in. 
+
+    (function () {
+        var replicate = _":replicate";
+        var strip = _":strip";
+        var keys = _":keys";
+        return _":actual";
+    })()
+
+[actual]() 
+
+    function (obj, type) {
+        if (typeof type !== "string") {
+            //error
+            this.log("error in augment type");
+            return obj;
         }
-
-        selfaug.keys = _":keys";
         
-        var props; 
-
-        if ( typeof type === "string" ) {
-
-            var augs = this.plugins.augment;
-            props = augs[type];
-
-            if (type === "arr") {
-                if ( ! Array.isArray(obj) ) {
-                    obj = [obj];
-                }
+        if (type === "arr") {
+            if ( ! Array.isArray(obj) ) {
+                obj = [obj];
             }
-
-            Object.keys(props).forEach( function (el) {
-                obj[el] = props[el];
-                selfaug.push([el, props[el]]);
-            });
-
-        } else {
-            props = this;  
-            props.forEach(function (el) {
-                var key = el[0], val = el[1];
-                obj[key]  = val;
-                selfaug.push([key, val]);
-            });
         }
+        
+        var plug = this.plugins.augment;
+        
+        var selfaug = obj._augments = [];
+        selfaug.self = replicate;
+        selfaug.strip = strip;
+        selfaug.keys = keys;
+        
+        selfaug.type = type;
+        selfaug.plug = plug;
+        var props = selfaug.props =  plug[type];
+
+        
+
+
+        Object.keys(props).forEach( function (el) {
+            obj[el] = props[el];
+            selfaug.push([el, props[el]]);
+        });
+        return obj;
+    }
+        
+[replicate]()
+
+This is called on an augments object and is intended to replicate or augment
+in a different fashion. This is called from the `_augments` as this from the
+old one. 
+
+    function (obj, type) {
+        var oldaug = this;
+        if (type === "arr") {
+            if ( ! Array.isArray(obj) ) {
+                obj = [obj];
+            }
+        }
+
+        var selfaug = obj._augments = [];
+        type = selfaug.type = type || oldaug.type;
+
+        selfaug.self = replicate;
+        selfaug.strip = strip;
+        selfaug.keys = keys;
+        
+        selfaug.plug = oldaug.plug;
+        var props = selfaug.props =  oldaug.plug[type];
+
+        Object.keys(props).forEach( function (el) {
+            obj[el] = props[el];
+            selfaug.push([el, props[el]]);
+        });
 
         return obj;
+
     }
 
 [keys]() 
@@ -88,7 +128,7 @@ type variable.
 This returns the object's keys without the augment properties. Hack of
 homemade prototypey thingy. 
 
-    function () {
+    function (obj) {
         var keys = Object.keys(obj);
         var augkeys = obj._augments.map( function (el) {
             return el[0];
@@ -99,13 +139,26 @@ homemade prototypey thingy.
         });
     }
 
-## Folder prototype
+[strip]()
+
+This removes the augmented properties. 
+
+    function (obj) {
+        obj._augments.map( function (el) {
+            delete obj[el[0]];
+        });
+        delete obj._augments;
+    }
     
+
+## Folder prototype
+   
     Folder.prototype.augment = _"doc augment"; 
     Folder.prototype.cmdworker = _"command worker"; 
     Folder.plugins.augment = {
         arr : _"arrays::",
-        minidoc : _"minidoc::methods"
+        minidoc : _"minidoc::methods",
+        mat : _"matrix::methods"
     };
 
 

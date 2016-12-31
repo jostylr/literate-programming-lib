@@ -264,6 +264,112 @@ var Folder = function (actions) {
     return this;
 };
 
+var clone = Folder.clone = function clone (input) {
+	var output = input;
+	var	type = typeit(input);
+	var	i, n, keys;
+	if (type === 'array') {
+		output = [];
+		n = input.length;
+		for ( i=0 ; i < n; i+=1 ) {
+		    output[i] = clone(input[i]);
+        }
+	} else if (type === 'object') {
+		output = {};
+        keys = Object.keys(input);
+        n = keys.length;
+        for ( i=0; i <n; i+=1) {
+			output[i] = clone(input[i]);
+        }
+	}
+	return output;
+};
+var typeit = Folder.typeit = function (input) {
+
+    var type = ({}).toString.call(input);
+  
+    if (type === '[object Object]') {
+      return 'object';
+    } else if (type === '[object Array]') {
+      return 'array';
+    } else if (type === '[object String]') {
+      return 'string';
+    } else if (type === '[object Number]') {
+      return 'number';
+    } else if (type === '[object Function]') {
+      return 'function';
+    } else if (type === '[object Null]') {
+      return 'null';
+    } else if (type === '[object Bolean]') {
+        return 'boolean';
+    } else if (type === '[object Date]') {
+        return 'date';
+    }
+    return 'undefined';
+};
+var merge = Folder.merge = function (bclone, recursive) {
+    var merge_recursive = function merge_recursive(base, extend) {
+    
+    	if ( typeit(base) !== 'object') {
+    		return extend;
+        }
+        
+        var i, key;
+        var keys = Object.keys(extend);
+        var n = keys.length;
+        for (i = 0; i < n; i += 1) {
+            key = keys[i];
+    		if ( (typeit(base[key]) === 'object') && 
+                 (typeit(extend[key]) === 'object') ) {
+    			base[key] = merge_recursive(base[key], extend[key]);
+    		} else {
+    			base[key] = extend[key];
+    		}
+    	}
+    	return base;
+    };
+    var merge = function merge(bclone, recursive, argv) {
+    
+    	var result = argv[0];
+    	var n = argv.length;
+    
+        if (bclone || typeit(result) !== 'object') {
+    		result = {};
+        }
+    
+        var item, sitem, key, i, type, j, m, keys;
+    	for ( i=0; i<n ; i+= 1 ) {
+    
+    		item = argv[i];
+    	    type = typeit(item);
+    
+    		if (type !== 'object') {
+                continue;
+            }
+    
+            keys = Object.keys(item);
+            m = keys.length;
+            for (j=0; j < m; j +=1) {
+                key = keys[j];
+    			sitem = bclone ? clone(item[key]) : item[key];
+    			if (recursive) {
+    				result[key] = merge_recursive(result[key], sitem);
+    			} else {
+    				result[key] = sitem;
+    			}
+    		}
+    	}
+    	return result;
+    };
+    if ( typeit(bclone) !== 'boolean' ) {
+       return merge(false, false, arguments);
+    } else if (typeit(recursive) !== 'boolean') {
+        return merge(bclone, false, arguments);
+    } else {
+        return merge(bclone, recursive, arguments);
+    }
+};
+
 Folder.prototype.parse = function (doc) {
     var gcd = doc.gcd;
     var file = doc.file;
@@ -2242,15 +2348,40 @@ Folder.defSubCommand =function (sub, f, cmd) {
     }
 };
 
-Folder.prototype.augment = function self (obj, type) {
-
-    var selfaug = obj._augments;
-    if (!selfaug) {
-        selfaug = obj._augments = [];
-        selfaug.self = self;
-    }
-
-    selfaug.keys = function () {
+Folder.prototype.augment = (function () {
+    var replicate = function (obj, type) {
+        var oldaug = this;
+        if (type === "arr") {
+            if ( ! Array.isArray(obj) ) {
+                obj = [obj];
+            }
+        }
+    
+        var selfaug = obj._augments = [];
+        type = selfaug.type = type || oldaug.type;
+    
+        selfaug.self = replicate;
+        selfaug.strip = strip;
+        selfaug.keys = keys;
+        
+        selfaug.plug = oldaug.plug;
+        var props = selfaug.props =  oldaug.plug[type];
+    
+        Object.keys(props).forEach( function (el) {
+            obj[el] = props[el];
+            selfaug.push([el, props[el]]);
+        });
+    
+        return obj;
+    
+    };
+    var strip = function (obj) {
+        obj._augments.map( function (el) {
+            delete obj[el[0]];
+        });
+        delete obj._augments;
+    };
+    var keys = function (obj) {
         var keys = Object.keys(obj);
         var augkeys = obj._augments.map( function (el) {
             return el[0];
@@ -2260,36 +2391,40 @@ Folder.prototype.augment = function self (obj, type) {
             return  (augkeys.indexOf(el) === -1);
         });
     };
-    
-    var props; 
-
-    if ( typeof type === "string" ) {
-
-        var augs = this.plugins.augment;
-        props = augs[type];
-
+    return function (obj, type) {
+        if (typeof type !== "string") {
+            //error
+            this.log("error in augment type");
+            return obj;
+        }
+        
         if (type === "arr") {
             if ( ! Array.isArray(obj) ) {
                 obj = [obj];
             }
         }
-
+        
+        var plug = this.plugins.augment;
+        
+        var selfaug = obj._augments = [];
+        selfaug.self = replicate;
+        selfaug.strip = strip;
+        selfaug.keys = keys;
+        
+        selfaug.type = type;
+        selfaug.plug = plug;
+        var props = selfaug.props =  plug[type];
+    
+        
+    
+    
         Object.keys(props).forEach( function (el) {
             obj[el] = props[el];
             selfaug.push([el, props[el]]);
         });
-
-    } else {
-        props = this;  
-        props.forEach(function (el) {
-            var key = el[0], val = el[1];
-            obj[key]  = val;
-            selfaug.push([key, val]);
-        });
-    }
-
-    return obj;
-}; 
+        return obj;
+    };
+})(); 
 Folder.prototype.cmdworker = function (cmd, input, args, ename) {
     var doc = this;
     var gcd = doc.gcd;
@@ -2390,7 +2525,7 @@ Folder.plugins.augment = {
             var gcd = doc.gcd;
             var prefix = args[0] || '';
             try {
-                input._augments.keys().forEach(function (el) {
+                input._augments.keys(input).forEach(function (el) {
                     doc.store(doc.colon.escape(prefix + el), input[el]); 
                 });
         
@@ -2430,7 +2565,7 @@ Folder.plugins.augment = {
                 });
                 gcd.emit("text ready:" + name, obj);
             });
-            obj._augments.keys().forEach(function (key) {
+            obj.keys().forEach(function (key) {
                 var mname = ename + c + key; 
                 gcd.when("text ready:" + mname, "keying:" + ename );
                 doc.cmdworker(cmd, obj[key], args, mname);
@@ -2442,7 +2577,7 @@ Folder.plugins.augment = {
         clone : function () {
             var input = this;
             var clone = {};
-            input._augments.keys().forEach(function (el) {
+            input.keys().forEach(function (el) {
                 clone[el] = input[el]; 
             });
             clone = input._augments.self(clone); 
@@ -2478,7 +2613,7 @@ Folder.plugins.augment = {
             var gcd = doc.gcd;
             var prefix = args[0] || '';
             try {
-                input._augments.keys().forEach(function (el) {
+                input.keys().forEach(function (el) {
                     doc.store(doc.colon.escape(prefix + el), null); 
                 });
             } catch(e) {
@@ -2492,6 +2627,115 @@ Folder.plugins.augment = {
         },
         get : function (key) {
             return this[key];
+        },
+        keys : function (bf) {
+            var aug = this._augments;
+            var keys = aug.keys(this);
+            if (bf === true) {
+                keys.sort();
+            } else if (typeof bf === "function") {
+                keys.sort(bf);
+            }
+            return keys;
+        },
+        toString : function (keysep, valsep, fkey, fval) {
+            var obj = this;
+            keysep =  keysep || ':';
+            valsep = valsep || '\n';
+            fkey = fkey || function (key) {return key;};
+            fval = fval || function (val) {return val;};
+            var keys = obj.keys();
+            var str = '';
+            keys.forEach(function (el) {
+                str += fkey(el) + keysep + fval(obj[el]) + valsep;
+            });
+            return str;
+        
+        },
+        forin : function (f, val, s) {
+            var self = this;
+            var keys = self.keys(s);
+            var ret;
+            keys.forEach(function (el) {
+                if ( (typeof ret) !== "undefined") {
+                    ret = f(el, self[el], ret, self);
+                } else if (typeof val !== "undefined") {
+                    ret = f(el, self[el], val, self);
+                } else {
+                    ret = f(el, self[el], self);
+                }
+            });
+            if (typeof ret !== "undefined") {
+                return ret;
+            } else {
+                return self;
+            }
+        },
+        strip : function () {
+            var self = this;
+            self._augments.strip(self);
+        }
+    },
+    mat :  {
+        transpose : function () {
+            var mat = this;
+            var result = [];
+            var oldcols = mat.reduce(function (n, el) {
+                return Math.max(n, el.length);
+            }, 0);
+            var i;
+            for (i=0; i < oldcols; i += 1) {
+                result[i] = [];
+            }
+            var oldrows = mat.length, j;
+            for (i = 0; i < oldcols; i+= 1) {
+                for (j=0; j< oldrows ; j += 1) {
+                    result[i][j] = mat[j][i];
+                }
+            }
+            return this._augments.self(result);
+        },
+        traverse : function (fun) {
+            var mat = this;
+            if ( (typeof fun) !== "function" ) {
+                //this is an error, not sue who to tell
+                return;
+            }
+            this.forEach(function (row, rind) {
+                row = row.forEach(function (el, ind) {
+                    var val = fun(el, ind, rind, row, mat);
+                    if (typeof val !== "undefined") {
+                        row[ind] = val;
+                    }
+                });
+            });
+            return this;
+        },
+        trim : function () {
+             var trim = function (el) {
+                if (typeof el.trim === "function") {
+                    return el.trim();
+                } else {
+                    return;
+                }
+            };
+            this.traverse(trim);
+            return this;
+        },
+        clone :  "_mat clone",
+        num : function () {
+            var fun = function (el) {
+                return parseFloat(el);
+            };
+            this.traverse(fun);
+            return this;
+        },
+        scale : function (scalar) {
+            var fun = function (el) {
+                return el*scalar;
+            };
+            this.traverse(fun);
+            return this;
         }
     }
 };
@@ -3691,5 +3935,458 @@ dp.argsPrep = function self (args, name, subs, command ) {
     return retArgs;
 
 };  
+
+Folder.sync("evil", function (code, args) {
+    var doc = this;
+    var ret = code;
+    try {
+        eval(code);
+        return ret;
+    } catch (e) {
+        doc.gcd.emit("error:command:evil:", [e, e.stack, code, args]);
+        return e.name + ":" + e.message +"\n" + code + "\nARGS: " + args; 
+    }
+
+
+});
+
+Folder.sync("funify", function (code, args) {
+    var doc = this;
+    var f;
+    try {
+        eval("f=" + code);
+        return f;
+    } catch (e) {
+        doc.gcd.emit("error:command:evil:", [e, e.stack, code, args]);
+        return e.name + ":" + e.message +"\n" + code + "\nARGS: " + args; 
+    }
+
+
+});
+
+Folder.plugins.arrayify = {
+    sep : "\n",
+    esc : "\\",
+    trim : true
+};
+Folder.sync("arrayify", function (input, args) {
+    var plug = this.plugins.arrayify;
+  if (typeof args[0] === "object") {
+        plug = merge(true, plug, args.shift());
+    } 
+    var sep = args[0] || plug.sep;
+    var esc = args[1] || plug.esc;
+    var trim = args[2] || plug.trim;
+
+    var ret = [];
+    var i, n = input.length, j = 0;
+    for (i = 0; i < n; i += 1) {
+
+        if (input[i] === sep) {
+            ret.push(input.slice(j,i));
+            j = i + 1;
+            continue;
+        }
+        if (input[i] === esc) {
+            if ( (input[i+1] === sep) || (input[i+1] === esc) ) {
+                input = input.slice(0,i) + input.slice(i+1);
+                continue;
+            }
+        }
+    }
+    ret.push(input.slice(j, i));
+
+    if (trim) {
+        ret = ret.map(function (el) {
+            return el.trim();
+        });
+    }
+     
+    ret = this.augment(ret, "arr");
+    return ret;
+
+});
+
+Folder.plugins.objectify = {
+    key : ":",
+    val : "\n",
+    esc : "\\",
+    trim : true
+};
+Folder.sync("objectify", function (input, args) {
+    var plug = this.plugins.objectify;
+    if (typeof args[0] === "object") {
+        plug = merge(true, plug, args.shift());
+    } 
+    var keysep = args[0] || plug.key;
+    var valsep = args[1] || plug.val;
+    var esc = args[2] || plug.esc;
+    var trim = args[3] || plug.trim;
+
+    var ret = {};
+    var key = "";
+    var i, n = input.length, j = 0;
+    for (i = 0; i < n; i += 1) {
+
+        if (input[i] === keysep) {
+            key = input.slice(j,i).trim();
+            j =  i + 1;
+            continue;
+        }
+        if (input[i] === valsep) {
+            ret[key] = input.slice(j,i);
+            j =  i + 1;
+            continue;
+        }
+        if (input[i] === esc) {
+            if ( (input[i+1] === keysep) ||
+                 (input[i+1] === valsep) ||
+                 (input[i+1] === esc) ) {
+               input = input.slice(0,i) + input.slice(i+1);
+               continue;
+            }
+        }
+    }
+    
+    ret[key] = input.slice(j, i);
+        
+    if (trim) {
+        Object.keys(ret).forEach( function (key) {
+             ret[key] =  ret[key].trim();
+        });
+    }
+
+    ret = this.augment(ret, "minidoc");
+    return ret;    
+
+});
+
+Folder.sync("ife", function (code, args) {
+    var i, n = args.length;
+
+    var internal = [];
+    var external = [];
+    var arg,ret; 
+
+    for (i=0; i <n; i +=1 ) {
+        arg = args[i] || "";
+        arg = arg.split("=").map(function (el) {
+            return el.trim();
+        });
+        if (arg[0] === "return") {
+            ret = arg[1] || "";
+        } else if (arg.length === 1) {
+            internal.push(arg[0]);
+            external.push(arg[0]);
+        } else if (arg.length === 2) {
+            internal.push(arg[0]);
+            external.push(arg[1]);
+        }
+
+    }
+
+    var start = "(function ( "+internal.join(", ")+" ) {";
+    var end = "\n} ( "+external.join(",")+" ) )";
+
+    if (typeof ret === "string") {
+        return start + code + "\n return "+ret+";" + end;
+    } else if (code.search(/^\s*function/) === -1) {
+        return start + code + end;
+    } else {
+        return start + "\n return "+ code +";"+ end;
+    }
+});
+
+Folder.plugins.caps = {
+    M  : "@media",
+    W : function (ind, input) {
+            var reg = /\ |\n|$/g;
+            reg.lastIndex = ind;
+            reg.exec(input);
+            var end = reg.lastIndex -1; //input.indexOf(" ", ind);
+            var num = input.slice(ind+2, end);
+            var rep;
+            if (input[ind+1] === "<") {
+                rep = "(max-width: " + num + ")";
+            } else if (input[ind+1] === ">") {
+                rep = "(min-width: " + num + ")";
+            } else {
+                return [input, ind];
+            }
+            return [input.slice(0, ind) + rep + input.slice(end), ind+rep.length];
+        }
+};
+
+Folder.sync("caps", function (input, args) {
+    var matches = args[0] || this.plugins.caps;
+    var match, ret;
+
+    var i = 0; 
+    while (i < input.length) {
+        if (matches.hasOwnProperty(input[i]) ) {
+            match = matches[input[i]];
+            if (typeof match === "string") {
+                //space after cap
+                if ( (input[i+1] === " ") || 
+                    (input[i+1] === "\n") ||
+                    ( (i+1) === input.length) ) {
+                    input = input.slice(0, i) + match + input.slice(i+1);
+                    i += match.length;
+                }
+            } else if (typeof match === "function") {
+                ret = match(i, input);
+                input = ret[0];
+                i = ret[1];
+            }
+        }
+        i += 1;
+    }
+
+    return input;
+});
+
+Folder.sync("assert", function (input, args) {
+    var doc = this;
+    if (input !== args[0]) {
+        doc.log("FAIL: " + args[1] + "\nACTUAL: " + input + 
+            "\nEXPECTED: " + args[0]); 
+    }
+    return input;
+});
+
+Folder.sync("wrap", function (code, args) {
+    return args[0] + code + args[1];
+});
+
+Folder.sync("js-string", function (code) {
+    code = code.replace(/\\/g, '\\\\');
+    code = code.replace(/"/g, '\\' + '"');
+    var arr = code.split("\n");
+    var i, n = arr.length;
+    for (i = 0; i < n; i += 1) {
+        arr[i] = '"' + arr[i] + '"';
+    }
+    code = arr.join(" +\n");
+    return code;
+});
+
+Folder.sync("html-wrap", function (code, options) {
+
+    var element = options.shift();
+
+    var i, option, attributes = [], klass = [], str, ind;
+    
+    for (i = 0; i < options.length; i += 1) {
+        option = options[i];
+        if ( ( ind = option.indexOf("=")) !== -1 ) {
+            str = option.slice(0, ind+1) + '"' + 
+                option.slice(ind+1).trim() + '"';
+            attributes.push(str);
+        } else { // class
+            klass.push(option.trim());
+        }
+    }
+    if (klass.length > 0 ) {
+       attributes.push('class="'+klass.join(" ")+'"');
+    }
+    attributes = attributes.join(" ");
+
+    return "<" + element + " " + attributes + ">"+code+"</"+element+ ">";
+}  );
+
+Folder.sync("html-table", function (mat, options) {
+    var type = options.shift();
+
+    var i, option, attributes = [], klass = [], str, ind;
+    
+    for (i = 0; i < options.length; i += 1) {
+        option = options[i];
+        if ( ( ind = option.indexOf("=")) !== -1 ) {
+            str = option.slice(0, ind+1) + '"' + 
+                option.slice(ind+1).trim() + '"';
+            attributes.push(str);
+        } else { // class
+            klass.push(option.trim());
+        }
+    }
+    if (klass.length > 0 ) {
+       attributes.push('class="'+klass.join(" ")+'"');
+    }
+    attributes = attributes.join(" ");
+
+    var ret = "<table" + (attributes.length ? " " + attributes : "") + ">\n";
+
+    if (Array.isArray(type) ) {
+        ret += "<tr><th>" + type.join("</th><th>") + "</th></tr>\n";
+    }
+   
+    mat.forEach(function (row) {
+        ret += "<tr><td>" + row.join("</td><td>") + "</td></tr>\n";    
+    });
+    ret += "</table>\n";
+    return ret; 
+});
+
+Folder.plugins.html_escape = {
+    '<' : '&lt;',
+    '>' : '&gt;',
+    '&' : '&amp;'
+};
+
+Folder.sync("html-escape", function (code) {
+    var chars = this.plugins.html_escape;
+    var record = [];
+    var i = 0, start = 0, n = code.length;
+    while (i< n) {
+        var char = chars[code[i]];
+        if ( char) {
+            record.push(code.slice(start, i), char);
+            start = i+1; 
+        }
+        i += 1;
+    }
+    record.push(code.slice(start));
+    return record.join('');
+});
+
+Folder.plugins.html_unescape = {
+    'lt' : '<',
+    'gt' : '>',
+    'amp' : '&'
+};
+
+Folder.sync("html-unescape", function (code) {
+    var reg = /\&(\w+)\;/g;
+    var chars = this.plugins.html_unescape;
+    var match;
+    var record = [];
+    var start = 0;
+    while ( (match = reg.exec(code) ) !== null)  {
+        var char = chars[match[1]];
+        if ( char) {
+            record.push(code.slice(start, match.index), char);
+            start = reg.lastIndex; 
+        }
+    }
+    record.push(code.slice(start));
+    return record.join('');
+});
+
+Folder.plugins.snippets = {};
+
+Folder.sync("snippets", function (code, args) {
+    var name = args[0];
+    var plug = this.plugins.snippets;
+    var snip, ret, reg, match, rep, num;
+    if (plug.hasOwnProperty(name)) {
+        snip = plug[name];
+        if (typeof snip === "function" ) {
+            ret = snip.apply(this, args);
+        } else if (typeof snip === "string") {
+            ret = snip;
+            reg = /ARG(\d+)(?:\|\|([^|]*)\|)?/g;
+            while ( (match = reg.exec(ret) ) !== null ) {
+                num = parseInt(match[1],10) + 1;
+                if (typeof args[num]  !== "undefined") {
+                    rep = args[num];
+                } else { //string or undefined
+                    rep = match[2] || '';
+                }
+                ret = ret.slice(0, match.index) + rep + 
+                    ret.slice( match.index + match[0].length );
+                // as string is changing, update lastIndex, but make sure we get past
+                reg.lastIndex = match.index + rep.length; 
+            }
+        } else {
+            this.log("Unknown type of snippet:"  + args.join(", "));
+            ret = args.join(",");
+        }
+        
+    } else {
+        this.log("Unknown snippet: " + args.join(", "));
+        rep = args.join(",");
+    }
+return ret;
+});
+Folder.sync("s", function (code, args) {
+    var name = args[0];
+    var plug = this.plugins.snippets;
+    var snip, ret, reg, match, rep, num;
+    if (plug.hasOwnProperty(name)) {
+        snip = plug[name];
+        if (typeof snip === "function" ) {
+            ret = snip.apply(this, args);
+        } else if (typeof snip === "string") {
+            ret = snip;
+            reg = /ARG(\d+)(?:\|\|([^|]*)\|)?/g;
+            while ( (match = reg.exec(ret) ) !== null ) {
+                num = parseInt(match[1],10) + 1;
+                if (typeof args[num]  !== "undefined") {
+                    rep = args[num];
+                } else { //string or undefined
+                    rep = match[2] || '';
+                }
+                ret = ret.slice(0, match.index) + rep + 
+                    ret.slice( match.index + match[0].length );
+                // as string is changing, update lastIndex, but make sure we get past
+                reg.lastIndex = match.index + rep.length; 
+            }
+        } else {
+            this.log("Unknown type of snippet:"  + args.join(", "));
+            ret = args.join(",");
+        }
+        
+    } else {
+        this.log("Unknown snippet: " + args.join(", "));
+        rep = args.join(",");
+    }
+return ret;
+});
+
+Folder.plugins.matrixify = {
+    row : "\n",
+    col : ",", 
+    esc : "\\",
+    trim : true
+};
+
+Folder.sync("matrixify", function (code, args) {
+    var plug = this.plugins.matrixify;
+    var rowsep = args[0] || plug.row;
+    var colsep = args[1] || plug.col;
+    var escsep = args[2] || plug.esc;
+    var trim = ( typeof args[3] !== "undefined") ? args[3] : plug.trim;
+    var i = 0;
+    var start = 0;
+    var row = [];
+    var result = [row];
+    var seps = [rowsep, escsep, colsep];
+    var char;
+    while (i < code.length) {
+        char = code[i];
+        if (char === rowsep) {
+            row.push(code.slice(start, i));
+            start = i + 1;
+            row = [];
+            result.push(row);
+        } else if (char === colsep) {
+            row.push(code.slice(start, i));
+            start = i + 1;
+        } else if (char === escsep) {
+            char = code[i+1];
+            if (seps.indexOf(char) !== -1) {
+                code = code.slice(0,i) + char +
+                    code.slice(i+1);
+            }
+        }
+        i += 1;
+    }
+    row.push(code.slice(start));
+    result = this.augment(result, "mat");
+    if (trim) {
+        result = result.trim();
+    }
+    return result;
+}); 
 
 module.exports = Folder;
