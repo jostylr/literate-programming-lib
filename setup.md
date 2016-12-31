@@ -101,7 +101,7 @@ A travis.yml file for continuous test integration!
     language: node_js
     node_js:
       - "node"
-    sudo:false
+    sudo: false
 
 
 ## LICENSE MIT
