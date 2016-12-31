@@ -336,7 +336,7 @@ one is shifted off to the code variable.
 
         try {
             eval(code);
-            return text.toString();
+            return text;
         } catch (e) {
             doc.gcd.emit("error:command:eval:", [e, e.stack, code, text]);
             return e.name + ":" + e.message +"\n" + code + "\n\nACTING ON:\n" +

@@ -1,4 +1,4 @@
-# [literate-programming-lib](# "version:1.11.1; A literate programming compiler. Write your program in markdown. This is the core library and does not know about files.")
+# [literate-programming-lib](# "version:1.12.0; A literate programming compiler. Write your program in markdown. This is the core library and does not know about files.")
 
 This creates the core of the literate-programming system. It is a stand-alone
 module that can be used on its own or with plugins. It can run in node or the
@@ -101,6 +101,7 @@ A travis.yml file for continuous test integration!
     language: node_js
     node_js:
       - "node"
+    sudo:false
 
 
 ## LICENSE MIT

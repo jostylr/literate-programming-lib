@@ -928,7 +928,7 @@ Folder.commands = {   eval : sync(function ( text, args ) {
 
     try {
         eval(code);
-        return text.toString();
+        return text;
     } catch (e) {
         doc.gcd.emit("error:command:eval:", [e, e.stack, code, text]);
         return e.name + ":" + e.message +"\n" + code + "\n\nACTING ON:\n" +

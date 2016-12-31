@@ -760,7 +760,9 @@ and if it
   in your code for
   the Argument with numner # and the pipes give an optional default; if
   none, then ARG# is eliminated. So `ARG0||1.9.0|` yields a default of
-  1.9.0. Pipes cannot be in the default    
+  1.9.0. Pipes cannot be in the default
+
+  Be careful that the first argument is the snippet name.     
 * **minidoc** `minidoc :title, :body` This takes an array and converts
   into an object where they key value is either the args as keys and the
   values the relevant input items or the item in the array is a
