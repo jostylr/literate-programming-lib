@@ -4275,7 +4275,7 @@ Folder.sync("html-unescape", function (code) {
 Folder.plugins.snippets = {};
 
 Folder.sync("snippets", function (code, args) {
-    var name = args[0];
+    var name = args.shift();
     var plug = this.plugins.snippets;
     var snip, ret, reg, match, rep, num;
     if (plug.hasOwnProperty(name)) {
@@ -4286,7 +4286,7 @@ Folder.sync("snippets", function (code, args) {
             ret = snip;
             reg = /ARG(\d+)(?:\|\|([^|]*)\|)?/g;
             while ( (match = reg.exec(ret) ) !== null ) {
-                num = parseInt(match[1],10) + 1;
+                num = parseInt(match[1],10);
                 if (typeof args[num]  !== "undefined") {
                     rep = args[num];
                 } else { //string or undefined
@@ -4304,12 +4304,12 @@ Folder.sync("snippets", function (code, args) {
         
     } else {
         this.log("Unknown snippet: " + args.join(", "));
-        rep = args.join(",");
+        ret = args.join(",");
     }
 return ret;
 });
 Folder.sync("s", function (code, args) {
-    var name = args[0];
+    var name = args.shift();
     var plug = this.plugins.snippets;
     var snip, ret, reg, match, rep, num;
     if (plug.hasOwnProperty(name)) {
@@ -4320,7 +4320,7 @@ Folder.sync("s", function (code, args) {
             ret = snip;
             reg = /ARG(\d+)(?:\|\|([^|]*)\|)?/g;
             while ( (match = reg.exec(ret) ) !== null ) {
-                num = parseInt(match[1],10) + 1;
+                num = parseInt(match[1],10);
                 if (typeof args[num]  !== "undefined") {
                     rep = args[num];
                 } else { //string or undefined
@@ -4338,7 +4338,7 @@ Folder.sync("s", function (code, args) {
         
     } else {
         this.log("Unknown snippet: " + args.join(", "));
-        rep = args.join(",");
+        ret = args.join(",");
     }
 return ret;
 });

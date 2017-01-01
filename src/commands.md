@@ -1625,7 +1625,7 @@ one would develop a standard lprc.js with the snippets in there.
 [fun]() 
 
     function (code, args) {
-        var name = args[0];
+        var name = args.shift();
         var plug = this.plugins.snippets;
         var snip, ret, reg, match, rep, num;
         if (plug.hasOwnProperty(name)) {
@@ -1641,7 +1641,7 @@ one would develop a standard lprc.js with the snippets in there.
             
         } else {
             this.log("Unknown snippet: " + args.join(", "));
-            rep = args.join(",");
+            ret = args.join(",");
         }
     return ret;
     }
@@ -1653,7 +1653,7 @@ So we want to be able to plug in simple parameters.
     ret = snip;
     reg = /ARG(\d+)(?:\|\|([^|]*)\|)?/g;
     while ( (match = reg.exec(ret) ) !== null ) {
-        num = parseInt(match[1],10) + 1;
+        num = parseInt(match[1],10);
         if (typeof args[num]  !== "undefined") {
             rep = args[num];
         } else { //string or undefined
