@@ -244,7 +244,8 @@ var testfiles = [
     "js-string.md",
     "html-helpers.md",
     "matrixify.md",
-    "snippets.md"
+    "snippets.md",
+    "repeatheaders.md"
 ].
 slice();
 //slice(31, 32);
