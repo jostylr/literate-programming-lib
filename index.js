@@ -264,7 +264,8 @@ var Folder = function (actions) {
     return this;
 };
 
-var clone = Folder.clone = function clone (input) {
+Folder.requires = {};
+var clone = Folder.requires.clone = function clone (input) {
 	var output = input;
 	var	type = typeit(input);
 	var	i, n, keys;
@@ -284,30 +285,36 @@ var clone = Folder.clone = function clone (input) {
 	}
 	return output;
 };
-var typeit = Folder.typeit = function (input) {
+var typeit = Folder.requires.typeit = function (input, test) {
 
     var type = ({}).toString.call(input);
   
     if (type === '[object Object]') {
-      return 'object';
+      type = 'object';
     } else if (type === '[object Array]') {
-      return 'array';
+      type = 'array';
     } else if (type === '[object String]') {
-      return 'string';
+      type = 'string';
     } else if (type === '[object Number]') {
-      return 'number';
+      type = 'number';
     } else if (type === '[object Function]') {
-      return 'function';
+      type = 'function';
     } else if (type === '[object Null]') {
-      return 'null';
+      type = 'null';
     } else if (type === '[object Bolean]') {
-        return 'boolean';
+        type = 'boolean';
     } else if (type === '[object Date]') {
-        return 'date';
+        type = 'date';
+    } else {
+        type = 'undefined';
     }
-    return 'undefined';
+    if (test) {
+        return (type === test);
+    } else {
+        return type;
+    }
 };
-var merge = Folder.merge = function (bclone, recursive) {
+var merge = Folder.requires.merge = function (bclone, recursive) {
     var merge_recursive = function merge_recursive(base, extend) {
     
     	if ( typeit(base) !== 'object') {
@@ -694,12 +701,13 @@ Folder.defaults = function (name, fun) {
     return (Folder.commands[name] = defaults(name, fun) );
 };
 
-Folder.prototype.uniq = function () {
-    var counter = 0;
-    return function () {
-        return counter += 1;
+Folder.prototype.uniq = Folder.requires.unique 
+    = function () {
+        var counter = 0;
+        return function () {
+            return counter += 1;
+        };
     };
-};
 
 Folder.prototype.createScope = function (name) {
     var folder = this;

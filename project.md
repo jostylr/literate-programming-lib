@@ -51,6 +51,7 @@ These are loaded from the src directory.
 * [matrix](matrix.md "load:") This implements 2d tables
 * [tests](tests.md "load:") This the setup for our tests. 
 * [debugging](debugging.md "load:") Woefully inadequate, but a start. 
+* [requires](requires.md "load:") This has a few utility functions in it. 
 
 ### Save
 
@@ -110,9 +111,10 @@ Each doc within a folder shares all the directives and commands.
 
     var Folder = _"folder constructor";
 
-    var clone = Folder.clone = _"clone";
-    var typeit = Folder.typeit = _"typeit";
-    var merge = Folder.merge = _"merge";
+    Folder.requires = {};
+    var clone = Folder.requires.clone = _"requires::clone";
+    var typeit = Folder.requires.typeit = _"requires::typeit";
+    var merge = Folder.requires.merge = _"requires::merge";
     
     Folder.prototype.parse = _"commonmark::";
 
@@ -130,7 +132,8 @@ Each doc within a folder shares all the directives and commands.
     
     _"commands::folder prototype"
 
-    Folder.prototype.uniq = _"unique counter";
+    Folder.prototype.uniq = Folder.requires.unique 
+        = _"requires::unique counter";
 
     _"stitching::folder prototype"
 
@@ -358,163 +361,6 @@ This takes in a file name, text, and possibly some more event/handler actions.
 
         return doc;
 
-    }
-
-
-### Unique counter
-
-This is a little helper counter that one can use to generate a unique count
-for event names. Best to avoid if possible, but this will deal with
-non-uniqueness effectively.
-
-`doc.uniq`
-
-    function () {
-        var counter = 0;
-        return function () {
-            return counter += 1;
-        };
-    }
-
-
-## Merge
-
-This is modified from yeikos https://github.com/yeikos/js.merge 
-with `Copyright 2014 yeikos - MIT license`
-
-This is for relatively simple objects. 
-
-The first two arguments are to determine whether the object should be cloned
-and, if so, whether it should be done recursively, that is, whether subitems
-should be cloned. 
-    
-    function (bclone, recursive) {
-        var merge_recursive = _":merge recurse";
-        var merge = _":top merge";
-        if ( typeit(bclone) !== 'boolean' ) {
-           return merge(false, false, arguments);
-        } else if (typeit(recursive) !== 'boolean') {
-            return merge(bclone, false, arguments);
-        } else {
-            return merge(bclone, recursive, arguments);
-        }
-    }
-
-
-
-[merge recurse]()
-
-	function merge_recursive(base, extend) {
-
-		if ( typeit(base) !== 'object') {
-			return extend;
-        }
-        
-        var i, key;
-        var keys = Object.keys(extend);
-        var n = keys.length;
-        for (i = 0; i < n; i += 1) {
-            key = keys[i];
-			if ( (typeit(base[key]) === 'object') && 
-                 (typeit(extend[key]) === 'object') ) {
-				base[key] = merge_recursive(base[key], extend[key]);
-			} else {
-				base[key] = extend[key];
-			}
-		}
-		return base;
-	}
-
-
-[top merge]()
-
-This merges two or more objects, recursively. 
-
-	function merge(bclone, recursive, argv) {
-
-		var result = argv[0];
-		var n = argv.length;
-
-        if (bclone || typeit(result) !== 'object') {
-			result = {};
-        }
-
-        var item, sitem, key, i, type, j, m, keys;
-		for ( i=0; i<n ; i+= 1 ) {
-
-			item = argv[i];
-		    type = typeit(item);
-
-			if (type !== 'object') {
-                continue;
-            }
-
-            keys = Object.keys(item);
-            m = keys.length;
-            for (j=0; j < m; j +=1) {
-                key = keys[j];
-				sitem = bclone ? clone(item[key]) : item[key];
-				if (recursive) {
-					result[key] = merge_recursive(result[key], sitem);
-				} else {
-					result[key] = sitem;
-				}
-			}
-		}
-		return result;
-	}
-
-### Clone
-
-This is a recursive clone of the object. 
-
-    function clone (input) {
-		var output = input;
-		var	type = typeit(input);
-		var	i, n, keys;
-		if (type === 'array') {
-			output = [];
-			n = input.length;
-			for ( i=0 ; i < n; i+=1 ) {
-			    output[i] = clone(input[i]);
-            }
-		} else if (type === 'object') {
-			output = {};
-            keys = Object.keys(input);
-            n = keys.length;
-            for ( i=0; i <n; i+=1) {
-				output[i] = clone(input[i]);
-            }
-		}
-		return output;
-	}
-
-## Typeit
-
-Mainly because of array typeof being object and null type. 
-    
-    function (input) {
-  
-        var type = ({}).toString.call(input);
-      
-        if (type === '[object Object]') {
-          return 'object';
-        } else if (type === '[object Array]') {
-          return 'array';
-        } else if (type === '[object String]') {
-          return 'string';
-        } else if (type === '[object Number]') {
-          return 'number';
-        } else if (type === '[object Function]') {
-          return 'function';
-        } else if (type === '[object Null]') {
-          return 'null';
-        } else if (type === '[object Bolean]') {
-            return 'boolean';
-        } else if (type === '[object Date]') {
-            return 'date';
-        }
-        return 'undefined';
     }
 
 
