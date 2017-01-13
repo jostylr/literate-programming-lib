@@ -142,6 +142,8 @@ Each doc within a folder shares all the directives and commands.
 
     Folder.postInit = function () {}; //a hook for plugin this modification
     Folder.plugins = {};
+    Folder.leaders = ['.', '-'];
+    Folder.dash = {};
 
     _"debugging::"
 
@@ -195,6 +197,8 @@ We have a default scope called `g` for global.
         this.stack = {};
         this.reporters = Folder.reporters;
         this.plugins = Object.create(Folder.plugins);
+        this.leaders = Object.create(Folder.leaders);
+        this.dash = Object.create(Folder.dash);
         this.flags = {};
         this.Folder = Folder;
 
@@ -270,7 +274,10 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.defSubCommand = Folder.defSubCommand;
         this.dirFactory = parent.dirFactory;
         this.plugins = Object.create(parent.plugins);
+        this.leaders = Object.create(parent.leaders);
+        this.dash = Object.create(parent.dash);
         this.convertHeading = parent.convertHeading;
+        this.normalize = Folder.normalize;
     
         if (actions) {
             apply(gcd, actions);

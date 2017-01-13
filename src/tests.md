@@ -78,7 +78,6 @@ The log array should be cleared between tests.
         "empty-minor.md",
         "h5pushodd.md",
         "h5push.md",
-        "capitalizations.md",
         "compileminor.md",
         "arrayify.md",
         "merge.md",
@@ -95,7 +94,9 @@ The log array should be cleared between tests.
         "html-helpers.md",
         "matrixify.md",
         "snippets.md",
-        "repeatheaders.md"
+        "repeatheaders.md",
+        "capitalizations.md",
+        "dash.md"
     ].
     slice();
     //slice(31, 32);

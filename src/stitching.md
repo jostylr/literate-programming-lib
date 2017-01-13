@@ -44,6 +44,7 @@ something useful.
 
 
 
+
 ## Folder prototype
 
     Folder.prototype.createScope = _"Create global scope";
@@ -1789,15 +1790,8 @@ Now they are executed before the command. Shortly, they will be made async.
         
         var fun;
 
- This allows property access. We are piggy backing off `.` sync command as
- that is just easier to do -- keeps it tidy within the same flow. 
+        _":prep command"
 
-        if ( (command[0] === ".") && (command.length > 1) ) {
-            fun = doc.commands["."];
-            args.unshift(command.slice(1) );
-        } else {
-            fun = doc.commands[command];
-        }
                 
         args = doc.argsPrep(args, comname, doc.subCommands, command);
 
@@ -1819,6 +1813,32 @@ Now they are executed before the command. Shortly, they will be made async.
 
     }
 
+
+[prep command]() 
+
+Here we want to do a few things. We want to normalize command names so that
+they can have different capitalizations and slugs and be treated the same. 
+
+But first we want to check the command for a leading character that is known
+to be a lead for a namespace of characters. The two default examples are `.`
+for indicating a property/method access and `-` for a bunch of utilities of
+which none are in there by default; the full library uses it (lodash,
+datefns), but it is defined here.  
+
+This allows property access. We are piggy backing off `.` sync command as
+ that is just easier to do -- keeps it tidy within the same flow. 
+
+The command is left untouched, but the function recalled is the one that we
+are manipulating. 
+
+        var method;
+        if ( doc.leaders.indexOf(command[0]) !== -1 ) {
+            method = command.slice(1);
+            if (method) {args.unshift( method );}
+            fun = doc.commands[command[0]];
+        } else {
+            fun = doc.commands[doc.normalize(command)];
+        }
 
 [extract data]()
 

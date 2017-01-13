@@ -36,6 +36,8 @@ var Folder = function (actions) {
     this.stack = {};
     this.reporters = Folder.reporters;
     this.plugins = Object.create(Folder.plugins);
+    this.leaders = Object.create(Folder.leaders);
+    this.dash = Object.create(Folder.dash);
     this.flags = {};
     this.Folder = Folder;
 
@@ -548,36 +550,44 @@ Folder.prototype.convertHeading = function (str) {
     return str;
 };
 
- var sync  = Folder.prototype.wrapSync = function (fun, label) {
-         var temp;
-         if (typeof fun === "string") {
-             temp = fun;
-             fun = label;
-             label = fun;
-         }
- 
-     var f = function (input, args, name, command) {
-         var doc = this;
-         var gcd = doc.gcd;
- 
-         try {
-             var out = fun.call(doc, input, args, name);
-             gcd.scope(name, null); // wipes out scope for args
-             gcd.emit("text ready:" + name, out); 
-         } catch (e) {
-             doc.log(e);
-             gcd.emit("error:command execution:" + name, 
-                 [e, e.stack, input, args, command]); 
-         }
-     };
- 
-     if (label) {
-         f._label = label;
-     }
- 
-     return f;
- };
+Folder.normalize = function (name) { 
+    name = name.toLowerCase().
+        replace(/(.)-/g, "$1").
+        replace(/(.)_/g, "$1");
+    return name;
+    
+};
+var sync  = Folder.prototype.wrapSync = function (fun, label) {
+        var temp;
+        if (typeof fun === "string") {
+            temp = fun;
+            fun = label;
+            label = fun;
+        }
+
+    var f = function (input, args, name, command) {
+        var doc = this;
+        var gcd = doc.gcd;
+
+        try {
+            var out = fun.call(doc, input, args, name);
+            gcd.scope(name, null); // wipes out scope for args
+            gcd.emit("text ready:" + name, out); 
+        } catch (e) {
+            doc.log(e);
+            gcd.emit("error:command execution:" + name, 
+                [e, e.stack, input, args, command]); 
+        }
+    };
+
+    if (label) {
+        f._label = label;
+    }
+
+    return f;
+};
 Folder.sync = function (name, fun) {
+    name = Folder.normalize(name);
     return (Folder.commands[name] = sync(name, fun));
 };
 
@@ -613,6 +623,7 @@ var async = Folder.prototype.wrapAsync = function (fun, label) {
     return f;
 };
 Folder.async = function (name, fun) {
+    name = Folder.normalize(name);
     return (Folder.commands[name] = async(name, fun));
 };
 
@@ -698,6 +709,7 @@ var defaults = Folder.prototype.wrapDefaults = function (label, fun) {
 
 };
 Folder.defaults = function (name, fun) {
+    name = Folder.normalize(name);
     return (Folder.commands[name] = defaults(name, fun) );
 };
 
@@ -813,6 +825,8 @@ Folder.fcd = new EvW();
 
 Folder.postInit = function () {}; //a hook for plugin this modification
 Folder.plugins = {};
+Folder.leaders = ['.', '-'];
+Folder.dash = {};
 
 Folder.reporters = {
     save : function (args) {
@@ -1221,6 +1235,37 @@ Folder.commands = {   eval : sync(function ( text, args ) {
             ret = prop;
         }
         gcd.emit("text ready:" + name, ret);
+    },
+    "-" : function (input, args, name, cmdname) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var propname = args[0];
+        var cmd;
+        var dash = doc.dash;
+        var i, n = dash.length;
+       
+        var found = Object.keys(dash).sort(function (a,b) {
+           var numa = dash[a][1], numb = dash[b][1];
+           var ret = numa - numb;
+           if (isNaN(ret)) {
+                return 0;
+           } else {
+                return ret;
+           }
+        }).some(function (a) {
+            if (dash[a][0].hasOwnProperty(propname) ) {
+                cmd = a;
+                return true;
+            }
+        });
+        
+        // no such property
+        if (!found) {
+            doc.log("no such property on dash: ", propname, args);
+            gcd.emit("text ready:" + name, input);
+        } else {
+            doc.commands[cmd].call(doc, input, args, name);
+        }
     },
     "if" : function (input, args, name) {
         var doc = this;
@@ -2792,7 +2837,10 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
     this.defSubCommand = Folder.defSubCommand;
     this.dirFactory = parent.dirFactory;
     this.plugins = Object.create(parent.plugins);
+    this.leaders = Object.create(parent.leaders);
+    this.dash = Object.create(parent.dash);
     this.convertHeading = parent.convertHeading;
+    this.normalize = Folder.normalize;
 
     if (actions) {
         apply(gcd, actions);
@@ -3850,12 +3898,16 @@ dp.argFinishingHandler = function (comname) {
         });
         
         var fun;
-        if ( (command[0] === ".") && (command.length > 1) ) {
-            fun = doc.commands["."];
-            args.unshift(command.slice(1) );
-        } else {
-            fun = doc.commands[command];
-        }
+    
+            var method;
+            if ( doc.leaders.indexOf(command[0]) !== -1 ) {
+                method = command.slice(1);
+                if (method) {args.unshift( method );}
+                fun = doc.commands[command[0]];
+            } else {
+                fun = doc.commands[doc.normalize(command)];
+            }
+    
                 
         args = doc.argsPrep(args, comname, doc.subCommands, command);
     

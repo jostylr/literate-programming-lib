@@ -19,6 +19,7 @@ Here we have common commands.
         push : sync(_"push", "push"),
         pop : sync(_"pop", "pop"),
         "." : _"dot",
+        "-" : _"dash",
         "if" : _"if",
         "done" : _"done",
         "when" : _"when"
@@ -89,20 +90,38 @@ This produces the command documentation.
 
 ## Folder prototype
     
-     var sync  = Folder.prototype.wrapSync = _"Command wrapper sync";
+For the normalization, we want to make sure it is not the first character to
+avoid conflicts with the leader character in certain circumstances. 
+
+    Folder.normalize = function (name) { 
+        name = name.toLowerCase().
+            replace(/(.)-/g, "$1").
+            replace(/(.)_/g, "$1");
+        return name;
+        
+    };
+    var sync  = Folder.prototype.wrapSync = _"Command wrapper sync";
     Folder.sync = function (name, fun) {
+        _":normalize"
         return (Folder.commands[name] = sync(name, fun));
     };
 
     var async = Folder.prototype.wrapAsync = _"Command wrapper async";
     Folder.async = function (name, fun) {
+        _":normalize"
         return (Folder.commands[name] = async(name, fun));
     };
 
     var defaults = Folder.prototype.wrapDefaults = _"command wrapper cb sequence";
     Folder.defaults = function (name, fun) {
+        _":normalize"
         return (Folder.commands[name] = defaults(name, fun) );
     };
+
+[normalize]()
+    
+    name = Folder.normalize(name);
+
 
 ### Command wrapper sync
 
@@ -908,6 +927,61 @@ stop the flow within the same pipeline.
       also an alias so that any `.propname` as a command works. For example,
       we could do `| .join \,` above.  This avoids forgetting the comma after
       join in the prior example. 
+
+## Dash
+
+This defines the command `-`  It looks up the first argument as a property of
+the properties in
+the `doc.dash` object and then calls it as a command. 
+
+For example, in full using lodash,  `-pad 5`  will pad incoming strings to
+make them length 5. It does this by the leader `-` sending `pad, 5` as the
+arguments to this command and this command looking through its objects for the
+pad method and then calling that command. The dash object might look like: `{
+'lodash' : [lodash, #], {'date': [datefns, #], ...}`  where `lodash` and
+`datefns` are the objects with the methods to call and the keys are the
+associated command. So it will look in `lodash` for the property `pad` and
+then call the `lodash` command as `lodash pad, 5`; it searches in order of the
+numbering; random otherwise.
+
+    function (input, args, name, cmdname) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var propname = args[0];
+        var cmd;
+        var dash = doc.dash;
+        var i, n = dash.length;
+       
+        var found = Object.keys(dash).sort(function (a,b) {
+           var numa = dash[a][1], numb = dash[b][1];
+           var ret = numa - numb;
+           if (isNaN(ret)) {
+                return 0;
+           } else {
+                return ret;
+           }
+        }).some(function (a) {
+            if (dash[a][0].hasOwnProperty(propname) ) {
+                cmd = a;
+                return true;
+            }
+        });
+        
+        // no such property
+        if (!found) {
+            doc.log("no such property on dash: ", propname, args);
+            gcd.emit("text ready:" + name, input);
+        } else {
+            doc.commands[cmd].call(doc, input, args, name);
+        }
+    }
+
+##### cdoc
+
+    * **-** `- propname, arg1, arg2,... ` This is the dash command and it
+      accesses the utility property which is the first argument; the object is the
+      input (typically a string, but can be anything). It calls the relevant
+      command with that method. 
 
 ### Push
 

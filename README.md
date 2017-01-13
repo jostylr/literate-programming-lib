@@ -665,6 +665,10 @@ commas, colons, quotes).
   also an alias so that any `.propname` as a command works. For example,
   we could do `| .join \,` above.  This avoids forgetting the comma after
   join in the prior example. 
+* **-** `- propname, arg1, arg2,... ` This is the dash command and it
+  accesses the utility property which is the first argument; the object is the
+  input (typically a string, but can be anything). It calls the relevant
+  command with that method. 
 * **push** Simply pushes the current state of the incoming text on the
   stack for this pipe process.
 * **pop** Replaces the incoming text with popping out the last unpopped

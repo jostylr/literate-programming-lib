@@ -18,7 +18,7 @@ Capitalizations - Checking for capitals not making a difference
 
     _"let's go"
 
-    _":template | compile Great"
+    _":template | co_Mpil-e Great"
 
 [out](# "save:")
 
