@@ -146,12 +146,12 @@ var testrunner = function (file) {
             });
         };
 
-      // notEmit();
+     //  notEmit();
 
      //setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
     });
-    //setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+   // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
 };
 
@@ -207,7 +207,6 @@ var testfiles = [
     "backslash.md",
     "if.md",
     "nameafterpipe.md",
-    "headless.md",
     "fsubcommand.md",
     "directivesubbing.md",
     "config.md",
@@ -246,7 +245,8 @@ var testfiles = [
     "snippets.md",
     "repeatheaders.md",
     "capitalizations.md",
-    "dash.md"
+    "dash.md",
+    "headless.md"
 ].
 slice();
 //slice(31, 32);

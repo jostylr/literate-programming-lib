@@ -752,7 +752,7 @@ Folder.prototype.subnameTransform = function (subname, lname, mainblock) {
         if (mainblock) {
             //console.log(mainblock)
         } else {
-            colind = lname.indexOf(":");
+            colind = lname.lastIndexOf(":");
             mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
         }
         if (subname === ":") {
@@ -768,7 +768,7 @@ Folder.prototype.subnameTransform = function (subname, lname, mainblock) {
         if (mainblock) {
             //console.log(mainblock)
         } else {
-            colind = lname.indexOf(":");
+            colind = lname.lastIndexOf(":");
             mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
         }
         main = mainblock.slice(0, mainblock.indexOf("/")); 
@@ -782,7 +782,7 @@ Folder.prototype.subnameTransform = function (subname, lname, mainblock) {
         if (mainblock) {
             //console.log(mainblock)
         } else {
-            colind = lname.indexOf(":");
+            colind = lname.lastIndexOf(":");
             mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
         }
         if (subname[2] === ":" ) {
@@ -795,7 +795,7 @@ Folder.prototype.subnameTransform = function (subname, lname, mainblock) {
         if (mainblock) {
             //console.log(mainblock)
         } else {
-            colind = lname.indexOf(":");
+            colind = lname.lastIndexOf(":");
             mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
         }
         first = mainblock.indexOf("/");
@@ -1331,6 +1331,7 @@ var dirFactory = Folder.prototype.dirFactory = function (namefactory, handlerfac
 
         other.call(doc, state);
 
+        state.emitname += ":"; 
         doc.pipeDirSetup(state.pipes, state.emitname, state.handler, 
             ( state.start ||  state.block || '') );
         
@@ -1496,7 +1497,7 @@ Folder.prototype.compose = function () {
 Folder.directives = {   
     "save" : dirFactory(function (state) {
         state.emitname =  "for save:" + this.file + ":" + 
-          (state.saveprefix || '') + state.linkname;
+          (state.saveprefix || '') + state.linkname; 
     }, function (state) {
         var gcd = this.gcd;
         var linkname = (state.saveprefix || '') + state.linkname;
@@ -3358,7 +3359,6 @@ dp.getBlock = function (start, cur) {
     if (!start) {
         start = cur;
     }
-
     return colon.escape(start);
 };
 dp.stripSwitch = function (name) {

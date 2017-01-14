@@ -57,7 +57,6 @@ The log array should be cleared between tests.
         "backslash.md",
         "if.md",
         "nameafterpipe.md",
-        "headless.md",
         "fsubcommand.md",
         "directivesubbing.md",
         "config.md",
@@ -96,7 +95,8 @@ The log array should be cleared between tests.
         "snippets.md",
         "repeatheaders.md",
         "capitalizations.md",
-        "dash.md"
+        "dash.md",
+        "headless.md"
     ].
     slice();
     //slice(31, 32);
@@ -210,12 +210,12 @@ process the inputs.
                 });
             };
 
-          // notEmit();
+         //  notEmit();
 
          //setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
         });
-        //setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
+       // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
 
     }
 

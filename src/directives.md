@@ -116,7 +116,6 @@ from the hash, start would be empty in this case.
         if (!start) {
             start = cur;
         }
-    
         return colon.escape(start);
     }
         
@@ -278,7 +277,11 @@ heading reference (end of pipeDirSetup).
 We also want the emit to not happen until all parsing is done. For example,
 the push directive needs the waiting. 
 
-        
+We make sure each emitname ends in ":" as this allows for unnamed mainblocks
+to be cut correctly in the subname computation (subname
+transformation:slicing).  
+
+    state.emitname += ":"; 
     doc.pipeDirSetup(state.pipes, state.emitname, state.handler, 
         ( state.start ||  state.block || '') );
 
@@ -304,7 +307,7 @@ Here we write the save function using the factory function.
 
     function (state) {
         state.emitname =  "for save:" + this.file + ":" + 
-          (state.saveprefix || '') + state.linkname;
+          (state.saveprefix || '') + state.linkname; 
     }
 
 

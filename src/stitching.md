@@ -570,7 +570,7 @@ then from there to a triple colon should be the major block name on record.
     if (mainblock) {
         //console.log(mainblock)
     } else {
-        colind = lname.indexOf(":");
+        colind = lname.lastIndexOf(":");
         mainblock = lname.slice(colind+1, lname.indexOf(colon.v, colind));
     }
 
