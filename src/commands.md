@@ -944,14 +944,28 @@ associated command. So it will look in `lodash` for the property `pad` and
 then call the `lodash` command as `lodash pad, 5`; it searches in order of the
 numbering; random otherwise.
 
-    function (input, args, name, cmdname) {
+    function (input, args, name ) {
         var doc = this;
         var gcd = doc.gcd;
         var propname = args[0];
         var cmd;
         var dash = doc.dash;
-        var i, n = dash.length;
        
+        _":found"
+        
+        // no such property
+        if (!found) {
+            doc.log("no such property on dash: ", propname, args);
+            gcd.emit("text ready:" + name, input);
+        } else {
+            doc.commands[cmd].call(doc, input, args, name);
+        }
+    }
+
+[found]()
+
+This is also used in the subcommands dash. 
+
         var found = Object.keys(dash).sort(function (a,b) {
            var numa = dash[a][1], numb = dash[b][1];
            var ret = numa - numb;
@@ -966,15 +980,6 @@ numbering; random otherwise.
                 return true;
             }
         });
-        
-        // no such property
-        if (!found) {
-            doc.log("no such property on dash: ", propname, args);
-            gcd.emit("text ready:" + name, input);
-        } else {
-            doc.commands[cmd].call(doc, input, args, name);
-        }
-    }
 
 ##### cdoc
 

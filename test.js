@@ -188,7 +188,6 @@ var testfiles = [
     "h5.md",
     "ignore.md",
     "direval.md",
-    "erroreval.md",
     "scopeexists.md",
     "subindent.md",
     "templating.md",
@@ -245,8 +244,10 @@ var testfiles = [
     "snippets.md",
     "repeatheaders.md",
     "capitalizations.md",
-    "dash.md",
-    "headless.md"
+    "headless.md",
+    "erroreval.md",
+    "moresubcommands.md",
+    "dash.md"
 ].
 slice();
 //slice(31, 32);

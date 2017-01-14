@@ -4,13 +4,13 @@ can use this as a prototype.
     (function () {
         var ret = {};
         
-        ret.echo = ret.e = _"echo";
+        ret.echo = ret.ec = _"echo";
        
-        ret.join = ret.j = _"join";
+        ret.join = _"join";
         
-        ret.array = ret.arr = ret.a = _"array";
+        ret.array = ret.arr = _"array";
 
-        ret.object = ret.obj = ret.o = _"object";
+        ret.object = ret.obj =  _"object";
 
         ret.merge = _"merge";
 
@@ -32,14 +32,21 @@ can use this as a prototype.
 
         ret.arguments = ret.args = _"arguments";
 
-        ret.number = ret.n = ret["#"] = _"number";
+        ret.number = ret.num = _"number";
 
-        ret.eval = _"sc eval";
+        ret.date = _"date";
 
-        ret.log = _"sc log";
+        ret.function = ret.fun = _"function";
 
-        ret.true = ret.t = function () {return true;}; 
-        ret.false = ret.f = function () {return false;}; 
+        ret.eval = ret.ev =  _"eval";
+
+        ret.log = _"log";
+
+        ret.dash = ret["-"] = _"dash";
+        ret.dot = ret["."] = _"dot";
+
+        ret.true  = function () {return true;}; 
+        ret.false = function () {return false;}; 
         ret.null = function () {return null;}; 
         ret.doc =  function () {return this;}; 
         ret.skip = function () {return ;}; 
@@ -342,10 +349,14 @@ This expects an array and each element becomes a separate
 ### Number
 
 This converts the argument(s) to numbers, using js Number function. Each
-number becomes a separate argument. 
+number becomes a separate argument. If there is no argument, then it returns
+0. 
 
     function () {
         var ret = [], i, n = arguments.length;
+        if ( n === 0 ) {
+            return 0;
+        }
         for (i = 0; i < n; i += 1) {
             ret.push(Number(arguments[i]));
         }
@@ -353,8 +364,51 @@ number becomes a separate argument.
         return ret;
     }
 
+### Date
 
-### sc Eval
+This converts the argument(s) to dates, using the date constructor.
+Each date becomes a separate argument. If no argument, it returns the object
+of now. 
+
+    function () {
+        var ret = [], i, n = arguments.length;
+        if (n === 0) {
+            return new Date();
+        }
+        for (i = 0; i < n; i += 1) {
+            ret.push(new Date(arguments[i]));
+        }
+        ret.args = true;
+        return ret;
+    }
+
+### Function 
+
+This returns a function. Similar to eval, this will check for backticks as a
+quote character. The function text should be what is in the first argument. 
+
+
+    function (code) {
+        var f, doc = this;
+        var args = Array.prototype.slice.call(arguments, 1);
+
+        if ( (code[0] === "`" ) && (code[code.length-1] === code[0]) ) {
+            code = code.slice(1, code.length-1);
+        }
+       
+        try {
+            eval("f=" + code);
+            return f;
+        } catch (e) {
+            doc.gcd.emit("error:arg prepping:bad function:" + doc.cmdname, 
+                [e, e.stack, code, args]);
+            return;
+        }
+
+    }
+
+
+### Eval
 
 Will evaluate the argument and use the magic `ret` variable as the value to
   return. This can also see doc and args has the arguments post code.
@@ -377,10 +431,9 @@ Will evaluate the argument and use the magic `ret` variable as the value to
                 [e, e.stack, code, args]);
             return;
         }
-
     }
 
-### sc Log
+### Log
 
 This logs the argument and passes them along as arguments.
 
@@ -390,4 +443,53 @@ This logs the argument and passes them along as arguments.
         doc.log("arguments in " + name + ":\n---\n" + 
             args.join("\n~~~\n") + "\n---\n");
         return args;  
+    }
+
+### Dash
+
+This is a utility function and uses the same utility functions as the main
+dash command. But here, the arguments are just the arguments; no incoming
+input. 
+
+    function (propname) {
+        var doc = this;
+        var dash = doc.dash;
+        var cmd;
+
+        var args = Array.prototype.slice.call(arguments, 1);
+
+        _"commands::dash:found"
+
+        if (!found) {
+            doc.log("no such property on dash: ", propname);
+        } else {
+            return dash[cmd][0][propname].apply(dash[cmd][0], args);
+        }
+    }
+
+### Dot
+
+This assumes that the first argument is a method of the second argument. It
+then calls it all as such. No async stuff here, please. This also assumes that
+the second argument is an object with property access. If there are not at
+least two arguments, an empty string is returned. 
+
+    function (method, obj) {
+        var doc = this;
+        var fun;
+
+        if (arguments.length < 2) {
+            doc.log("insufficient number of arguments for dot command:" +
+                arguments.join(", "));
+            return '';
+        }
+
+        var args = Array.prototype.slice.call(arguments, 2);
+    
+        fun = obj[method];
+        if ( typeit(fun) === "function") {
+            return fun.apply(obj, args);
+        } else {
+            return fun; //ex: .length(arr(1, 5) )
+        }
     }

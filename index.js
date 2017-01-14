@@ -713,8 +713,8 @@ Folder.defaults = function (name, fun) {
     return (Folder.commands[name] = defaults(name, fun) );
 };
 
-Folder.prototype.uniq = Folder.requires.unique 
-    = function () {
+Folder.prototype.uniq = Folder.requires.unique =
+    function () {
         var counter = 0;
         return function () {
             return counter += 1;
@@ -1151,7 +1151,7 @@ Folder.commands = {   eval : sync(function ( text, args ) {
         return ret;
     
     }, "minidoc"),
-    augment : function (input, args, name, cmdname) {
+    augment : function (input, args, name) {
         var doc = this;
         var gcd = doc.gcd;
         var c = doc.colon.v;
@@ -1236,28 +1236,27 @@ Folder.commands = {   eval : sync(function ( text, args ) {
         }
         gcd.emit("text ready:" + name, ret);
     },
-    "-" : function (input, args, name, cmdname) {
+    "-" : function (input, args, name ) {
         var doc = this;
         var gcd = doc.gcd;
         var propname = args[0];
         var cmd;
         var dash = doc.dash;
-        var i, n = dash.length;
        
-        var found = Object.keys(dash).sort(function (a,b) {
-           var numa = dash[a][1], numb = dash[b][1];
-           var ret = numa - numb;
-           if (isNaN(ret)) {
-                return 0;
-           } else {
-                return ret;
-           }
-        }).some(function (a) {
-            if (dash[a][0].hasOwnProperty(propname) ) {
-                cmd = a;
-                return true;
-            }
-        });
+            var found = Object.keys(dash).sort(function (a,b) {
+               var numa = dash[a][1], numb = dash[b][1];
+               var ret = numa - numb;
+               if (isNaN(ret)) {
+                    return 0;
+               } else {
+                    return ret;
+               }
+            }).some(function (a) {
+                if (dash[a][0].hasOwnProperty(propname) ) {
+                    cmd = a;
+                    return true;
+                }
+            });
         
         // no such property
         if (!found) {
@@ -2128,7 +2127,7 @@ Folder.directives = {
 Folder.subCommands = (function () {
     var ret = {};
     
-    ret.echo = ret.e = function () {
+    ret.echo = ret.ec = function () {
         var arr = Array.prototype.slice.call(arguments);
         
         var ret = arr.map(function (str) { 
@@ -2146,7 +2145,7 @@ Folder.subCommands = (function () {
         return ret;
     };
    
-    ret.join = ret.j = function (sep) {
+    ret.join = function (sep) {
         var args = Array.prototype.slice.call(arguments, 1);
         var ret = [];
         
@@ -2162,11 +2161,11 @@ Folder.subCommands = (function () {
     
     };
     
-    ret.array = ret.arr = ret.a = function () {
+    ret.array = ret.arr = function () {
         return Array.prototype.slice.call(arguments, 0);
     };
 
-    ret.object = ret.obj = ret.o = function (str) {
+    ret.object = ret.obj =  function (str) {
         var ret, doc = this;
         try {
             ret = JSON.parse(str);
@@ -2337,8 +2336,11 @@ Folder.subCommands = (function () {
         return ret;
     };
 
-    ret.number = ret.n = ret["#"] = function () {
+    ret.number = ret.num = function () {
         var ret = [], i, n = arguments.length;
+        if ( n === 0 ) {
+            return 0;
+        }
         for (i = 0; i < n; i += 1) {
             ret.push(Number(arguments[i]));
         }
@@ -2346,7 +2348,38 @@ Folder.subCommands = (function () {
         return ret;
     };
 
-    ret.eval = function (code) {
+    ret.date = function () {
+        var ret = [], i, n = arguments.length;
+        if (n === 0) {
+            return new Date();
+        }
+        for (i = 0; i < n; i += 1) {
+            ret.push(new Date(arguments[i]));
+        }
+        ret.args = true;
+        return ret;
+    };
+
+    ret.function = ret.fun = function (code) {
+        var f, doc = this;
+        var args = Array.prototype.slice.call(arguments, 1);
+    
+        if ( (code[0] === "`" ) && (code[code.length-1] === code[0]) ) {
+            code = code.slice(1, code.length-1);
+        }
+       
+        try {
+            eval("f=" + code);
+            return f;
+        } catch (e) {
+            doc.gcd.emit("error:arg prepping:bad function:" + doc.cmdname, 
+                [e, e.stack, code, args]);
+            return;
+        }
+    
+    };
+
+    ret.eval = ret.ev =  function (code) {
         var ret, doc = this;
         var args = Array.prototype.slice.call(arguments, 1);
     
@@ -2362,7 +2395,6 @@ Folder.subCommands = (function () {
                 [e, e.stack, code, args]);
             return;
         }
-    
     };
 
     ret.log = function () {
@@ -2373,8 +2405,56 @@ Folder.subCommands = (function () {
         return args;  
     };
 
-    ret.true = ret.t = function () {return true;}; 
-    ret.false = ret.f = function () {return false;}; 
+    ret.dash = ret["-"] = function (propname) {
+        var doc = this;
+        var dash = doc.dash;
+        var cmd;
+    
+        var args = Array.prototype.slice.call(arguments, 1);
+    
+            var found = Object.keys(dash).sort(function (a,b) {
+               var numa = dash[a][1], numb = dash[b][1];
+               var ret = numa - numb;
+               if (isNaN(ret)) {
+                    return 0;
+               } else {
+                    return ret;
+               }
+            }).some(function (a) {
+                if (dash[a][0].hasOwnProperty(propname) ) {
+                    cmd = a;
+                    return true;
+                }
+            });
+    
+        if (!found) {
+            doc.log("no such property on dash: ", propname);
+        } else {
+            return dash[cmd][0][propname].apply(dash[cmd][0], args);
+        }
+    };
+    ret.dot = ret["."] = function (method, obj) {
+        var doc = this;
+        var fun;
+    
+        if (arguments.length < 2) {
+            doc.log("insufficient number of arguments for dot command:" +
+                arguments.join(", "));
+            return '';
+        }
+    
+        var args = Array.prototype.slice.call(arguments, 2);
+    
+        fun = obj[method];
+        if ( typeit(fun) === "function") {
+            return fun.apply(obj, args);
+        } else {
+            return fun; //ex: .length(arr(1, 5) )
+        }
+    };
+
+    ret.true  = function () {return true;}; 
+    ret.false = function () {return false;}; 
     ret.null = function () {return null;}; 
     ret.doc =  function () {return this;}; 
     ret.skip = function () {return ;}; 
@@ -3683,7 +3763,7 @@ dp.argProcessing = function (text, ind, quote, topname, mainblock) {
                        emitname = curname;
                        gcd.once("arguments ready:" + emitname, handlerMaker(emitname, gcd));
                        gcd.when(["arg command parsed:" + emitname, "arg command is:" + emitname], "arguments ready:" + emitname);
-                       gcd.emit("arg command is:" + emitname, argstring.trim().toLowerCase());
+                       gcd.emit("arg command is:" + emitname, argstring.trim());
                        argstring = '';
                        ind += 1;
                            wsreg.lastIndex = ind;
@@ -3952,7 +4032,7 @@ dp.argsPrep = function self (args, name, subs, command ) {
     var ret, subArgs;
     var cur, doc = this, gcd = this.gcd;
     doc.cmdName = name;
-    var csubs, subc;
+    var csubs, normsubc, subc, sfun;
     csubs =  doc.plugins[command] &&
          doc.plugins[command].subCommands ;
     for (i = 0; i < n; i += 1) {
@@ -3963,11 +4043,17 @@ dp.argsPrep = function self (args, name, subs, command ) {
                 subArgs = self.call(doc, subArgs, name, subs);
             }
             subc = cur[0];
+            normsubc = doc.normalize(subc);
             try {
-                if (csubs && csubs[subc] ) {
-                    ret = csubs[subc].apply(doc, subArgs);
-                } else if (subs && subs[subc] ) {
-                    ret = subs[subc].apply(doc, subArgs);
+                if ( (sfun =  ( 
+                    (csubs && csubs[normsubc] ) || 
+                    (subs && subs[normsubc] )    ) ) ) {
+                    ret = sfun.apply(doc, subArgs);
+               } else if  ( ( sfun = ( 
+                    (csubs && csubs[subc[0]] ) || 
+                    (subs && subs[subc[0]] )    ) ) ) {
+                    subArgs.unshift(subc.slice(1));
+                    ret = sfun.apply(doc, subArgs);
                 } else {
                     gcd.emit("error:no such subcommand:" + command + ":" +
                         subc, [i, subArgs,name]);

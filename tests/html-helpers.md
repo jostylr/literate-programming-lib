@@ -10,7 +10,7 @@ It's a drag sometimes. Here is some help
 
     _"some escaped text | html-unescape "
 
-    _"table | matrixify | html-table a(name, place), signs, data-grid=tom"
+    _"table | matrixify | html-table arr(name, place), signs, data-grid=tom"
 
 [out](# "save:")
 

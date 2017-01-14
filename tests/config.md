@@ -5,10 +5,10 @@ The point of this is to demonstrate how configuration information can be
 passed into a function -- think of it as named parameters, if you like.
 
     _"|paired set(kv(1, +, 2, *, join, -- )),
-                n(1, 2, 3, 4, 5), clog(!!!hey)"
+                num(1, 2, 3, 4, 5), clog(!!!hey)"
     _"|paired set(kv(1, *, 2, + )), 
-        n(1, 2, 3, 4, 5), clog(!!!reversed) | store arr |
-        slice n(1, 2) | cat !"
+        num(1, 2, 3, 4, 5), clog(!!!reversed) | store arr |
+        slice num(1, 2) | cat !"
     _"|paired args(act( _"arr", concat, _"arr"))"
 
 [out](# "save:")

@@ -3,7 +3,7 @@ This is the augment command. It adds properties and methods to the input
 object. If the input object is a string or number, it is converted into an
 object first and then augmented. 
 
-    function (input, args, name, cmdname) {
+    function (input, args, name) {
         var doc = this;
         var gcd = doc.gcd;
         var c = doc.colon.v;

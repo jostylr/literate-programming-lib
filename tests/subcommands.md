@@ -22,25 +22,25 @@ subCommands -- testing our subcommands
 
 ## echo
 
-    _"|join echo(' :: ', `first up`), e("Cool, beans."), e(koo\"like)"
+    _"|join echo(' :: ', `first up`), ec("Cool, beans."), ec(koo\"like)"
 
 ## join
 
-    _"|cat join(e(" -- "), a(this, that), the other)"
+    _"|cat join(ec(" -- "), arr(this, that), the other)"
 
 ## json
 
-    _"|cat json( merge( o({"a" : 2, "c" : "j"}), 
+    _"|cat json( merge( obj({"a" : 2, "c" : "j"}), 
         kv(b, merge(arr(3, 4), arr(t, f)), c, k ) ) )"
 
 ## act
 
-    _"|join :, args(act(arr (4, 5, 6), slice, n(1) ) )"
+    _"|join :, args(act(arr (4, 5, 6), slice, num(1) ) )"
 
 ## eval
 
-    _"|join :, eval(_":code", arr(n(1, 2, 3, 4, 5))), 
-        eval(`ret = 70;`)"
+    _"|join :, eval(_":code", arr(num(1, 2, 3, 4, 5))), 
+        ev(`ret = 70;`)"
 
 
 
@@ -54,7 +54,7 @@ subCommands -- testing our subcommands
 
 This is going to see if the get and sets work
 
-    _"| cat 5, gSet(o({"a": [1, 2, 3]}))  |
+    _"| cat 5, gSet(obj({"a": [1, 2, 3]}))  |
         join :=:, set(kv(cool, gGet(a))), 
             args(eval( `ret = args[0].concat(args[1]);`,
                      get(cool, cool)))"
@@ -65,7 +65,7 @@ This is going to see if the get and sets work
 
 ## primitives
 
-    _"|join :, arr(true(), t(), skip(5), false(), f(), null())"
+    _"|join :, arr(true(), true() skip(5), false(), false(), null())"
 
 ---
 first up :: Cool, beans. :: koo"like

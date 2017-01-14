@@ -10,7 +10,7 @@ Usually this is a little bits of connective text.
 
     Some text
 
-    _"awesome| . join, e(", ")"
+    _"awesome| . join, ec(", ")"
 
     _"awesome| . length"
 

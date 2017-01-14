@@ -8,7 +8,7 @@ We will do a reduce here
     ka : 7
     jilli : 3
 
-[out](# "save: | objectify | .forin _'f', n(0), t() ")
+[out](# "save: | objectify | .forin _'f', num(0), true() ")
 
 ## Function
 

@@ -37,12 +37,22 @@ First we need to create two dash objects to check.
         | -hello Jack, the Great 
         | - bye, James, Taylor"
 
+    _"| echo -bye(-hello(ec("Great to see you!") , Jack, the Great), James, Taylor) "
+
 [out](# "save:")
 
 ---
 Hi Jack the Great,
 
 Something or other
+
+Sincerely,
+James Taylor
+
+
+Hi Jack the Great,
+
+Great to see you!
 
 Sincerely,
 James Taylor

@@ -1092,7 +1092,7 @@ command level.
         emitname = curname;
         gcd.once("arguments ready:" + emitname, handlerMaker(emitname, gcd));
         gcd.when(["arg command parsed:" + emitname, "arg command is:" + emitname], "arguments ready:" + emitname);
-        gcd.emit("arg command is:" + emitname, argstring.trim().toLowerCase());
+        gcd.emit("arg command is:" + emitname, argstring.trim());
         argstring = '';
         ind += 1;
         _":fast forward to non-whitespace"
@@ -1770,7 +1770,7 @@ it to exist and then use a handler to run it. But if it is still not a
 property on the needed doc, then we wait some more. 
 
 Subcommands used to be dealt with inside the command itself, for some reason.
-Now they are executed before the command. Shortly, they will be made async. 
+Now they are executed before the command. 
 
     function (comname) {
         var doc = this;
@@ -1888,7 +1888,7 @@ Break from list--
         var ret, subArgs;
         var cur, doc = this, gcd = this.gcd;
         doc.cmdName = name;
-        var csubs, subc;
+        var csubs, normsubc, subc, sfun;
         csubs =  doc.plugins[command] &&
              doc.plugins[command].subCommands ;
         for (i = 0; i < n; i += 1) {
@@ -1899,11 +1899,26 @@ Break from list--
                     subArgs = self.call(doc, subArgs, name, subs);
                 }
                 subc = cur[0];
+                normsubc = doc.normalize(subc);
                 try {
-                    if (csubs && csubs[subc] ) {
-                        ret = csubs[subc].apply(doc, subArgs);
-                    } else if (subs && subs[subc] ) {
-                        ret = subs[subc].apply(doc, subArgs);
+
+The first if handles the case of a subcommand being present either in the
+command subcommand or the generic subcommands. 
+
+                    if ( (sfun =  ( 
+                        (csubs && csubs[normsubc] ) || 
+                        (subs && subs[normsubc] )    ) ) ) {
+                        ret = sfun.apply(doc, subArgs);
+
+The second if looks if there is a leader command. If so, it proceeds. There is
+no need to check if it is a standalone leader since the first if would catch
+that. 
+
+                   } else if  ( ( sfun = ( 
+                        (csubs && csubs[subc[0]] ) || 
+                        (subs && subs[subc[0]] )    ) ) ) {
+                        subArgs.unshift(subc.slice(1));
+                        ret = sfun.apply(doc, subArgs);
                     } else {
                         gcd.emit("error:no such subcommand:" + command + ":" +
                             subc, [i, subArgs,name]);
@@ -1928,7 +1943,7 @@ Break from list--
 
 [parse ret types]()
 
-Here we implement the the possible types and responses. If it is an array with
+Here we implement the possible types and responses. If it is an array with
 the args flag set to true, then we put each element in the array as an
 argument.   
 

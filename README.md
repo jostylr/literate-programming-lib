@@ -427,6 +427,19 @@ It's all good. You decide the order and grouping. The structure of your litpro
 documents is up to you and is **independent** of the needed structures of the
 output. 
 
+## Directives vs commands vs subcommand
+
+Directives affect the flow of the literate program itself, such as defining
+commands, saving output, or directly storing values. Commands transform
+incoming text or other input. Subcommands create useful arguments to commands. 
+
+Directives can be thought of as procedures, commands as methods on the input,
+and subcommands as functions. And indeed, directives do not compose in the
+sense of returning a value. Commands are written like the chain syntax, with
+what is on the left being evaluated first. Subcommands are written with
+typical function syntax, with what is on the right being evaluated first. 
+
+
 ## Built in directives
 
 There are a variety of directives that come built in.
@@ -874,22 +887,22 @@ could also store an object into a state for configuration.
 
 There are several built-in subcommands. Note that these are case insensitive. 
 
-* `e` or `echo`  This expects a quote-delimited string to be passed in and
+* `ec` or `echo`  This expects a quote-delimited string to be passed in and
   will strip the quotes. This is useful as the appearance of a quote will mask
   all other mechanics. So `e("a, b and _this")` will produce a literal
   argument of `a, b, and _this`. Multiple arguments will be stripped and
   passed on as multipel arguments.  
-* `j` or `join` The first entry is the joiner separator and it joins the rest
+* `join` The first entry is the joiner separator and it joins the rest
   of the arguments. For arrays, they are flattened with the separator as well
   (just one level -- then it gets messy and wrong, probably). 
-* `a` or `arr` or `array` This creates an array of the arguments.
+* `arr` or `array` This creates an array of the arguments.
 * `arguments` or `args` Inverse of array. This expects an array and each
   element becomes a separate argument that the command will see. E.g., `cmd
   arguments(arr(3, 4))` is equivalent to `cmd 3, 4`. This is useful for
   constructing the args elsewhere. In particular, `args(obj(_"returns json of
   an array"))` will result in the array from the subsitution becoming the
   arguments to pass in. 
-* `o` or `obj` or `object` This presumes that a JSON stringed object is ready
+* `obj` or `object` This presumes that a JSON stringed object is ready
   to be made into an object.
 * `merge` Merge arrays or objects, depending on what is there.
 * `kv` or `key-value` This produces an object based on the assumption that a
@@ -898,6 +911,9 @@ There are several built-in subcommands. Note that these are case insensitive.
 * `act` This allows one to do `obj, method, args` to apply a method to an
   object with the slot 2 and above being arguments. For example, one could do
   `act( arr(3, 4, 5), slice, 2, 3)` to slice the array to `[5]`.
+* `.method` This is similar to `act` except that the method is in the name. So
+   the same example would be `.slice( arr(3, 4, 5), 2, 3)`. Also `dot(slice,
+   arr(3,4,5), 2, 3)`. 
 * `prop` or `property`. This will take the arguments as a property chain to
   extract the value being pointed to. 
 * `json` This will convert an object to JSON representation.
@@ -908,17 +924,23 @@ There are several built-in subcommands. Note that these are case insensitive.
 * `get` This retrieves the value for the given key argument. `gGet` does the
   same for the pipe chain. Multiple keys can be given and each associated
   value will be returned as distinct arguments. 
-* `n` or `#` or `number` This converts the argument(s) to numbers, using js
+* `num` `number` This converts the argument(s) to numbers, using js
   Number function. `n(1, 2, 3)` will create three arguments of integers. To
   get an array, use `arr(n(1, 2, 3)`
-* `eval` will evaluate the argument and use the magic `ret` variable as the
+* `date` Returns a date object. `date()` returns what the current now is,
+  `date(some date string)` will return a date object as parsed by Date. 
+* `ev` or`eval` will evaluate the argument and use the magic `ret` variable as the
   value to return. This can also see doc (and doc.cmdName) and args has the
   arguments post code.  Recommend using backticks for quoting the eval; it
   will check for that automatically (just backticks, can do echo for the
   others if needed).
-* `log` This logs the argument and passes them along as arguments.
-* `t` or `true`. This returns the true value.
-* `f` or `false`. This returns the false value.
+* `fun` or `function` evaluates the code as if it is a function and returns
+  that function. Any other arguments are seen in the args closure variable.
+  Just like eval, backticks can be used and should be used to directly quote
+  the function text. 
+* `log` This logs the arguments and passes them along as arguments.
+* `true`. This returns the true value.
+* `false`. This returns the false value.
 * `null`. This returns the null value. 
 * `doc`. This returns the doc variable. This could be useful in connection to
   the property method and the log subcommand.

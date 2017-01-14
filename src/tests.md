@@ -38,7 +38,6 @@ The log array should be cleared between tests.
         "h5.md",
         "ignore.md",
         "direval.md",
-        "erroreval.md",
         "scopeexists.md",
         "subindent.md",
         "templating.md",
@@ -95,8 +94,10 @@ The log array should be cleared between tests.
         "snippets.md",
         "repeatheaders.md",
         "capitalizations.md",
-        "dash.md",
-        "headless.md"
+        "headless.md",
+        "erroreval.md",
+        "moresubcommands.md",
+        "dash.md"
     ].
     slice();
     //slice(31, 32);
