@@ -945,6 +945,9 @@ associated command. So it will look in `lodash` for the property `pad` and
 then call the `lodash` command as `lodash pad, 5`; it searches in order of the
 numbering; random otherwise.
 
+`doc.dash === parent.dash === Folder.dash` avoids prototype issues. Also I
+think prototyping the dash is confusing. 
+ 
     function (input, args, name ) {
         var doc = this;
         var gcd = doc.gcd;
@@ -967,6 +970,7 @@ numbering; random otherwise.
 
 This is also used in the subcommands dash. 
 
+
         var found = Object.keys(dash).sort(function (a,b) {
            var numa = dash[a][1], numb = dash[b][1];
            var ret = numa - numb;
@@ -976,7 +980,7 @@ This is also used in the subcommands dash.
                 return ret;
            }
         }).some(function (a) {
-            if (dash[a][0].hasOwnProperty(propname) ) {
+            if (typeit(dash[a][0][propname], "function" )) {
                 cmd = a;
                 return true;
             }
@@ -988,6 +992,13 @@ This is also used in the subcommands dash.
       accesses the utility property which is the first argument; the object is the
       input (typically a string, but can be anything). It calls the relevant
       command with that method. 
+
+      Each object in the `Folder.dash` has the form `cmdname: [object with
+      methods, num]` where the command name is the name to be called (such as
+      `lodash` and the methods should be on the called object, such as
+      `require('lodash')` and the `num` order the search, with lower numbers
+      coming first. 
+
 
 ### Push
 

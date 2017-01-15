@@ -199,7 +199,7 @@ We have a default scope called `g` for global.
         this.reporters = Folder.reporters;
         this.plugins = Object.create(Folder.plugins);
         this.leaders = Object.create(Folder.leaders);
-        this.dash = Object.create(Folder.dash);
+        this.dash = Folder.dash;
         this.booleans = Object.create(Folder.booleans);
         this.flags = {};
         this.Folder = Folder;
@@ -277,7 +277,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.dirFactory = parent.dirFactory;
         this.plugins = Object.create(parent.plugins);
         this.leaders = Object.create(parent.leaders);
-        this.dash = Object.create(parent.dash);
+        this.dash = parent.dash;
         this.booleans = Object.create(parent.booleans);
         this.convertHeading = parent.convertHeading;
         this.normalize = Folder.normalize;

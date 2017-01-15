@@ -682,6 +682,12 @@ commas, colons, quotes).
   accesses the utility property which is the first argument; the object is the
   input (typically a string, but can be anything). It calls the relevant
   command with that method. 
+
+  Each object in the `Folder.dash` has the form `cmdname: [object with
+  methods, num]` where the command name is the name to be called (such as
+  `lodash` and the methods should be on the called object, such as
+  `require('lodash')` and the `num` order the search, with lower numbers
+  coming first. 
 * **push** Simply pushes the current state of the incoming text on the
   stack for this pipe process.
 * **pop** Replaces the incoming text with popping out the last unpopped

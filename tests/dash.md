@@ -8,14 +8,14 @@ First we need to create two dash objects to check.
             return "Hi " + arg1 +  " " + arg2 + ",\n\n" + input;
         },
         "bye" : function (input, arg1, arg2) {
-            return input;
+            return input + "blah";
         }
     };
-    var byegreet = {
+    var byegreet = Object.create({
         "bye" : function (input, arg1, arg2) {
             return input + "\n\nSincerely,\n" + arg1 +  " " + arg2 + "\n";
         }
-    };
+    });
     doc.Folder.sync("greetings", function (input, args) {
         var method = args[0];
         args[0] = input;
@@ -27,7 +27,7 @@ First we need to create two dash objects to check.
        return byegreet[method].apply(greet, args);
     });
     doc.dash.greetings = [greet, 2];
-    doc.dash.byegreet = [byegreet, 1];
+    doc.Folder.dash.byegreet = [byegreet, 1];
 
 [greet](# "eval:")
 

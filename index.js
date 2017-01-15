@@ -37,7 +37,7 @@ var Folder = function (actions) {
     this.reporters = Folder.reporters;
     this.plugins = Object.create(Folder.plugins);
     this.leaders = Object.create(Folder.leaders);
-    this.dash = Object.create(Folder.dash);
+    this.dash = Folder.dash;
     this.booleans = Object.create(Folder.booleans);
     this.flags = {};
     this.Folder = Folder;
@@ -1340,7 +1340,7 @@ Folder.commands = {   eval : sync(function ( text, args ) {
                     return ret;
                }
             }).some(function (a) {
-                if (dash[a][0].hasOwnProperty(propname) ) {
+                if (typeit(dash[a][0][propname], "function" )) {
                     cmd = a;
                     return true;
                 }
@@ -2541,7 +2541,7 @@ Folder.subCommands = (function () {
                     return ret;
                }
             }).some(function (a) {
-                if (dash[a][0].hasOwnProperty(propname) ) {
+                if (typeit(dash[a][0][propname], "function" )) {
                     cmd = a;
                     return true;
                 }
@@ -3054,7 +3054,7 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
     this.dirFactory = parent.dirFactory;
     this.plugins = Object.create(parent.plugins);
     this.leaders = Object.create(parent.leaders);
-    this.dash = Object.create(parent.dash);
+    this.dash = parent.dash;
     this.booleans = Object.create(parent.booleans);
     this.convertHeading = parent.convertHeading;
     this.normalize = Folder.normalize;
