@@ -963,8 +963,8 @@ This loops over the unique command names and sets up a .when to define this
 command once all the other commands are defined. If all are defined, we define
 it immediately. 
 
-We do not check for the "." properties since there is no way to check for that
-at this point. 
+We do not check for the leader properties being defined since there is no way
+to check for that at this point. 
 
     var fcmd = doc.file + ":" + cmdname;
     var compready = "composition ready:" + fcmd;
@@ -987,7 +987,7 @@ at this point.
     });
 
     Object.keys(obj).forEach(function (el) {
-        if (el[0] === "." ) {
+        if (doc.leaders.indexOf(el[0]) !== -1 ) {
             return ;
         }
         if (!(doc.commands[el])) {

@@ -686,9 +686,17 @@ commas, colons, quotes).
   stack for this pipe process.
 * **pop** Replaces the incoming text with popping out the last unpopped
   pushed on text.
-* **if** `flag, cmd, arg1, arg2, ....` If the flag is present (think build
-  flag), then the command will execute with the given input text and
-  arguments. Otherwise, the input text is passed on.
+* **if** `boolean, cmd, arg1, arg2, ....` If the boolean is true, 
+  then the command will execute with the given input text and
+  arguments. Otherwise, the input text is passed on. This is usefully
+  paired with the subcommand boolean asks. For example 
+  `?and(?flag(left),?flag(right)) will execute the `if` if both `left` and
+  `right` are flagged.
+* **ifelse** `arr(bool, cmd, arg1, arg2, ...), arr(bool2, cmd2, arg21,
+  arg22, ...), ...` This expects arrays of the above form as arguments. It
+  works through the conditions until it finds a true value and then it
+  executes the command. If none are found, then it passes along the input
+  text. 
 * **when** `name1, name2, ...` This takes in the event names and waits for
   them to be emitted by done or manually with a
   `doc.parent.done.gcd.once(name, "done")`. That would probably be used in
@@ -945,6 +953,19 @@ There are several built-in subcommands. Note that these are case insensitive.
 * `doc`. This returns the doc variable. This could be useful in connection to
   the property method and the log subcommand.
 * `skip`. This returns no arguments. 
+* `-fun` or `dash(fun, ...)` will use the functions found in the dash command
+  but as a subcommand. `-pad(dude, 5)` will pad the string `dude` to have
+  length 5 using the default spaces (in full where lodash is added to the
+  dash).
+* `?test` or `bool(test, ...)` will apply the test to the arguments. The
+  following are the default tests in the variable `doc.booleans`:
+    * `and` checks that all are truthy
+    * `or` checks that at least one is truthy`
+    * `===`, `==`, `>`, `>=`, `<`, `<=` tests in sequence the relation. 
+    * `!==`, `!=` tests all pairs for non-equality. 
+    * `flag` looks to see if the passed in strings are flags that have been
+      set. 
+
 
 To build one's own command, you can attach a function whose arguments will be
 the arguments passed in. The `this` is the doc object. The current name (say

@@ -21,6 +21,7 @@ Here we have common commands.
         "." : _"dot",
         "-" : _"dash",
         "if" : _"if",
+        "ifelse" : _"ifelse",
         "done" : _"done",
         "when" : _"when"
     }
@@ -1039,22 +1040,83 @@ This checks a flag and then runs a command.
     function (input, args, name) {
         var doc = this;
         var gcd = doc.gcd;
-        var flag = args[0];
+        var bool = args[0];
+        var cmd;
 
-        if (doc.parent.flags.hasOwnProperty(flag) ) {
-            doc.commands[args[1]].call(doc, input, args.slice(2), name);
+        if (bool) {
+            cmd = args[1];
+            args = args.slice(2);
+            _"command waiting"
         } else {
             gcd.emit("text ready:" + name, input);
         }
-        
-
     }
 
 ##### cdoc
 
-    * **if** `flag, cmd, arg1, arg2, ....` If the flag is present (think build
-      flag), then the command will execute with the given input text and
-      arguments. Otherwise, the input text is passed on.
+    * **if** `boolean, cmd, arg1, arg2, ....` If the boolean is true, 
+      then the command will execute with the given input text and
+      arguments. Otherwise, the input text is passed on. This is usefully
+      paired with the subcommand boolean asks. For example 
+      `?and(?flag(left),?flag(right)) will execute the `if` if both `left` and
+      `right` are flagged.
+
+#### command waiting
+
+This waits for a command to be defined.
+
+    
+    if (doc.commands[cmd]) {
+        doc.commands[cmd].call(doc, input, args, name);
+    } else {
+        gcd.once("command defined:" + cmd, function () {
+            doc.commands[cmd].call(doc, input, args, name);
+        });
+    }
+
+
+### ifelse
+
+This is similar to the if, but it allows for multiple conditions. Each
+argument should be an array of the form `arr(bool, cmdname, arg1, arg2, ..)`
+
+    function (input, args, name) {
+        var doc = this;
+        var gcd = doc.gcd;
+
+This goes until something has a true boolean. Then it executes and stops. To
+have a final condition that will execute, pass in `true()`. 
+
+        var cmd;
+        var checked = args.some(function (el) {
+            if ( el[0] === true ) {
+                cmd = el[1];
+                args = el.slice(2);
+                _"command waiting"
+                return true;
+            } else {
+                return false;
+            }
+        });
+
+If checked is false, then no condition meets and we continue on. 
+
+        if (!checked) {
+            gcd.emit("text ready:" + name, input);
+        }
+
+    }
+
+
+##### cdoc
+
+    * **ifelse** `arr(bool, cmd, arg1, arg2, ...), arr(bool2, cmd2, arg21,
+      arg22, ...), ...` This expects arrays of the above form as arguments. It
+      works through the conditions until it finds a true value and then it
+      executes the command. If none are found, then it passes along the input
+      text. 
+
+
 
 ### when
 

@@ -44,6 +44,7 @@ can use this as a prototype.
 
         ret.dash = ret["-"] = _"dash";
         ret.dot = ret["."] = _"dot";
+        ret.bool = ret["?"] = _"boolean";
 
         ret.true  = function () {return true;}; 
         ret.false = function () {return false;}; 
@@ -462,6 +463,7 @@ input.
 
         if (!found) {
             doc.log("no such property on dash: ", propname);
+            return '';
         } else {
             return dash[cmd][0][propname].apply(dash[cmd][0], args);
         }
@@ -493,3 +495,80 @@ least two arguments, an empty string is returned.
             return fun; //ex: .length(arr(1, 5) )
         }
     }
+
+### Boolean
+
+This is another leader kind of subcommand with the properties being functions
+that return booleans. 
+
+    function (propname) {
+        var doc = this;
+        var bool = doc.booleans;
+        var cmd;
+
+        var args = Array.prototype.slice.call(arguments, 1);
+
+        if ( bool[propname] ) {
+            return bool[propname].call(doc, args);
+        } else {
+            doc.log("no such boolean tester: ", propname);
+            return false;
+        }
+    }
+
+#### Booleans
+
+These are the default boolean functions.
+
+    { 
+        "and" : function (args) {
+            return args.every(function (el) {
+                return !!el;
+            });
+        },
+        "or" : function (args) {
+            return args.some(function(el) {
+                return !!el;
+            });
+        },
+        "===" :  _":comparator | sub OP, ===",   
+        "==" :  _":comparator | sub  OP, ==",   
+        ">=" :  _":comparator | sub OP, >=",   
+        ">" :  _":comparator | sub OP, >",   
+        "<=" :  _":comparator | sub OP, <=",   
+        "<" :  _":comparator | sub OP, <",   
+        "!=" : _":compare all | sub OP, ==",   
+        "!==" :  _":compare all | sub  OP, ===",
+        "flag" : function (flag) {
+            return this.parent.flags.hasOwnProperty(flag);
+        }
+    }
+   
+ [comparator]()
+
+     function (args) {
+            var prev = args[0];
+            return args.every(function (el) {
+                var one = prev;
+                prev = el;
+                return (one OP el);
+            });
+        }
+[compare all]()
+
+For something like not equals, we need to compare all the pairs. 
+
+    function (args) {
+        var i, j, n = args.length, cur;
+        for (i = 0; i < n; i += 1) {
+            cur = args[i];
+            for (j = i + 1; j < n; j += 1) {
+               if ( (cur OP args[j] ) ) {
+                    return false;
+               }
+            }
+        }
+        return true;
+    }
+
+

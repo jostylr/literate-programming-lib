@@ -38,6 +38,7 @@ var Folder = function (actions) {
     this.plugins = Object.create(Folder.plugins);
     this.leaders = Object.create(Folder.leaders);
     this.dash = Object.create(Folder.dash);
+    this.booleans = Object.create(Folder.booleans);
     this.flags = {};
     this.Folder = Folder;
 
@@ -827,6 +828,93 @@ Folder.postInit = function () {}; //a hook for plugin this modification
 Folder.plugins = {};
 Folder.leaders = ['.', '-'];
 Folder.dash = {};
+Folder.booleans = { 
+    "and" : function (args) {
+        return args.every(function (el) {
+            return !!el;
+        });
+    },
+    "or" : function (args) {
+        return args.some(function(el) {
+            return !!el;
+        });
+    },
+    "===" :   function (args) {
+            var prev = args[0];
+            return args.every(function (el) {
+                var one = prev;
+                prev = el;
+                return (one === el);
+            });
+        },   
+    "==" :   function (args) {
+            var prev = args[0];
+            return args.every(function (el) {
+                var one = prev;
+                prev = el;
+                return (one == el);
+            });
+        },   
+    ">=" :   function (args) {
+            var prev = args[0];
+            return args.every(function (el) {
+                var one = prev;
+                prev = el;
+                return (one >= el);
+            });
+        },   
+    ">" :   function (args) {
+            var prev = args[0];
+            return args.every(function (el) {
+                var one = prev;
+                prev = el;
+                return (one > el);
+            });
+        },   
+    "<=" :   function (args) {
+            var prev = args[0];
+            return args.every(function (el) {
+                var one = prev;
+                prev = el;
+                return (one <= el);
+            });
+        },   
+    "<" :   function (args) {
+            var prev = args[0];
+            return args.every(function (el) {
+                var one = prev;
+                prev = el;
+                return (one < el);
+            });
+        },   
+    "!=" : function (args) {
+        var i, j, n = args.length, cur;
+        for (i = 0; i < n; i += 1) {
+            cur = args[i];
+            for (j = i + 1; j < n; j += 1) {
+               if ( (cur == args[j] ) ) {
+                    return false;
+               }
+            }
+        }
+        return true;
+    },   
+    "!==" :  function (args) {
+        var i, j, n = args.length, cur;
+        for (i = 0; i < n; i += 1) {
+            cur = args[i];
+            for (j = i + 1; j < n; j += 1) {
+               if ( (cur === args[j] ) ) {
+                    return false;
+               }
+            }
+        }
+        return true;
+    },
+    "flag" : function (flag) {
+        return this.parent.flags.hasOwnProperty(flag);
+    }
+};
 
 Folder.reporters = {
     save : function (args) {
@@ -1269,14 +1357,46 @@ Folder.commands = {   eval : sync(function ( text, args ) {
     "if" : function (input, args, name) {
         var doc = this;
         var gcd = doc.gcd;
-        var flag = args[0];
+        var bool = args[0];
+        var cmd;
     
-        if (doc.parent.flags.hasOwnProperty(flag) ) {
-            doc.commands[args[1]].call(doc, input, args.slice(2), name);
+        if (bool) {
+            cmd = args[1];
+            args = args.slice(2);
+            if (doc.commands[cmd]) {
+                doc.commands[cmd].call(doc, input, args, name);
+            } else {
+                gcd.once("command defined:" + cmd, function () {
+                    doc.commands[cmd].call(doc, input, args, name);
+                });
+            }
         } else {
             gcd.emit("text ready:" + name, input);
         }
-        
+    },
+    "ifelse" : function (input, args, name) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var cmd;
+        var checked = args.some(function (el) {
+            if ( el[0] === true ) {
+                cmd = el[1];
+                args = el.slice(2);
+                if (doc.commands[cmd]) {
+                    doc.commands[cmd].call(doc, input, args, name);
+                } else {
+                    gcd.once("command defined:" + cmd, function () {
+                        doc.commands[cmd].call(doc, input, args, name);
+                    });
+                }
+                return true;
+            } else {
+                return false;
+            }
+        });
+        if (!checked) {
+            gcd.emit("text ready:" + name, input);
+        }
     
     },
     "done" : function (input, args, name) {
@@ -1972,7 +2092,7 @@ Folder.directives = {
         });
         
         Object.keys(obj).forEach(function (el) {
-            if (el[0] === "." ) {
+            if (doc.leaders.indexOf(el[0]) !== -1 ) {
                 return ;
             }
             if (!(doc.commands[el])) {
@@ -2429,6 +2549,7 @@ Folder.subCommands = (function () {
     
         if (!found) {
             doc.log("no such property on dash: ", propname);
+            return '';
         } else {
             return dash[cmd][0][propname].apply(dash[cmd][0], args);
         }
@@ -2450,6 +2571,20 @@ Folder.subCommands = (function () {
             return fun.apply(obj, args);
         } else {
             return fun; //ex: .length(arr(1, 5) )
+        }
+    };
+    ret.bool = ret["?"] = function (propname) {
+        var doc = this;
+        var bool = doc.booleans;
+        var cmd;
+    
+        var args = Array.prototype.slice.call(arguments, 1);
+    
+        if ( bool[propname] ) {
+            return bool[propname].call(doc, args);
+        } else {
+            doc.log("no such boolean tester: ", propname);
+            return false;
         }
     };
 
@@ -2920,6 +3055,7 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
     this.plugins = Object.create(parent.plugins);
     this.leaders = Object.create(parent.leaders);
     this.dash = Object.create(parent.dash);
+    this.booleans = Object.create(parent.booleans);
     this.convertHeading = parent.convertHeading;
     this.normalize = Folder.normalize;
 

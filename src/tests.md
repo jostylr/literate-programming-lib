@@ -97,7 +97,8 @@ The log array should be cleared between tests.
         "headless.md",
         "erroreval.md",
         "moresubcommands.md",
-        "dash.md"
+        "dash.md",
+        "ifelse.md"
     ].
     slice();
     //slice(31, 32);

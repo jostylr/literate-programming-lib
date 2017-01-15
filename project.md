@@ -144,6 +144,7 @@ Each doc within a folder shares all the directives and commands.
     Folder.plugins = {};
     Folder.leaders = ['.', '-'];
     Folder.dash = {};
+    Folder.booleans = _"subcommands::booleans";
 
     _"debugging::"
 
@@ -199,6 +200,7 @@ We have a default scope called `g` for global.
         this.plugins = Object.create(Folder.plugins);
         this.leaders = Object.create(Folder.leaders);
         this.dash = Object.create(Folder.dash);
+        this.booleans = Object.create(Folder.booleans);
         this.flags = {};
         this.Folder = Folder;
 
@@ -276,6 +278,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.plugins = Object.create(parent.plugins);
         this.leaders = Object.create(parent.leaders);
         this.dash = Object.create(parent.dash);
+        this.booleans = Object.create(parent.booleans);
         this.convertHeading = parent.convertHeading;
         this.normalize = Folder.normalize;
     
@@ -1125,6 +1128,19 @@ There are several built-in subcommands. Note that these are case insensitive.
 * `doc`. This returns the doc variable. This could be useful in connection to
   the property method and the log subcommand.
 * `skip`. This returns no arguments. 
+* `-fun` or `dash(fun, ...)` will use the functions found in the dash command
+  but as a subcommand. `-pad(dude, 5)` will pad the string `dude` to have
+  length 5 using the default spaces (in full where lodash is added to the
+  dash).
+* `?test` or `bool(test, ...)` will apply the test to the arguments. The
+  following are the default tests in the variable `doc.booleans`:
+    * `and` checks that all are truthy
+    * `or` checks that at least one is truthy`
+    * `===`, `==`, `>`, `>=`, `<`, `<=` tests in sequence the relation. 
+    * `!==`, `!=` tests all pairs for non-equality. 
+    * `flag` looks to see if the passed in strings are flags that have been
+      set. 
+
 
 To build one's own command, you can attach a function whose arguments will be
 the arguments passed in. The `this` is the doc object. The current name (say

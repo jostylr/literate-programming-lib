@@ -15,8 +15,8 @@ We test the if setup
 This should execute after the flag is read
 
     _":some text  
-    | if jack, eval, _":some code" 
-    | if jill, eval, _":bad code"
+    | if ?flag(jack), eval, _":some code" 
+    | if ?flag(jill), eval, _":bad code"
     | store first "
     
 
