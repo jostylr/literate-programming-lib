@@ -1348,7 +1348,8 @@ Folder.commands = {   eval : sync(function ( text, args ) {
         
         // no such property
         if (!found) {
-            doc.log("no such property on dash: ", propname, args);
+            doc.log("Command dash: no such property: " +  propname +
+                " with args: " + args.join("\, ") );
             gcd.emit("text ready:" + name, input);
         } else {
             doc.commands[cmd].call(doc, input, args, name);
@@ -2548,6 +2549,8 @@ Folder.subCommands = (function () {
             });
     
         if (!found) {
+            doc.log("Subcommand dash: no such property: " +  propname +
+                " with args: " + args.join("\, ") );
             doc.log("no such property on dash: ", propname);
             return '';
         } else {

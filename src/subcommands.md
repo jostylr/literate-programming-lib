@@ -462,6 +462,8 @@ input.
         _"commands::dash:found"
 
         if (!found) {
+            doc.log("Subcommand dash: no such property: " +  propname +
+                " with args: " + args.join("\, ") );
             doc.log("no such property on dash: ", propname);
             return '';
         } else {
