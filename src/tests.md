@@ -98,7 +98,8 @@ The log array should be cleared between tests.
         "erroreval.md",
         "moresubcommands.md",
         "dash.md",
-        "ifelse.md"
+        "ifelse.md",
+        "compile-minidoc.md"
     ].
     slice();
     //slice(31, 32);

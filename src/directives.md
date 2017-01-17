@@ -281,7 +281,6 @@ We make sure each emitname ends in ":" as this allows for unnamed mainblocks
 to be cut correctly in the subname computation (subname
 transformation:slicing).  
 
-    state.emitname += ":"; 
     doc.pipeDirSetup(state.pipes, state.emitname, state.handler, 
         ( state.start ||  state.block || '') );
 

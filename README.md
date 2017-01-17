@@ -634,6 +634,13 @@ commas, colons, quotes).
   it evals it to become so. This is great if you want to do a `.map` or if
   you just want to mess with stuff. `.call , args..` will call the
   function and return that result. 
+* **compile** `block, minor1, val1, minor2, val2,...` This compiles a
+  block of text as if it was in the document originally. The compiled text
+  will be the output. The first argument gives the names of the blockname
+  to use if short-hand minor blocks are encountered. This is useful for
+  templating. If no blockname is given, then the current one is used. Any
+  further arguments should be in pairs, with the second possibly empty, of
+  a minor block name to fill in with the value in the second place. 
 * **sub** `key1, val1, key2, val2, ...`  This replaces `key#` in the text
   with `val#`. The replacement is sorted based on the length of the key
   value. This is to help with SUBTITLE being replaced before TITLE, for

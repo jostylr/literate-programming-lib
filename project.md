@@ -246,8 +246,8 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.blockOff = 0;
         
         this.levels = {};
-        this.blocks = {'' : ''}; //an empty initial block in case of headless
-        this.heading = this.curname = '';
+        this.blocks = {'^' : ''}; //an empty initial block in case of headless
+        this.heading = this.curname = '^';
         this.levels[0] = text;
         this.levels[1] = '';
         this.levels[2] = '';
@@ -270,7 +270,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.wrapAsync = parent.wrapAsync;
         this.wrapSync = parent.wrapSync;
         this.wrapDefaults = parent.wrapDefaults;
-        this.uniq = parent.uniq();
+        this.uniq = parent.uniq;
         this.sync = Folder.sync;
         this.async = Folder.async;
         this.defSubCommand = Folder.defSubCommand;

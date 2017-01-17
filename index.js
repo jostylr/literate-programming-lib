@@ -1451,7 +1451,6 @@ var dirFactory = Folder.prototype.dirFactory = function (namefactory, handlerfac
 
         other.call(doc, state);
 
-        state.emitname += ":"; 
         doc.pipeDirSetup(state.pipes, state.emitname, state.handler, 
             ( state.start ||  state.block || '') );
         
@@ -3026,8 +3025,8 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
     this.blockOff = 0;
     
     this.levels = {};
-    this.blocks = {'' : ''}; //an empty initial block in case of headless
-    this.heading = this.curname = '';
+    this.blocks = {'^' : ''}; //an empty initial block in case of headless
+    this.heading = this.curname = '^';
     this.levels[0] = text;
     this.levels[1] = '';
     this.levels[2] = '';
@@ -3050,7 +3049,7 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
     this.wrapAsync = parent.wrapAsync;
     this.wrapSync = parent.wrapSync;
     this.wrapDefaults = parent.wrapDefaults;
-    this.uniq = parent.uniq();
+    this.uniq = parent.uniq;
     this.sync = Folder.sync;
     this.async = Folder.async;
     this.defSubCommand = Folder.defSubCommand;
@@ -3126,6 +3125,11 @@ dp.getScope = function (name) {
     if (  (ind = name.indexOf( colon.v + colon.v) ) !== -1 ) {
         alias = name.slice(0,ind);
         varname = name.slice(ind+2);
+        if (varname.length === 0) {
+            varname = "^";
+        } else if (varname[0] === colon.v ) {
+            varname = "^" + varname;
+        }
         scopename = doc.scopes[ alias ];
         if (typeof scopename === "string") {
             while ( typeof (scope = folder.scopes[scopename]) === "string") { 
@@ -3143,6 +3147,11 @@ dp.getScope = function (name) {
             return [null, varname, alias];
         }
     } else { //doc's scope is being requested
+        if (name.length === 0) {
+            name = "^";
+        } else if (name[0] === colon.v ) {
+            name = "^" + name;
+        }
         return [doc.vars, name, doc.file];
     }
 };

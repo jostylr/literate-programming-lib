@@ -1554,6 +1554,7 @@ This chain should only happen when all are established.
         if (  (ind = name.indexOf( colon.v + colon.v) ) !== -1 ) {
             alias = name.slice(0,ind);
             varname = name.slice(ind+2);
+            _":check for empty main | sub name, varname"
             scopename = doc.scopes[ alias ];
             if (typeof scopename === "string") {
                 while ( typeof (scope = folder.scopes[scopename]) === "string") { 
@@ -1571,8 +1572,26 @@ This chain should only happen when all are established.
                 return [null, varname, alias];
             }
         } else { //doc's scope is being requested
+            _":check for empty main"
             return [doc.vars, name, doc.file];
         }
+    }
+
+[check for empty main]()
+
+It is possible that one wants to reference a top unnamed block. The varname that
+this, and its minors, are stored under is `^`. Instead of typing that, we
+check for an empty heading.
+
+First if the name is empty:
+
+    if (name.length === 0) {
+        name = "^";
+
+Then if it is just a minor. Probably happens with a callout to another file.
+
+    } else if (name[0] === colon.v ) {
+        name = "^" + name;
     }
 
 

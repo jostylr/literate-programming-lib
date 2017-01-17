@@ -542,7 +542,7 @@ Reusing i,n. Want to jump by 2, start at 1 as 0 is the compile name.
     }
     
  
- ##### hcdoc
+##### cdoc
 
 
     * **compile** `block, minor1, val1, minor2, val2,...` This compiles a
