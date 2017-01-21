@@ -28,17 +28,17 @@ var Folder = function (actions) {
     this.docs = {};
     this.scopes = { g:{} };
     
-    this.commands = Object.create(Folder.commands);
-    this.directives = Object.create(Folder.directives);
-    this.subCommands = Object.create(Folder.subCommands);
+    this.commands = Folder.commands;
+    this.directives = Folder.directives;
+    this.subCommands =Folder.subCommands;
     this.reports = {};
     this.recording = {};
     this.stack = {};
     this.reporters = Folder.reporters;
-    this.plugins = Object.create(Folder.plugins);
-    this.leaders = Object.create(Folder.leaders);
+    this.plugins = Folder.plugins;
+    this.leaders = Folder.leaders;
     this.dash = Folder.dash;
-    this.booleans = Object.create(Folder.booleans);
+    this.booleans = Folder.booleans;
     this.flags = {};
     this.comments = Folder.comments;
     this.Folder = Folder;
@@ -3041,7 +3041,7 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
     this.directives = parent.directives;
     this.subCommands = parent.subCommands;
     this.comments = parent.comments; 
-    this.colon = Object.create(parent.colon); 
+    this.colon = parent.colon; 
     this.join = parent.join;
     this.log = this.parent.log;
     this.augment = this.parent.augment;
@@ -3058,10 +3058,10 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
     this.async = Folder.async;
     this.defSubCommand = Folder.defSubCommand;
     this.dirFactory = parent.dirFactory;
-    this.plugins = Object.create(parent.plugins);
-    this.leaders = Object.create(parent.leaders);
+    this.plugins = parent.plugins;
+    this.leaders = parent.leaders;
     this.dash = parent.dash;
-    this.booleans = Object.create(parent.booleans);
+    this.booleans = parent.booleans;
     this.convertHeading = parent.convertHeading;
     this.normalize = Folder.normalize;
 

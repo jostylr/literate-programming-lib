@@ -1095,11 +1095,7 @@ literate-programming.
    constructor function.
 8. The Folder has a plugins object where one can stash whatever under the
    plugin's name. This is largely for options and alternatives. The folder and
-   doc object have prototyped objects on this as well which allows one to
-   choose the scope of applicability of objects. But beware that subobjects
-   are not prototyped (unless setup in that way; you may want to implement
-   that by Object.creating what is there, if anything). Think of it as deciding
-   where options should live when creating them. 
+   doc object map to the same object.
 
 ### Structure of Doc and Folder
 
@@ -1182,10 +1178,6 @@ and shares via the prototype
   not defined. Subcommands throw errors when not defined, but since commands
   can be defined later, they will not. Hence this mechanism.  
 * Doc. This is the constructor for documents. 
-
-
-and uses Object.create to kind of share 
-
 * commands
 * directives
 * plugins
@@ -1228,7 +1220,7 @@ Inherited from folder
 * gcd, modifications affect all. Be careful to scope added events to files,
   etc. 
 * plugins, modifications affect all
-* colon, Object.created
+* colon 
 * join, overwriting will only affect doc
 * log, overwriting will only affect doc
 * subnameTransform, overwriting will only affect doc

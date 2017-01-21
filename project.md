@@ -192,17 +192,17 @@ We have a default scope called `g` for global.
         this.docs = {};
         this.scopes = { g:{} };
         
-        this.commands = Object.create(Folder.commands);
-        this.directives = Object.create(Folder.directives);
-        this.subCommands = Object.create(Folder.subCommands);
+        this.commands = Folder.commands;
+        this.directives = Folder.directives;
+        this.subCommands =Folder.subCommands;
         this.reports = {};
         this.recording = {};
         this.stack = {};
         this.reporters = Folder.reporters;
-        this.plugins = Object.create(Folder.plugins);
-        this.leaders = Object.create(Folder.leaders);
+        this.plugins = Folder.plugins;
+        this.leaders = Folder.leaders;
         this.dash = Folder.dash;
-        this.booleans = Object.create(Folder.booleans);
+        this.booleans = Folder.booleans;
         this.flags = {};
         this.comments = Folder.comments;
         this.Folder = Folder;
@@ -262,7 +262,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.directives = parent.directives;
         this.subCommands = parent.subCommands;
         this.comments = parent.comments; 
-        this.colon = Object.create(parent.colon); 
+        this.colon = parent.colon; 
         this.join = parent.join;
         this.log = this.parent.log;
         this.augment = this.parent.augment;
@@ -279,10 +279,10 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.async = Folder.async;
         this.defSubCommand = Folder.defSubCommand;
         this.dirFactory = parent.dirFactory;
-        this.plugins = Object.create(parent.plugins);
-        this.leaders = Object.create(parent.leaders);
+        this.plugins = parent.plugins;
+        this.leaders = parent.leaders;
         this.dash = parent.dash;
-        this.booleans = Object.create(parent.booleans);
+        this.booleans = parent.booleans;
         this.convertHeading = parent.convertHeading;
         this.normalize = Folder.normalize;
     
@@ -1256,11 +1256,7 @@ literate-programming.
    constructor function.
 8. The Folder has a plugins object where one can stash whatever under the
    plugin's name. This is largely for options and alternatives. The folder and
-   doc object have prototyped objects on this as well which allows one to
-   choose the scope of applicability of objects. But beware that subobjects
-   are not prototyped (unless setup in that way; you may want to implement
-   that by Object.creating what is there, if anything). Think of it as deciding
-   where options should live when creating them. 
+   doc object map to the same object.
 
  ### Structure of Doc and Folder
 
@@ -1343,10 +1339,6 @@ and shares via the prototype
   not defined. Subcommands throw errors when not defined, but since commands
   can be defined later, they will not. Hence this mechanism.  
 * Doc. This is the constructor for documents. 
-
-
-and uses Object.create to kind of share 
-
 * commands
 * directives
 * plugins
@@ -1389,7 +1381,7 @@ Inherited from folder
 * gcd, modifications affect all. Be careful to scope added events to files,
   etc. 
 * plugins, modifications affect all
-* colon, Object.created
+* colon 
 * join, overwriting will only affect doc
 * log, overwriting will only affect doc
 * subnameTransform, overwriting will only affect doc
