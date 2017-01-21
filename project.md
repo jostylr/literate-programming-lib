@@ -116,6 +116,8 @@ Each doc within a folder shares all the directives and commands.
     var typeit = Folder.requires.typeit = _"requires::typeit";
     var merge = Folder.requires.merge = _"requires::merge";
     
+    Folder.comments = {};
+    
     Folder.prototype.parse = _"commonmark::";
 
     Folder.prototype.newdoc = _"Make a new document";
@@ -142,7 +144,7 @@ Each doc within a folder shares all the directives and commands.
 
     Folder.postInit = function () {}; //a hook for plugin this modification
     Folder.plugins = {};
-    Folder.leaders = ['.', '-'];
+    Folder.leaders = ['.', '-', '#'];
     Folder.dash = {};
     Folder.booleans = _"subcommands::booleans";
 
@@ -202,6 +204,7 @@ We have a default scope called `g` for global.
         this.dash = Folder.dash;
         this.booleans = Object.create(Folder.booleans);
         this.flags = {};
+        this.comments = Folder.comments;
         this.Folder = Folder;
 
         _"events::done when"
@@ -258,6 +261,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.commands = parent.commands;
         this.directives = parent.directives;
         this.subCommands = parent.subCommands;
+        this.comments = parent.comments; 
         this.colon = Object.create(parent.colon); 
         this.join = parent.join;
         this.log = this.parent.log;

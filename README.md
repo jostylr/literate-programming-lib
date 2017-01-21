@@ -800,7 +800,12 @@ and if it
   none, then ARG# is eliminated. So `ARG0||1.9.0|` yields a default of
   1.9.0. Pipes cannot be in the default
 
-  Be careful that the first argument is the snippet name.     
+  Be careful that the first argument is the snippet name. 
+* **#/#name** This is just a comment. For special-character free text,
+  one can just write it, but if one wants to include special characters,
+  use `ec('...')`. Example `# This is a comment` or `#dude this is a
+  comment`. This latter form will store the current state into
+  `doc.comments`.     
 * **minidoc** `minidoc :title, :body` This takes an array and converts
   into an object where they key value is either the args as keys and the
   values the relevant input items or the item in the array is a

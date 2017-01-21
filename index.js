@@ -40,6 +40,7 @@ var Folder = function (actions) {
     this.dash = Folder.dash;
     this.booleans = Object.create(Folder.booleans);
     this.flags = {};
+    this.comments = Folder.comments;
     this.Folder = Folder;
 
     this.done = {
@@ -379,6 +380,8 @@ var merge = Folder.requires.merge = function (bclone, recursive) {
         return merge(bclone, recursive, arguments);
     }
 };
+
+Folder.comments = {};
 
 Folder.prototype.parse = function (doc) {
     var gcd = doc.gcd;
@@ -826,7 +829,7 @@ Folder.fcd = new EvW();
 
 Folder.postInit = function () {}; //a hook for plugin this modification
 Folder.plugins = {};
-Folder.leaders = ['.', '-'];
+Folder.leaders = ['.', '-', '#'];
 Folder.dash = {};
 Folder.booleans = { 
     "and" : function (args) {
@@ -3037,6 +3040,7 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
     this.commands = parent.commands;
     this.directives = parent.directives;
     this.subCommands = parent.subCommands;
+    this.comments = parent.comments; 
     this.colon = Object.create(parent.colon); 
     this.join = parent.join;
     this.log = this.parent.log;
@@ -4681,6 +4685,13 @@ Folder.sync("matrixify", function (code, args) {
         result = result.trim();
     }
     return result;
+});
+
+Folder.sync("#", function (input, args) {
+    if (args.length === 2) {
+        this.comments[args[0]] = input;
+    }
+    return input;
 }); 
 
 module.exports = Folder;

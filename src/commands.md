@@ -61,6 +61,8 @@ establishing convention.
     
     _"matrix::"
 
+    _"comments"
+
 
     
 
@@ -1839,5 +1841,31 @@ So we want to be able to plug in simple parameters.
       1.9.0. Pipes cannot be in the default
 
       Be careful that the first argument is the snippet name. 
+
+## Comments
+
+This is to allow comments in a pipe. It actually does nothing to the input,
+but will do a side effect of storing the state for review (kind of a log) if
+the hash is followed by text
+
+    Folder.sync("#", _":fun");
+
+[fun]()
+
+    function (input, args) {
+        if (args.length === 2) {
+            this.comments[args[0]] = input;
+        }
+        return input;
+    }
+
+
+##### cdoc
+
+    * **#/#name** This is just a comment. For special-character free text,
+      one can just write it, but if one wants to include special characters,
+      use `ec('...')`. Example `# This is a comment` or `#dude this is a
+      comment`. This latter form will store the current state into
+      `doc.comments`. 
 
 

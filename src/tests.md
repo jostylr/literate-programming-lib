@@ -99,7 +99,8 @@ The log array should be cleared between tests.
         "moresubcommands.md",
         "dash.md",
         "ifelse.md",
-        "compile-minidoc.md"
+        "compile-minidoc.md",
+        "comments-pipes.md"
     ].
     slice();
     //slice(31, 32);
