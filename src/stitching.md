@@ -1856,7 +1856,8 @@ are manipulating.
             if (method) {args.unshift( method );}
             fun = doc.commands[command[0]];
         } else {
-            fun = doc.commands[doc.normalize(command)];
+            command = doc.normalize(command)
+            fun = doc.commands[command];
         }
 
 [extract data]()

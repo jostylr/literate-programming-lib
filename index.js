@@ -1819,9 +1819,9 @@ Folder.directives = {
     "define" : dirFactory(function (state) {
         state.emitname =  "cmddefine:" + state.linkname;
     }, function (state) {
-        var cmdname = state.linkname;
         var doc = this;
         var gcd = this.gcd;
+        var cmdname = doc.normalize(state.linkname);
     
         var han = function (block) {
             var f; 
@@ -4137,7 +4137,8 @@ dp.argFinishingHandler = function (comname) {
                 if (method) {args.unshift( method );}
                 fun = doc.commands[command[0]];
             } else {
-                fun = doc.commands[doc.normalize(command)];
+                command = doc.normalize(command)
+                fun = doc.commands[command];
             }
     
                 

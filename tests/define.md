@@ -35,7 +35,7 @@ This is the command beans
         return doc.file + ": " + input + "! garbanzo beans";
     }
 
-[beans](# "define:")
+[be-ans](# "define:")
 
 ## Warm
 

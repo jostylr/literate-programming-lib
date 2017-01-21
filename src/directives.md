@@ -719,9 +719,9 @@ input.
 [handler factory]() 
 
     function (state) {
-        var cmdname = state.linkname;
         var doc = this;
         var gcd = this.gcd;
+        var cmdname = doc.normalize(state.linkname);
 
         var han = function (block) {
             var f; 

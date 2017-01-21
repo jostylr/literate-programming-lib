@@ -32,7 +32,6 @@ The log array should be cleared between tests.
         "savepipe.md",  
         "load.md",
         "asynceval.md",
-        "define.md",
         "blockoff.md",
         "raw.md",
         "h5.md",
@@ -100,7 +99,8 @@ The log array should be cleared between tests.
         "dash.md",
         "ifelse.md",
         "compile-minidoc.md",
-        "comments-pipes.md"
+        "comments-pipes.md",
+        "define.md"
     ].
     slice();
     //slice(31, 32);
@@ -214,7 +214,7 @@ process the inputs.
                 });
             };
 
-         //  notEmit();
+           //notEmit();
 
          //setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
 
