@@ -1579,13 +1579,16 @@ quotes, and then put it out as an array of strings joined with new lines.
 
 [fun]()
 
-    function (code) {
+    function (code, args) {
+        var quote = args[0] || '"';
+        quote = (args[0] === 'q') ? "'" : quote;
+        quote = (args[0] === 'qq') ? '"' : quote;
         code = code.replace(/\\/g, '\\\\');
-        code = code.replace(/"/g, '\\' + '"');
+        code = code.replace(/"/g, '\\' + quote);
         var arr = code.split("\n");
         var i, n = arr.length;
         for (i = 0; i < n; i += 1) {
-            arr[i] = '"' + arr[i] + '"';
+            arr[i] = quote + arr[i] + quote;
         }
         code = arr.join(" +\n");
         return code;
@@ -1594,7 +1597,9 @@ quotes, and then put it out as an array of strings joined with new lines.
 ##### cdoc
 
     * **js-string** This breaks the incoming text of many lines into quoted
-      lines with appropriate plus signs added. 
+      lines with appropriate plus signs added. The first argument allows for a
+      different quote such as `'`. The double quote is default. Also `q` and
+      `qq` generates single and double quotes, respectively. 
 
 
 ## Html-wrap
@@ -2067,9 +2072,8 @@ anonymous commands. The first argument should be the command function.
 [common]()
 
     function (input, args, name) {
-        var doc = this;
-        var gcd = doc.gcd;
-        var typeit = doc.Folder.requires.typeit;
+        _"|globals doc, gcd, typeit"
+        
         var f = args.shift();
 
         if (typeit(f, "string") ) {

@@ -47,6 +47,7 @@ The "." are intentional; they signify that this is a command method.
         set : _"set",
         get : _"get",
         keys : _"keys",
+        toJSON : _"toJSON",
         toString : _"toString",
         forin : _"for in",
         strip : _"strip"
@@ -239,7 +240,7 @@ bf stands for boolean or function
         return keys;
     }
 
-### toString 
+### toString
 
 This implements a toString method. Its arguments include the key and value
 separators. The default is colon and newline with no wrapping. One can provide
@@ -257,6 +258,19 @@ wrapping functions.
             str += fkey(el) + keysep + fval(obj[el]) + valsep;
         });
         return str;
+
+    }
+
+## toJSON
+
+    function () {
+        var obj = this;
+        var keys = obj.keys();
+        var newobj = {};
+        keys.forEach(function (el) {
+            newobj[el] = obj[el];
+        });
+        return JSON.stringify(newobj);
 
     }
    

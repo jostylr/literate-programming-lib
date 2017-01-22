@@ -398,6 +398,43 @@ the `Folder.prototype.error` or individually on a doc.
 
 !! Add in error doc and figure out how to test it. 
 
+## Globals
+
+This is a simple command that takes in a set of variable names and produces
+the appropriate syntax. 
+
+    function (input, args) {
+        var globals = _":list | objectify 
+        | eval _":json"  ";
+        var ret = '';
+        args.forEach(function (el) {
+            ret += (globals[el] || 'var ' + el +';') + '\n';
+        });
+        return ret;
+    }
+
+[globals](# "define:")
+
+[list]()
+
+Some commonly used variables. 
+
+    doc : var doc = this;
+    gcd : var gcd = doc.gcd;
+    typeit : var typeit = doc.Folder.requires.typeit;
+    
+
+[json]()
+
+    var obj = text;
+    var keys = obj.keys();
+    var newobj = {};
+    keys.forEach(function (el) {
+        newobj[el] = obj[el];
+    });
+    text = JSON.stringify(newobj);
+
+
 [off](# "block:")
 
 ## README

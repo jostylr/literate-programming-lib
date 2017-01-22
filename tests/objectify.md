@@ -4,6 +4,7 @@ objectify - testing the objectify method
 
     _":object | objectify | .get this is great "
     _":object | objectify | .toString !, &"
+    _":object | objectify | .toJSON"
 
 
 [out](# "save:")
@@ -16,3 +17,4 @@ objectify - testing the objectify method
 ---
 whatever
 5!jack&jack!jane&this is great!whatever&
+{"5":"jack","jack":"jane","this is great":"whatever"}

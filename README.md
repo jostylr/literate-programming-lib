@@ -762,7 +762,9 @@ and if it
 * **wrap** This wraps the incoming text in the first and second argument:
   `some text | wrap <, >"  will result in `<some text>`. 
 * **js-string** This breaks the incoming text of many lines into quoted
-  lines with appropriate plus signs added. 
+  lines with appropriate plus signs added. The first argument allows for a
+  different quote such as `'`. The double quote is default. Also `q` and
+  `qq` generates single and double quotes, respectively. 
 * **html-wrap** This takes the incoming text and wraps it in a tag
   element, using the first argument as the element and the rest of the
   arguments as attributes. An equals sign creates an attribute with value,

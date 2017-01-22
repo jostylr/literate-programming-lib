@@ -2922,6 +2922,16 @@ Folder.plugins.augment = {
             }
             return keys;
         },
+        toJSON : function () {
+            var obj = this;
+            var keys = obj.keys();
+            var newobj = {};
+            keys.forEach(function (el) {
+                newobj[el] = obj[el];
+            });
+            return JSON.stringify(newobj);
+        
+        },
         toString : function (keysep, valsep, fkey, fval) {
             var obj = this;
             keysep =  keysep || ':';
@@ -4468,13 +4478,16 @@ Folder.sync("wrap", function (code, args) {
     return args[0] + code + args[1];
 });
 
-Folder.sync("js-string", function (code) {
+Folder.sync("js-string", function (code, args) {
+    var quote = args[0] || '"';
+    quote = (args[0] === 'q') ? "'" : quote;
+    quote = (args[0] === 'qq') ? '"' : quote;
     code = code.replace(/\\/g, '\\\\');
-    code = code.replace(/"/g, '\\' + '"');
+    code = code.replace(/"/g, '\\' + quote);
     var arr = code.split("\n");
     var i, n = arr.length;
     for (i = 0; i < n; i += 1) {
-        arr[i] = '"' + arr[i] + '"';
+        arr[i] = quote + arr[i] + quote;
     }
     code = arr.join(" +\n");
     return code;
@@ -4845,6 +4858,8 @@ Folder.commands.anon = function (input, args, name) {
     var doc = this;
     var gcd = doc.gcd;
     var typeit = doc.Folder.requires.typeit;
+    
+    
     var f = args.shift();
 
     if (typeit(f, "string") ) {
@@ -4869,6 +4884,8 @@ Folder.commands.anonasync = function (input, args, name) {
     var doc = this;
     var gcd = doc.gcd;
     var typeit = doc.Folder.requires.typeit;
+    
+    
     var f = args.shift();
 
     if (typeit(f, "string") ) {
