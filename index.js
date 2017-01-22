@@ -544,6 +544,16 @@ Folder.prototype.colon = {   v : "\u2AF6",
 Folder.prototype.join = "\n";
 
 Folder.prototype.log = function (text) { console.log(text); };
+Folder.prototype.error= function (kind, description) {
+    var doc = this;
+    var gcd = doc.gcd;
+    var args = Array.prototype.slice.call(arguments, 2);
+
+    doc.log("ERROR:" + kind + "\n" + description + "\n---\n" + 
+        args.join("\n-\n") );
+    //shuts off all further processing
+    gcd.stop();
+};
 
 Folder.prototype.indicator = "\u2AF6\u2AF6\u2AF6";
 
@@ -3044,6 +3054,7 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
     this.colon = parent.colon; 
     this.join = parent.join;
     this.log = this.parent.log;
+    this.error = this.parent.error;
     this.augment = this.parent.augment;
     this.cmdworker = this.parent.cmdworker;
     this.compose = this.parent.compose;
@@ -4693,6 +4704,197 @@ Folder.sync("#", function (input, args) {
         this.comments[args[0]] = input;
     }
     return input;
-}); 
+});
+
+Folder.commands.cmds = function (input, seq, finalname) {
+    var doc = this;
+    var gcd = doc.gcd;
+    var colon = doc.colon.v;
+    var typeit = doc.Folder.requires.typeit;
+    var args; 
+
+    var hanMaker = function (cmd, args, name) {
+        var f = function (input) {
+            if (doc.commands[cmd]) {
+                doc.commands[cmd].call(doc, input, args, name);
+            } else {
+                gcd.once("command defined:" + cmd, function () {
+                    doc.commands[cmd].call(doc, input, args, name);
+                });
+            }
+        }; 
+        f._label = "cmds;;" + name;
+        return f;
+    };
+    var nameMaker = function (i) {
+        var ret = finalname + colon + "cmds" + colon + i;
+        return ret;
+    };
+    var i, last = (!(seq.length % 2)) ? seq.length-2 : seq.length -1; 
+    gcd.flatWhen("text ready:" + nameMaker(last), "text ready:" + finalname);
+    for (i = last; i >= 0; i -= 2 ) {
+        if (typeit(seq[i+1], 'array')) {
+            args = seq[i+1];
+        } else {
+            args = [seq[i+1]];
+        }
+        cmd = seq[i];
+        if (i > 0) {
+            gcd.once("text ready:" + nameMaker(i-2), 
+                hanMaker(cmd, args, nameMaker(i) ) );
+        } else {
+            hanMaker(cmd, args, nameMaker(i))(input);
+        }
+    }
+};
+
+Folder.sync("pget", function (input, args) {
+    var doc = this;
+    var typeit = doc.Folder.requires.typeit;
+    var cur = input;
+    args.some(function (el)  {
+        cur = cur[el];
+        return typeit(cur, "undefined");
+    });
+    return cur;
+});
+Folder.sync("pset", function (input, args) {
+    var doc = this;
+    var typeit = doc.Folder.requires.typeit;
+    var val = args.pop();
+    var last = args.pop();
+
+    if ( typeit(input, "undefined") || typeit(input, "null") ) {
+        if (typeit(args[0], "number") ) {
+            input = [];
+        } else {
+            input = {};
+        }
+    }
+    var prev, prevkey, cur, nxt;
+    cur = prev = input; 
+
+    args.forEach(function (elm, ind) {
+        if (typeit(cur, 'undefined') ) {
+            if ( typeit(elm, 'number' )  ) {
+                cur = prev[prevkey] = [];
+            } else {
+                cur = prev[prevkey] = {};
+            }
+        }
+        prev = cur;
+        cur = cur[elm];
+        prevkey = elm;
+    });
+
+    if (typeit(cur, 'undefined') ) {
+        if ( typeit(last, 'number' )  ) {
+            cur = prev[prevkey] = [];
+        } else {
+            cur = prev[prevkey] = {};
+        }
+    }
+
+    cur[last] = val;
+
+    return input;
+});
+Folder.sync("pstore", function (input, args) {
+    var doc = this;
+    var typeit = doc.Folder.requires.typeit;
+    var val = input; input = args.shift();
+    var last = args.pop();
+
+    if ( typeit(input, "undefined") || typeit(input, "null") ) {
+        if (typeit(args[0], "number") ) {
+            input = [];
+        } else {
+            input = {};
+        }
+    }
+    var prev, prevkey, cur, nxt;
+    cur = prev = input; 
+
+    args.forEach(function (elm, ind) {
+        if (typeit(cur, 'undefined') ) {
+            if ( typeit(elm, 'number' )  ) {
+                cur = prev[prevkey] = [];
+            } else {
+                cur = prev[prevkey] = {};
+            }
+        }
+        prev = cur;
+        cur = cur[elm];
+        prevkey = elm;
+    });
+
+    if (typeit(cur, 'undefined') ) {
+        if ( typeit(last, 'number' )  ) {
+            cur = prev[prevkey] = [];
+        } else {
+            cur = prev[prevkey] = {};
+        }
+    }
+
+    cur[last] = val;
+
+    return val;
+});
+
+Folder.commands.anon = function (input, args, name) {
+    var doc = this;
+    var gcd = doc.gcd;
+    var typeit = doc.Folder.requires.typeit;
+    var f = args.shift();
+
+    if (typeit(f, "string") ) {
+        f.trim();
+        if ( ( f[0] === '\u0028')  || (f.slice(0,8) === "function") ) {
+            eval('f=' + f); 
+        } else {
+            eval('f= function (input, args) {' + f + '}');
+        }
+    } else if  (!(typeit(f, "function") ) ) {
+        doc.error("cmd: anon", "unrecognized function", input, args, name);
+        return '';
+    }
+
+    var ret =  f.call(doc, input, args, name);
+    gcd.scope(name, null);
+    gcd.emit("text ready:" + name, ret);
+
+
+};
+Folder.commands.anonasync = function (input, args, name) {
+    var doc = this;
+    var gcd = doc.gcd;
+    var typeit = doc.Folder.requires.typeit;
+    var f = args.shift();
+
+    if (typeit(f, "string") ) {
+        f.trim();
+        if ( ( f[0] === '\u0028')  || (f.slice(0,8) === "function") ) {
+            eval('f=' + f); 
+        } else {
+            eval('f= function (input, args) {' + f + '}');
+        }
+    } else if  (!(typeit(f, "function") ) ) {
+        doc.error("cmd: anon", "unrecognized function", input, args, name);
+        return '';
+    }
+
+    var callback = function (err, data) {
+        if (err) {
+            doc.error("cmd: anon-async", "error in callback", err, input,
+                args, name);
+        } else {
+            gcd.scope(name, null);
+            gcd.emit("text ready:" + name, data);
+        }
+    };
+    f.call(doc, input, args, callback, name);
+
+
+}; 
 
 module.exports = Folder;

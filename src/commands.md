@@ -63,7 +63,11 @@ establishing convention.
 
     _"comments"
 
+    _"commands"
 
+    _"pget pset pstore"
+
+    _"anonymous commands"
     
 
 ## Doc
@@ -338,7 +342,6 @@ counter. Hopefully this is sufficient to make it unique and identifiable.
         })(tag);
     }
 
-## Commands
 
 
 ### Eval
@@ -1868,4 +1871,266 @@ the hash is followed by text
       comment`. This latter form will store the current state into
       `doc.comments`. 
 
+## Commands
 
+This does a sequence of commands. It is mainly used for an if-else construct.
+The compose directive could also be used, but if it is a one-off sequence,
+this is probably more convenient. 
+
+    Folder.commands.cmds = _":fun";
+
+[fun]()
+
+A little unsure if the name could conflict. Will use `name + :cmds:#`
+
+We need to extract the command and arguments for each. 
+
+    function (input, seq, finalname) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var colon = doc.colon.v;
+        var typeit = doc.Folder.requires.typeit;
+        var args; 
+
+        var hanMaker = _":handler";
+        var nameMaker = _":namer";
+
+
+The number of arguments should be even, but if not, we assume the last
+argument is a command. 
+
+        var i, last = (!(seq.length % 2)) ? seq.length-2 : seq.length -1; 
+
+When the last command is ready, we emit that text. This is just a passing off. 
+
+        gcd.flatWhen("text ready:" + nameMaker(last), "text ready:" + finalname);
+
+Now we set all the rest to execute. 
+
+        for (i = last; i >= 0; i -= 2 ) {
+            if (typeit(seq[i+1], 'array')) {
+                args = seq[i+1];
+            } else {
+                args = [seq[i+1]];
+            }
+            cmd = seq[i];
+            if (i > 0) {
+                gcd.once("text ready:" + nameMaker(i-2), 
+                    hanMaker(cmd, args, nameMaker(i) ) );
+            } else {
+                hanMaker(cmd, args, nameMaker(i))(input);
+            }
+        }
+    }
+
+[handler]()
+
+The handle takes in the incoming event data (input) and then runs it through
+the command and spits out the name. It may need to wait for the command. This
+makes the handler.
+
+    function (cmd, args, name) {
+        var f = function (input) {
+            _"command waiting"
+        }; 
+        f._label = "cmds;;" + name;
+        return f;
+    }
+
+
+[namer]()
+
+This is where we make the names, based on the position. 
+
+    function (i) {
+        var ret = finalname + colon + "cmds" + colon + i;
+        return ret;
+    }
+
+
+##### cdoc 
+
+    * **cmds** This creates a sequence of commands to execute, most likely
+      used with if-else since a single pathway is covered by the usual pipe
+      syntax. The form is `cmds cmd1, array of args for 1, cmd2, args for
+      2`, e.g., `cmds sub, arr(awe, dud), cat, arr(dude, what)`... If it is
+      just one argument, then the array is not needed (if it is just one
+      argument and that is an array, wrap that in an array)). 
+
+
+
+## pget pset pstore
+
+This gets and sets properties on the incoming input. The args are the property
+descenders, e.g., `abe[2][th]` is `abe ...  | pget 2, th` For pset, the first
+argument is what to set it to and the rest is the selector. 
+
+    Folder.sync("pget", _":pget");
+    Folder.sync("pset", _":pset");
+    Folder.sync("pstore", _":pstore");
+
+[pget]() 
+
+We use some so that if cur becomes undefined, we stop the iteration and return
+undefined. 
+
+    function (input, args) {
+        var doc = this;
+        var typeit = doc.Folder.requires.typeit;
+        var cur = input;
+        args.some(function (el)  {
+            cur = cur[el];
+            return typeit(cur, "undefined");
+        });
+        return cur;
+    }
+
+[pset]()
+
+
+The first of args is the value. We want to call up the object up to that
+point. The last of the args is where to point so we exclude that from args.
+Then we iterate, adding in objects or arrays as needed. 
+
+    function (input, args) {
+        var doc = this;
+        var typeit = doc.Folder.requires.typeit;
+        var val = args.pop();
+        var last = args.pop();
+
+        if ( typeit(input, "undefined") || typeit(input, "null") ) {
+            if (typeit(args[0], "number") ) {
+                input = [];
+            } else {
+                input = {};
+            }
+        }
+        var prev, prevkey, cur, nxt;
+        cur = prev = input; 
+
+        args.forEach(function (elm, ind) {
+            _":cur undefined"
+            prev = cur;
+            cur = cur[elm];
+            prevkey = elm;
+        });
+
+        _":cur undefined | sub elm, last"
+
+        cur[last] = val;
+
+        return input;
+    }
+
+[cur undefined]()
+Prev is the last known object to be well-defined. Cur points to prev[prevkey].
+If undefined, we define it. Then we assign cur[el]. 
+
+    if (typeit(cur, 'undefined') ) {
+        if ( typeit(elm, 'number' )  ) {
+            cur = prev[prevkey] = [];
+        } else {
+            cur = prev[prevkey] = {};
+        }
+    }
+
+
+[pstore]() 
+
+We need to switch the input and the value in terms of incoming and outgoing. 
+
+    _":pset | sub return input, return val 
+        | sub var val = args.pop();,  var val = input; input = args.shift();
+     "
+
+
+
+##### cdoc
+
+    * **pget** Gets the property named by the arguments.
+    * **pset** Sets the property named by the arguments with the last
+      argument being the value. May create objects and arrays as
+      needed. 
+    * **pstore** This stores the input into the first argument (should be
+      object or array) using the rest of the arguments to define. This returns
+      the value.
+
+## anonymous commands
+
+anon and anonasync generate syncronous and asynchronous, respectively,
+anonymous commands. The first argument should be the command function.
+
+    Folder.commands.anon = _":anon";
+    Folder.commands.anonasync = _":anon-async";
+
+
+[common]()
+
+    function (input, args, name) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var typeit = doc.Folder.requires.typeit;
+        var f = args.shift();
+
+        if (typeit(f, "string") ) {
+            _":make fun from string"
+        } else if  (!(typeit(f, "function") ) ) {
+            doc.error("cmd: anon", "unrecognized function", input, args, name);
+            return '';
+        }
+
+        READY
+
+
+    }
+
+
+[make fun from string]()
+
+The string could be of the form `(...) => ...` or `function (..) ...` or just
+a set of lines which suggests to enclose that in a function for a command. 
+
+    f.trim();
+    if ( ( f[0] === '\u0028')  || (f.slice(0,8) === "function") ) {
+        eval('f=' + f); 
+    } else {
+        eval('f= function (input, args) {' + f + '}');
+    }
+
+[anon]() 
+
+    _":common | sub READY, _':emit'  "
+
+[emit]()
+    
+    var ret =  f.call(doc, input, args, name);
+    gcd.scope(name, null);
+    gcd.emit("text ready:" + name, ret);
+
+[anon-async]()
+
+    _":common | sub READY, _":cb" "
+
+[cb]() 
+
+    var callback = function (err, data) {
+        if (err) {
+            doc.error("cmd: anon-async", "error in callback", err, input,
+                args, name);
+        } else {
+            gcd.scope(name, null);
+            gcd.emit("text ready:" + name, data);
+        }
+    };
+    f.call(doc, input, args, callback, name);
+
+##### cdoc
+
+    * **anon** The first argument should be a function or string that can be
+      converted into a function of command form, namely the arguments are
+      `input, arguments` and the `this` is `doc` though that is also in a
+      closure if it is a string evaluated. The function should be synchronous
+      and return the value to send on. 
+   * **anon-async** Just like `anon` but the first function should expect
+     `input, args, callback` as the signature and call the callback when done,
+     passing along `err, data` into it. 

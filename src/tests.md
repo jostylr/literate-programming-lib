@@ -100,7 +100,10 @@ The log array should be cleared between tests.
         "ifelse.md",
         "compile-minidoc.md",
         "comments-pipes.md",
-        "define.md"
+        "define.md",
+        "commands.md",
+        "psetgetstore.md",
+        "anon.md"
     ].
     slice();
     //slice(31, 32);
@@ -161,7 +164,7 @@ process the inputs.
 
         //gcd.makeLog();
 
-        //gcd.monitor('cool', function (evt, data) { console.log(evt, data); });
+        //gcd.monitor('', function (evt, data) { console.log(evt, data); });
 
         test(name, function (t) {
             var outs, m, j, out;

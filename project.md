@@ -127,6 +127,7 @@ Each doc within a folder shares all the directives and commands.
     Folder.prototype.join = "\n";
 
     Folder.prototype.log = function (text) { console.log(text); };
+    Folder.prototype.error= _"error";
 
     Folder.prototype.indicator = "\u2AF6\u2AF6\u2AF6";
 
@@ -265,6 +266,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.colon = parent.colon; 
         this.join = parent.join;
         this.log = this.parent.log;
+        this.error = this.parent.error;
         this.augment = this.parent.augment;
         this.cmdworker = this.parent.cmdworker;
         this.compose = this.parent.compose;
@@ -377,7 +379,24 @@ This takes in a file name, text, and possibly some more event/handler actions.
 
     }
 
+## Error
 
+This creates an error function that can be called. It can be overwritten on
+the `Folder.prototype.error` or individually on a doc. 
+
+    function (kind, description) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var args = Array.prototype.slice.call(arguments, 2);
+
+        doc.log("ERROR:" + kind + "\n" + description + "\n---\n" + 
+            args.join("\n-\n") );
+        //shuts off all further processing
+        gcd.stop();
+    }
+
+
+!! Add in error doc and figure out how to test it. 
 
 [off](# "block:")
 

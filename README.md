@@ -805,7 +805,25 @@ and if it
   one can just write it, but if one wants to include special characters,
   use `ec('...')`. Example `# This is a comment` or `#dude this is a
   comment`. This latter form will store the current state into
-  `doc.comments`.     
+  `doc.comments`. 
+* **cmds** This creates a sequence of commands to execute, most likely
+  used with if-else since a single pathway is covered by the usual pipe
+  syntax. The form is `cmds cmd1, array of args for 1, cmd2, args for
+  2`, e.g., `cmds sub, arr(awe, dud), cat, arr(dude, what)`... If it is
+  just one argument, then the array is not needed (if it is just one
+  argument and that is an array, wrap that in an array)). 
+* **pget** Gets the property named by the arguments.
+* **pset** Sets the property named by the arguments with the last
+  argument being the value. May create objects and arrays as
+  needed. 
+* **pstore** This stores the input into the first argument (should be
+  object or array) using the rest of the arguments to define. This returns
+  the value.
+* **anon** The first argument should be a function or string that can be
+  converted into a function of command form, namely the arguments are
+  `input, arguments` and the `this` is `doc` though that is also in a
+  closure if it is a string evaluated. The function should be synchronous
+  and return the value to send on.     
 * **minidoc** `minidoc :title, :body` This takes an array and converts
   into an object where they key value is either the args as keys and the
   values the relevant input items or the item in the array is a
