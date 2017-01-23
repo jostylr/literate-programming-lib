@@ -1466,8 +1466,10 @@ Returning undefined is good and normal.
         var file = scope[2];
         scope = scope[0];
         var f;
+        _"debugging::var tracking:need var"
         if (scope) {
             if (scope.hasOwnProperty(varname) ) {
+                _"debugging::var tracking:has var"
                 _":callback handling"
                 return ;
             } else {
@@ -1856,7 +1858,7 @@ are manipulating.
             if (method) {args.unshift( method );}
             fun = doc.commands[command[0]];
         } else {
-            command = doc.normalize(command)
+            command = doc.normalize(command);
             fun = doc.commands[command];
         }
 

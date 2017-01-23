@@ -122,3 +122,38 @@ This reports on somebody waiting for a command.
         return "NEED COMMAND: " + data[0] + " FOR: " + hint; 
     }
 
+## var tracking
+
+This is an attempt to report sections that have been asked for, but have not
+been reported.
+
+This was an idea, I tried, couldn't get it quite right, so nullifying it, but
+leaving it here for now for inspiration. 
+
+[initialize](# ": | echo ")
+
+    this.varTrack = {};
+
+[need var](# ": | echo ")
+
+    doc.parent.varTrack[file + "::" + varname] = true;
+
+[has var](# ": | echo ")
+
+    doc.parent.varTrack[ file + "::" + varname ] = false;
+
+[report](# ": | echo ")
+
+    process.on('exit', function () {
+        console.log(Object.keys(parent.varTrack).
+            sort().
+            reduce(function (prev, cur) {
+                if (parent.varTrack[cur]) {
+                    return prev + "\nNEED: " + cur;
+                } else {
+                    return prev;
+                }
+            }, '')
+        );
+    });
+    

@@ -1895,7 +1895,7 @@ We need to extract the command and arguments for each.
         var gcd = doc.gcd;
         var colon = doc.colon.v;
         var typeit = doc.Folder.requires.typeit;
-        var args; 
+        var args, cmd; 
 
         var hanMaker = _":handler";
         var nameMaker = _":namer";
@@ -1904,7 +1904,7 @@ We need to extract the command and arguments for each.
 The number of arguments should be even, but if not, we assume the last
 argument is a command. 
 
-        var i, last = (!(seq.length % 2)) ? seq.length-2 : seq.length -1; 
+        var i, last = ( (seq.length % 2) === 0 ) ? seq.length-2 : seq.length -1; 
 
 When the last command is ready, we emit that text. This is just a passing off. 
 
@@ -2010,10 +2010,10 @@ Then we iterate, adding in objects or arrays as needed.
                 input = {};
             }
         }
-        var prev, prevkey, cur, nxt;
+        var prev, prevkey, cur;
         cur = prev = input; 
 
-        args.forEach(function (elm, ind) {
+        args.forEach(function (elm) {
             _":cur undefined"
             prev = cur;
             cur = cur[elm];

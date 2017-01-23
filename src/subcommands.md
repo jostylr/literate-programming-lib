@@ -506,7 +506,6 @@ that return booleans.
     function (propname) {
         var doc = this;
         var bool = doc.booleans;
-        var cmd;
 
         var args = Array.prototype.slice.call(arguments, 1);
 

@@ -20,6 +20,7 @@ var apply = function (instance, obj) {
 
 var Folder = function (actions) {
     actions = actions || Folder.actions;
+    //var parent = this;
 
     var gcd = this.gcd = new EvW();
     //.when will preserve initial, not emitted order
@@ -42,6 +43,7 @@ var Folder = function (actions) {
     this.flags = {};
     this.comments = Folder.comments;
     this.Folder = Folder;
+    
 
     this.done = {
         gcd : new EvW(),
@@ -264,6 +266,8 @@ var Folder = function (actions) {
     }
 
     Folder.postInit(this);
+    
+    
 
     return this;
 };
@@ -2591,7 +2595,6 @@ Folder.subCommands = (function () {
     ret.bool = ret["?"] = function (propname) {
         var doc = this;
         var bool = doc.booleans;
-        var cmd;
     
         var args = Array.prototype.slice.call(arguments, 1);
     
@@ -3107,8 +3110,10 @@ dp.retrieve = function (name, cb) {
     var file = scope[2];
     scope = scope[0];
     var f;
+    
     if (scope) {
         if (scope.hasOwnProperty(varname) ) {
+            
             if (typeof cb === "function") {
                 cb(scope[varname]);
             } else if (typeof cb === "string") {
@@ -4158,7 +4163,7 @@ dp.argFinishingHandler = function (comname) {
                 if (method) {args.unshift( method );}
                 fun = doc.commands[command[0]];
             } else {
-                command = doc.normalize(command)
+                command = doc.normalize(command);
                 fun = doc.commands[command];
             }
     
@@ -4724,7 +4729,7 @@ Folder.commands.cmds = function (input, seq, finalname) {
     var gcd = doc.gcd;
     var colon = doc.colon.v;
     var typeit = doc.Folder.requires.typeit;
-    var args; 
+    var args, cmd; 
 
     var hanMaker = function (cmd, args, name) {
         var f = function (input) {
@@ -4743,7 +4748,7 @@ Folder.commands.cmds = function (input, seq, finalname) {
         var ret = finalname + colon + "cmds" + colon + i;
         return ret;
     };
-    var i, last = (!(seq.length % 2)) ? seq.length-2 : seq.length -1; 
+    var i, last = ( (seq.length % 2) === 0 ) ? seq.length-2 : seq.length -1; 
     gcd.flatWhen("text ready:" + nameMaker(last), "text ready:" + finalname);
     for (i = last; i >= 0; i -= 2 ) {
         if (typeit(seq[i+1], 'array')) {
@@ -4784,10 +4789,10 @@ Folder.sync("pset", function (input, args) {
             input = {};
         }
     }
-    var prev, prevkey, cur, nxt;
+    var prev, prevkey, cur;
     cur = prev = input; 
 
-    args.forEach(function (elm, ind) {
+    args.forEach(function (elm) {
         if (typeit(cur, 'undefined') ) {
             if ( typeit(elm, 'number' )  ) {
                 cur = prev[prevkey] = [];
@@ -4825,10 +4830,10 @@ Folder.sync("pstore", function (input, args) {
             input = {};
         }
     }
-    var prev, prevkey, cur, nxt;
+    var prev, prevkey, cur;
     cur = prev = input; 
 
-    args.forEach(function (elm, ind) {
+    args.forEach(function (elm) {
         if (typeit(cur, 'undefined') ) {
             if ( typeit(elm, 'number' )  ) {
                 cur = prev[prevkey] = [];

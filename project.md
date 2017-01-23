@@ -185,6 +185,7 @@ We have a default scope called `g` for global.
 
     function (actions) {
         actions = actions || Folder.actions;
+        //var parent = this;
 
         var gcd = this.gcd = new EvW();
         //.when will preserve initial, not emitted order
@@ -207,6 +208,7 @@ We have a default scope called `g` for global.
         this.flags = {};
         this.comments = Folder.comments;
         this.Folder = Folder;
+        _"debugging::var tracking:initialize"
 
         _"events::done when"
         
@@ -219,6 +221,8 @@ We have a default scope called `g` for global.
         }
 
         Folder.postInit(this);
+        
+        _"debugging::var tracking:report"
 
         return this;
     }
