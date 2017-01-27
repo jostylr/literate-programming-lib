@@ -662,11 +662,44 @@ commas, colons, quotes).
   end are considered stand-alone lines. 
 * **trim** This trims the incoming text, both leading and trailing
   whitespace.  Useful in some tests of mine. 
+* **filter** This will filter an array or object into a lesser object,
+  based on what the rest of the arguments are. If the input
+  is an object, then it will take the rest of the arguments as either: 
+    
+    * type string: explicit keys to keep.
+    * type regexp: keys must match the regexp to be kept.
+    * type function: a function that takes in the key and value returns
+      the boolean true if the key, value should be added.
+    * true: if the boolean true (or no argument at all is supplied) then
+      all this essentially copies the object. 
+  
+  It filters the object based on these criteria and returns the new
+  object, augmenting it if it is an augmented object. 
+
+  For an array, it is similar except an (possibly augmented) array is
+  returned. 
+
+    * #  either actual number or one that parses into it. This pushes the
+      entry at the number onto the new array.
+    * '#:#' will slice it between the two numbers.
+    * 'ax + b' b is the starting value (negative counts from the end)
+      while a is the increment to add (negative goes down). 
+    * type function takes in the value and index and returns true if the
+      value should be added. 
+    * true adds a whole copy of the array; also default if nothing is
+      provided. 
 * **join** This will concatenate the incoming text and the arguments
   together using the first argument as the separator. Note one can use
   `\n` as arg1 and it should give you a newline (use `\\n` if in a
   directive due to parser escaping backslashes!). No separator can be as
   easy as `|join ,1,2,...`.
+
+  This also does double duty as something entirely different. If the input
+  is an object or an array, then it first filters it according to the
+  arguments, just as in the filter command, and then joins the results
+  with the first argument as the join separator. For objects, if the keys
+  are a group (such as regexp matching), then they will be sorted
+  alphabetically first before joining. 
 * **cat**  The arguments are concatenated with the incoming text as is.
   Useful for single arguments, often with no incoming text.
 * **echo** `echo This is output` This terminates the input sequence and

@@ -313,6 +313,8 @@ var typeit = Folder.requires.typeit = function (input, test) {
         type = 'boolean';
     } else if (type === '[object Date]') {
         type = 'date';
+    } else if  (type === '[object RegExp]') {
+        type = 'regexp';
     } else {
         type = 'undefined';
     }
@@ -557,6 +559,14 @@ Folder.prototype.error= function (kind, description) {
         args.join("\n-\n") );
     //shuts off all further processing
     gcd.stop();
+};
+Folder.prototype.warn= function (kind, description) {
+    var doc = this;
+    var gcd = doc.gcd;
+    var args = Array.prototype.slice.call(arguments, 2);
+
+    doc.log("WARN:" + kind + "\n" + description + "\n---\n" + 
+        args.join("\n-\n") );
 };
 
 Folder.prototype.indicator = "\u2AF6\u2AF6\u2AF6";
@@ -1197,12 +1207,236 @@ Folder.commands = {   eval : sync(function ( text, args ) {
     trim : sync(function (input) {
         return input.trim();
     }, "trim"),
-    join : sync(function (input, args) {
-        var sep = args.shift() || '';
-        if (input) {
-            args.unshift(input);
+    filter : sync(function (input, args) {
+        var doc = this;
+        var typeit = doc.Folder.requires.typeit;
+        
+        var here = 'cmd:filter';
+        var typ = typeit(input);
+        var ret, num1, num2, nums, i, n;
+        if (typ === 'array') {
+            ret = [];
+            if (args.length === 0) {
+                args[0] = true;
+            }
+            args.forEach(function (cur) {
+                if ( typeit(cur, 'number') ) {
+                    ret.push(input[cur]);
+                } else if (typeit(cur, 'string') ) {
+                    if ( (num1 = parseInt(cur, 10) ) == cur) {
+                        ret.push(input[num1]);
+                    } else if (cur.indexOf(":") !== -1 ) {
+                        nums = cur.split(":");
+                        num1 = parseInt(nums[0].trim(), 10) || 0;
+                        num2 = parseInt( (nums[1] || '').trim(), 10) || (input.length-1);
+                        if (num1 > num2) {
+                            for (i = num1; i >= num2; i -= 1) {
+                                ret.push(input[i]);
+                            } 
+                        } else {
+                            for (i = num1; i <= num2; i += 1) {
+                                ret.push(input[i]);
+                            }
+                        }
+            
+                    } else if (cur.indexOf("x") !== -1 ) {
+                      nums = cur.split("x");
+                      num1 = ( parseInt(nums[0].replace(/ /g, ''), 10) || 1 );
+                      num2 = ( parseInt((nums[1] || '').replace(/ /g, ''), 10) || 0);
+                      if (num2 >= 0) {
+                          i = num2;
+                      } else {
+                          i = input.length + num2;
+                      }
+                      if (num1 > 0) {
+                          n = input.length;
+                          for (i; i < n; i += num1 ) {
+                              ret.push(input[i]);
+                          }
+                      } else if (num1 < 0) {
+                          for (i; i >= 0; i += num1) {
+                              ret.push(input[i]);
+                          }
+                      }
+                    }
+                } else if (typeit(cur, 'function') ) {
+                    input.forEach(function (el, ind) {
+                        if (cur(el, ind) === true ) {
+                            ret.push(el);
+                        }
+                    });
+                } else if (cur === true)  {
+                    input.forEach(function (el) {
+                        ret.push(el);
+                    });
+                } else {
+                    doc.warn(here, 'unhandled type', typeit(cur), cur, input, args);
+                }
+            });
+        } else if (typ === 'object') {
+            ret = {};
+            //check for augmented, use object.keys, then otherwise use
+            // Object.keys() and then filter on the keys
+            var keys = (input.hasOwnProperty("_augments") )? 
+                input.keys() :
+                Object.keys(input);
+            keys.sort();
+            if (args.length === 0) {
+                args[0] = true;
+            }
+            args.forEach(function (cur) {
+                if (typeit(cur, 'regexp')) {
+                    keys.forEach(function (el) {
+                        if (el.match(cur) ) {
+                            ret[el] = input[el];
+                        }
+                    });
+                } else if (typeit(cur, 'function'))  {
+                     keys.forEach(function (el) {
+                        if (cur(el, input[el]) === true ) {
+                            ret[el] = input[el];
+                        }
+                     });
+                } else if (typeit(cur, 'string')) {
+                    if (input.hasOwnProperty(cur) ) {
+                        ret[cur] = input[cur];
+                    }
+                } else if (cur === true) {
+                    keys.forEach(function (el) {
+                        ret[el] = input[el]; 
+                    });
+                } else {
+                    doc.warn(here, 'unhandled type', typeit(cur), cur, input, args);
+                }
+            });
+        } else {
+            doc.error(here, 
+                "unrecognized input type; need string, array, or object", 
+                input, args);
+            return input;
         }
-        return args.join(sep);
+        if (input.hasOwnProperty('_augments') ) {
+           ret = doc.augment(ret, input._augments.type);
+        }
+        return ret;
+    }, "filter"),
+    join : sync(function (input, args) {
+        var doc = this;
+        var typeit = doc.Folder.requires.typeit;
+        
+        var here = 'cmd:join';
+        var sep = args.shift() || '';
+         
+        var typ = typeit(input);
+        var ret, num1, num2, nums, i, n;
+        if (typ === 'string') {
+            if (input) { 
+                // input may be empty and it should  not be added then
+                args.unshift(input);
+            }
+            ret = args;
+        } else if (typ === 'array') {
+            ret = [];
+            if (args.length === 0) {
+                args[0] = true;
+            }
+            args.forEach(function (cur) {
+                if ( typeit(cur, 'number') ) {
+                    ret.push(input[cur]);
+                } else if (typeit(cur, 'string') ) {
+                    if ( (num1 = parseInt(cur, 10) ) == cur) {
+                        ret.push(input[num1]);
+                    } else if (cur.indexOf(":") !== -1 ) {
+                        nums = cur.split(":");
+                        num1 = parseInt(nums[0].trim(), 10) || 0;
+                        num2 = parseInt( (nums[1] || '').trim(), 10) || (input.length-1);
+                        if (num1 > num2) {
+                            for (i = num1; i >= num2; i -= 1) {
+                                ret.push(input[i]);
+                            } 
+                        } else {
+                            for (i = num1; i <= num2; i += 1) {
+                                ret.push(input[i]);
+                            }
+                        }
+            
+                    } else if (cur.indexOf("x") !== -1 ) {
+                      nums = cur.split("x");
+                      num1 = ( parseInt(nums[0].replace(/ /g, ''), 10) || 1 );
+                      num2 = ( parseInt((nums[1] || '').replace(/ /g, ''), 10) || 0);
+                      if (num2 >= 0) {
+                          i = num2;
+                      } else {
+                          i = input.length + num2;
+                      }
+                      if (num1 > 0) {
+                          n = input.length;
+                          for (i; i < n; i += num1 ) {
+                              ret.push(input[i]);
+                          }
+                      } else if (num1 < 0) {
+                          for (i; i >= 0; i += num1) {
+                              ret.push(input[i]);
+                          }
+                      }
+                    }
+                } else if (typeit(cur, 'function') ) {
+                    input.forEach(function (el, ind) {
+                        if (cur(el, ind) === true ) {
+                            ret.push(el);
+                        }
+                    });
+                } else if (cur === true)  {
+                    input.forEach(function (el) {
+                        ret.push(el);
+                    });
+                } else {
+                    doc.warn(here, 'unhandled type', typeit(cur), cur, input, args);
+                }
+            });
+        } else if (typ === 'object') {
+            ret = [];
+            //check for augmented, use object.keys, then otherwise use
+            // Object.keys() and then filter on the keys
+            var keys = (input.hasOwnProperty("_augments") )? 
+                input.keys() :
+                Object.keys(input);
+            keys.sort();
+            if (args.length === 0) {
+                args[0] = true;
+            }
+            args.forEach(function (cur) {
+                if (typeit(cur, 'regexp')) {
+                    keys.forEach(function (el) {
+                        if (el.match(cur) ) {
+                            ret.push(input[el]);
+                        }
+                    });
+                } else if (typeit(cur, 'function'))  {
+                     keys.forEach(function (el) {
+                        if (cur(el, input[el]) === true ) {
+                            ret.push(input[el]);
+                        }
+                     });
+                } else if (typeit(cur, 'string')) {
+                    if (input.hasOwnProperty(cur) ) {
+                        ret.push(input[cur]);
+                    }
+                } else if (cur === true) {
+                    keys.forEach(function (el) {
+                        ret.push(input[el]); 
+                    });
+                } else {
+                    doc.warn(here, 'unhandled type', typeit(cur), cur, input, args);
+                }
+            });
+        } else {
+            doc.error(here, 
+                "unrecognized input type; need string, array, or object", 
+                input, args);
+            return '';
+        }
+        return ret.join(sep);
     }, "join"),
     cat : sync(function (input, args) {
         var sep = '';
@@ -3068,6 +3302,7 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
     this.join = parent.join;
     this.log = this.parent.log;
     this.error = this.parent.error;
+    this.warn = this.parent.warn;
     this.augment = this.parent.augment;
     this.cmdworker = this.parent.cmdworker;
     this.compose = this.parent.compose;

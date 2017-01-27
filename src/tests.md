@@ -44,7 +44,6 @@ The log array should be cleared between tests.
         "switchcmd.md",
         "pushpop.md",
         "version.md",
-        "done.md", 
         "constructor.md",
         "transform.md",
         "defaults.md", // 30
@@ -103,7 +102,9 @@ The log array should be cleared between tests.
         "define.md",
         "commands.md",
         "psetgetstore.md",
-        "anon.md"
+        "anon.md",
+        "done.md",
+        "join-filter.md"
     ].
     slice();
     //slice(31, 32);

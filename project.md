@@ -128,6 +128,7 @@ Each doc within a folder shares all the directives and commands.
 
     Folder.prototype.log = function (text) { console.log(text); };
     Folder.prototype.error= _"error";
+    Folder.prototype.warn= _"warn";
 
     Folder.prototype.indicator = "\u2AF6\u2AF6\u2AF6";
 
@@ -271,6 +272,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.join = parent.join;
         this.log = this.parent.log;
         this.error = this.parent.error;
+        this.warn = this.parent.warn;
         this.augment = this.parent.augment;
         this.cmdworker = this.parent.cmdworker;
         this.compose = this.parent.compose;
@@ -402,6 +404,20 @@ the `Folder.prototype.error` or individually on a doc.
 
 !! Add in error doc and figure out how to test it. 
 
+## Warn
+
+Same as error, except no stopping of execution. 
+
+    function (kind, description) {
+        var doc = this;
+        var gcd = doc.gcd;
+        var args = Array.prototype.slice.call(arguments, 2);
+
+        doc.log("WARN:" + kind + "\n" + description + "\n---\n" + 
+            args.join("\n-\n") );
+    }
+
+
 ## Globals
 
 This is a simple command that takes in a set of variable names and produces
@@ -437,6 +453,33 @@ Some commonly used variables.
         newobj[el] = obj[el];
     });
     text = JSON.stringify(newobj);
+
+## Check
+
+This checks that the odd arguments satisfy the second argument operator
+condition with the third argument being what ought to be, i.e., `type, string`
+should be of type string. 
+
+    function (input, args) {
+        var ret, err;
+        var i, n = args.length, vname, op, cond;
+        err = function (msg) {
+            return 'doc.error(here, ' + msg + ', input, args);';
+        };
+        for (i = 0; i< n; i += 3) {
+           vname = args[i];
+           op = args[i+1];
+           cond = args[i+2];
+           if (op === "is") {
+                ret += "if (!(typeit(" + vname + ", '" + cond + "' ) ) ) {";
+                ret += err(vname + " should be of type " + cond);
+                ret += "return; }";
+           }
+        }
+        return ret;
+    }
+
+[check](# "define: ")
 
 
 [off](# "block:")

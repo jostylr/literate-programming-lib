@@ -9,6 +9,7 @@ Here we have common commands.
         compile : _"compile",
         raw : sync(_"raw", "raw"),
         trim : sync(_"trim", "trim"),
+        filter : sync(_"filter", "filter"),
         join : sync(_"join", "join"),
         cat : sync(_"cat", "cat"),
         echo : sync(_"echo", "echo"),
@@ -737,6 +738,204 @@ Bloody spaces and newlines
       whitespace.  Useful in some tests of mine. 
 
 
+## Filter
+
+This filters objects and arrays. 
+
+    function (input, args) {
+        _"|globals doc, typeit"
+        var here = 'cmd:filter';
+        var typ = typeit(input);
+        var ret, num1, num2, nums, i, n;
+        if (typ === 'array') {
+            ret = [];
+            _"filter:array"
+        } else if (typ === 'object') {
+            ret = {};
+            _"filter:object"
+        } else {
+            doc.error(here, 
+                "unrecognized input type; need string, array, or object", 
+                input, args);
+            return input;
+        }
+        _":is augment"
+        return ret;
+    }
+
+[object]()
+
+The keys to use are the arguments. If strings, they are assumed to be the keys
+directly. If a regex, they are assumed to match the keys. If a function, then
+it should take in keys, values and return a boolean indicating whether or not
+to keep the value. 
+
+If no arguments are passed in to filter, then all keys are kept. 
+
+
+    //check for augmented, use object.keys, then otherwise use
+    // Object.keys() and then filter on the keys
+    var keys = (input.hasOwnProperty("_augments") )? 
+        input.keys() :
+        Object.keys(input);
+    keys.sort();
+    if (args.length === 0) {
+        args[0] = true;
+    }
+    args.forEach(function (cur) {
+        if (typeit(cur, 'regexp')) {
+            keys.forEach(function (el) {
+                if (el.match(cur) ) {
+                    ret[el] = input[el];
+                }
+            });
+        } else if (typeit(cur, 'function'))  {
+             keys.forEach(function (el) {
+                if (cur(el, input[el]) === true ) {
+                    ret[el] = input[el];
+                }
+             });
+        } else if (typeit(cur, 'string')) {
+            if (input.hasOwnProperty(cur) ) {
+                ret[cur] = input[cur];
+            }
+        } else if (cur === true) {
+            keys.forEach(function (el) {
+                ret[el] = input[el]; 
+            });
+        } else {
+            _":warn"
+        }
+    });
+
+[array]() 
+
+Add values to ret.
+    
+    if (args.length === 0) {
+        args[0] = true;
+    }
+    args.forEach(function (cur) {
+        if ( typeit(cur, 'number') ) {
+            ret.push(input[cur]);
+        } else if (typeit(cur, 'string') ) {
+            if ( (num1 = parseInt(cur, 10) ) == cur) {
+                ret.push(input[num1]);
+            } else if (cur.indexOf(":") !== -1 ) {
+                _":slice"
+
+            } else if (cur.indexOf("x") !== -1 ) {
+              _":ax + b"
+            }
+        } else if (typeit(cur, 'function') ) {
+            input.forEach(function (el, ind) {
+                if (cur(el, ind) === true ) {
+                    ret.push(el);
+                }
+            });
+        } else if (cur === true)  {
+            input.forEach(function (el) {
+                ret.push(el);
+            });
+        } else {
+            _":warn"
+        }
+    });
+
+[slice]()
+
+We support :b, a:, a:b, b:a with the implications of all up to and including
+b, all after and including a,  all between a and b, inclusive, and the same
+values for b:a, but in reverse order. Because of inclusive, we use the equals
+in the for loop and thus in our default value for the upper limit, we need to
+use input.length -1. 
+
+    nums = cur.split(":");
+    num1 = parseInt(nums[0].trim(), 10) || 0;
+    num2 = parseInt( (nums[1] || '').trim(), 10) || (input.length-1);
+    if (num1 > num2) {
+        _":for | sub <=, >=, +=, -= " 
+    } else {
+        _":for"
+    }
+
+[for]()
+
+    for (i = num1; i <= num2; i += 1) {
+        ret.push(input[i]);
+    }
+
+[ax + b]()
+
+This splits on x to get a first number that says how much the step size (and
+what direction) to go in and the second number which says where to start (a
+negative counts from the end). 
+
+    nums = cur.split("x");
+    num1 = ( parseInt(nums[0].replace(/ /g, ''), 10) || 1 );
+    num2 = ( parseInt((nums[1] || '').replace(/ /g, ''), 10) || 0);
+    if (num2 >= 0) {
+        i = num2;
+    } else {
+        i = input.length + num2;
+    }
+    if (num1 > 0) {
+        n = input.length;
+        for (i; i < n; i += num1 ) {
+            ret.push(input[i]);
+        }
+    } else if (num1 < 0) {
+        for (i; i >= 0; i += num1) {
+            ret.push(input[i]);
+        }
+    }
+
+[is augment]()
+
+If it is an augmented object, we transfer the augmentation. 
+
+    if (input.hasOwnProperty('_augments') ) {
+       ret = doc.augment(ret, input._augments.type);
+    }
+
+[warn]()
+
+A common warning statement.
+
+    
+    doc.warn(here, 'unhandled type', typeit(cur), cur, input, args);
+
+
+##### cdoc
+
+    * **filter** This will filter an array or object into a lesser object,
+      based on what the rest of the arguments are. If the input
+      is an object, then it will take the rest of the arguments as either: 
+        
+        * type string: explicit keys to keep.
+        * type regexp: keys must match the regexp to be kept.
+        * type function: a function that takes in the key and value returns
+          the boolean true if the key, value should be added.
+        * true: if the boolean true (or no argument at all is supplied) then
+          all this essentially copies the object. 
+      
+      It filters the object based on these criteria and returns the new
+      object, augmenting it if it is an augmented object. 
+
+      For an array, it is similar except an (possibly augmented) array is
+      returned. 
+
+        * #  either actual number or one that parses into it. This pushes the
+          entry at the number onto the new array.
+        * '#:#' will slice it between the two numbers.
+        * 'ax + b' b is the starting value (negative counts from the end)
+          while a is the increment to add (negative goes down). 
+        * type function takes in the value and index and returns true if the
+          value should be added. 
+        * true adds a whole copy of the array; also default if nothing is
+          provided. 
+
+
 ## Join
 
 This will join the incoming text and the arguments beyond the first one
@@ -744,11 +943,33 @@ together using the separator which is the first argument. This only makes
 sense when there is at least one argument.   
 
     function (input, args) {
+        _"|globals doc, typeit"
+        var here = 'cmd:join';
         var sep = args.shift() || '';
-        if (input) {
-            args.unshift(input);
+        _"|check sep, type, string" 
+        var typ = typeit(input);
+        var ret, num1, num2, nums, i, n;
+        if (typ === 'string') {
+            if (input) { 
+                // input may be empty and it should  not be added then
+                args.unshift(input);
+            }
+            ret = args;
+        } else if (typ === 'array') {
+            ret = [];
+            _"filter:array"
+        } else if (typ === 'object') {
+            ret = [];
+            _"filter:object 
+                | sub ret[el] = input[el], ec('ret.push(input[el])')
+                | sub ret[cur] = input[cur], ec('ret.push(input[cur])') "
+        } else {
+            doc.error(here, 
+                "unrecognized input type; need string, array, or object", 
+                input, args);
+            return '';
         }
-        return args.join(sep);
+        return ret.join(sep);
     }
 
 ##### cdoc
@@ -758,6 +979,15 @@ sense when there is at least one argument.
       `\n` as arg1 and it should give you a newline (use `\\n` if in a
       directive due to parser escaping backslashes!). No separator can be as
       easy as `|join ,1,2,...`.
+
+      This also does double duty as something entirely different. If the input
+      is an object or an array, then it first filters it according to the
+      arguments, just as in the filter command, and then joins the results
+      with the first argument as the join separator. For objects, if the keys
+      are a group (such as regexp matching), then they will be sorted
+      alphabetically first before joining. 
+
+
 
 ### Cat
 

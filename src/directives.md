@@ -220,7 +220,7 @@ built in. It takes in an emitname function and a handler creator.
 This is designed around the state variable holding the state. This is the
 easiest to have flexibility with the functions. So each of the provided
 functions might modify and add to the state. Note that the state starts as the
-arguments parsd from a directive link, but that things get added to it. 
+arguments parsed from a directive link, but that things get added to it. 
 
 In particular, namefactory should add an emitname and handlerfactory should
 add in handler.

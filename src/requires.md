@@ -157,6 +157,8 @@ Otherwise, the type is returned.
             type = 'boolean';
         } else if (type === '[object Date]') {
             type = 'date';
+        } else if  (type === '[object RegExp]') {
+            type = 'regexp';
         } else {
             type = 'undefined';
         }

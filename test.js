@@ -194,7 +194,6 @@ var testfiles = [
     "switchcmd.md",
     "pushpop.md",
     "version.md",
-    "done.md", 
     "constructor.md",
     "transform.md",
     "defaults.md", // 30
@@ -253,7 +252,9 @@ var testfiles = [
     "define.md",
     "commands.md",
     "psetgetstore.md",
-    "anon.md"
+    "anon.md",
+    "done.md",
+    "join-filter.md"
 ].
 slice();
 //slice(31, 32);
