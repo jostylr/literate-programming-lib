@@ -17,6 +17,8 @@ subCommands -- testing our subcommands
 
     _"primitives"
 
+    _"regexp"
+
 [out](# "save:")
 
 
@@ -67,6 +69,12 @@ This is going to see if the get and sets work
 
     _"|join :, arr(true(), true() skip(5), false(), false(), null())"
 
+## regexp
+
+This tests the regexp construct.
+
+    _"| echo Awesome | .replace reg(e, g), i"
+
 ---
 first up :: Cool, beans. :: koo"like
 
@@ -83,3 +91,5 @@ this -- that -- the other
 ⫶:in:prop⫶0⫶3
 
 true,true,false,false,
+
+Awisomi

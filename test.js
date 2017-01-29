@@ -200,7 +200,6 @@ var testfiles = [
     "dirpush.md", 
     "mainblock.md", 
     "linkquotes.md",
-    "subcommands.md",
     "backslash.md",
     "if.md",
     "nameafterpipe.md",
@@ -254,7 +253,8 @@ var testfiles = [
     "psetgetstore.md",
     "anon.md",
     "done.md",
-    "join-filter.md"
+    "join-filter.md",
+    "subcommands.md"
 ].
 slice();
 //slice(31, 32);

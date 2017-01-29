@@ -51,6 +51,9 @@ can use this as a prototype.
         ret.null = function () {return null;}; 
         ret.doc =  function () {return this;}; 
         ret.skip = function () {return ;}; 
+        ret.reg = ret.regexp = function (str, flag) {
+            return new RegExp(str, flag);
+        };
 
         return ret;
 
