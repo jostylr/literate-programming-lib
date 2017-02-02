@@ -671,6 +671,17 @@ This loads the url if needed. The file is loaded exactly once.
         gcd.emit("need document:" + urlesc, url );
     }
 
+### Pipe
+
+The href is a place to load from. The linkname is the place to send it. The
+pipes transform the loaded information. 
+
+#### Pipes
+
+This takes in an href that points to a set of files to load and then sends
+them to pipes and then outputs them per the link name which has some kind of
+pattern matching. 
+
 ### cd
 
 This changes the directory, either for save or load. 
