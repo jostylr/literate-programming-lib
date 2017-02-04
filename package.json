@@ -1,7 +1,7 @@
 {
   "name": "literate-programming-lib",
   "description": "A literate programming compiler. Write your program in markdown. This is the core library and does not know about files.",
-  "version": "1.13.2",
+  "version": "1.13.3",
   "homepage": "https://github.com/jostylr/literate-programming-lib",
   "author": {
     "name": "James Taylor",
@@ -20,7 +20,7 @@
     "node": ">=0.10"
   },
   "dependencies":{
-    "event-when" : "^1.6.0",
+    "event-when" : "^1.6.1",
     "commonmark" : "^0.27.0",
     "string.fromcodepoint" : "^0.2.1"
   },
