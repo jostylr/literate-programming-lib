@@ -549,25 +549,101 @@ Folder.prototype.colon = {   v : "\u2AF6",
 
 Folder.prototype.join = "\n";
 
-Folder.prototype.log = function (text) { console.log(text); };
-Folder.prototype.error= function (kind, description) {
+Folder.prototype.log = function (msg, level) {
+    var out = this.logs;
+    var args = Array.prototype.slice.call(arguments, 2);
+    args.unshift(msg);
+    if (typeit(level, "undefined")) {
+        out[0].push(args);
+    } else {
+        if (typeit(out[level], "array") ) {
+            outReport[level].push(args);
+        } else {
+            out[level] = [args];
+        }
+    } 
+        
+};
+Folder.prototype.error= function () {
     var doc = this;
     var gcd = doc.gcd;
-    var args = Array.prototype.slice.call(arguments, 2);
+    var args = Array.prototype.slice.call(arguments);
 
-    doc.log("ERROR:" + kind + "\n" + description + "\n---\n" + 
-        args.join("\n-\n") );
+    doc.logs.error.push(args); 
     //shuts off all further processing
     gcd.stop();
 };
-Folder.prototype.warn= function (kind, description) {
+Folder.prototype.warn= function () {
     var doc = this;
     var gcd = doc.gcd;
-    var args = Array.prototype.slice.call(arguments, 2);
+    var args = Array.prototype.slice.call(arguments);
 
-    doc.log("WARN:" + kind + "\n" + description + "\n---\n" + 
-        args.join("\n-\n") );
+    doc.logs.warn.push(args);
 };
+Folder.prototype.formatters = {
+    error: function (list) {
+        return list.map(
+            function (args) {
+                var kind = args.shift();
+                var description = args.shift();
+                return  kind + "\n" + description + "\n~~~\n" + 
+                    args.join("\n");
+            }).
+            join("\n===\n");
+    },
+    warn : function (list) {
+        return list.map(
+            function (args) {
+                var kind = args.shift();
+                var description = args.shift();
+                return  kind + "\n" + description + "\n~~~\n" + 
+                    args.join("\n");
+            }).
+            join("\n===\n");
+    },
+    out : function (obj) {
+        return Object.keys(obj).
+            map(function (key) {
+                return  key + "\n~~~\n" + obj[key] + "\n~~~\n";
+            }).
+            join("\n***\n");
+    },
+    log : function (list, level) {
+        return list.map(
+                function (args) {
+                    var msg = args.shift();
+                    return  msg + "\n" + 
+                        (args.length ? '' : '\n~~~\n' + args.join("\n"));
+            }).
+            join("\n===\n");
+    }
+};
+Folder.prototype.reportOut = function (filter) {
+    var folder = this;
+    var formatters = folder.formatters;
+    var docs = Object.keys(folder.docs);
+    var ret = '';
+    docs.forEach(function (key) {
+          ret += "DOC: " + key + "\n===\n";  
+          var dig = folder.docs[key].logs;
+          var keys =  Object.keys(dig);
+          if (typeit(filter, 'function') ) {
+                keys = keys.filter(filter);
+          }
+          ret += keys.map (function (typ) {
+                var str = "## " + typ + "\n===\n";
+                if (typeit(formatters[typ], 'function') ) {
+                    str += formatters[typ](dig[typ]);
+                } else {
+                    str += formatters.log(dig[typ], typ);
+                }
+                return str;
+            }).
+            join("\n===\n");
+    });
+    return ret;
+};
+Folder.prototype.logLevel = 0;
 
 Folder.prototype.indicator = "\u2AF6\u2AF6\u2AF6";
 
@@ -3293,6 +3369,13 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
     this.levels[0] = text;
     this.levels[1] = '';
     this.levels[2] = '';
+
+    this.logs = {
+        error : [],
+        warn : [],
+        out : {},
+        0 : []
+    };
 
     
     this.vars = parent.createScope(file);

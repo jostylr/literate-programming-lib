@@ -126,9 +126,17 @@ Each doc within a folder shares all the directives and commands.
 
     Folder.prototype.join = "\n";
 
-    Folder.prototype.log = function (text) { console.log(text); };
+    Folder.prototype.log = _"log";
     Folder.prototype.error= _"error";
     Folder.prototype.warn= _"warn";
+    Folder.prototype.formatters = {
+        error: _"error:formatter",
+        warn : _"error:formatter | sub ERROR, WARN",
+        out : _"diagnostics:formatter",
+        log : _"log:formatter"
+    };
+    Folder.prototype.reportOut = _"out reporter";
+    Folder.prototype.logLevel = 0;
 
     Folder.prototype.indicator = "\u2AF6\u2AF6\u2AF6";
 
@@ -261,6 +269,8 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.levels[1] = '';
         this.levels[2] = '';
 
+        this.logs = _"diagnostics";
+
         
         this.vars = parent.createScope(file);
 
@@ -385,36 +395,137 @@ This takes in a file name, text, and possibly some more event/handler actions.
 
     }
 
-## Error
+
+## Diagnostics
+
+We have error, warnings, and logs of various levels. They get collected into a
+single object whose keys are errors, warnings, and numbered log entries. Each
+keyed entry points to an array. This is created for each doc. 
+
+    {
+        error : [],
+        warn : [],
+        out : {},
+        0 : []
+    }
+
+[formatter]()
+
+    function (obj) {
+        return Object.keys(obj).
+            map(function (key) {
+                return  key + "\n~~~\n" + obj[key] + "\n~~~\n";
+            }).
+            join("\n***\n");
+    }
+
+### Out Reporter
+
+This creates a reporter. The filter is a function that filters out the keys of
+the diagnostic tools. The idea is, for example, to just get a specific kind of
+log message for debugging purposes. 
+
+    function (filter) {
+        var folder = this;
+        var formatters = folder.formatters;
+        var docs = Object.keys(folder.docs);
+        var ret = '';
+        docs.forEach(function (key) {
+              ret += "DOC: " + key + "\n===\n";  
+              var dig = folder.docs[key].logs;
+              var keys =  Object.keys(dig);
+              if (typeit(filter, 'function') ) {
+                    keys = keys.filter(filter);
+              }
+              ret += keys.map (function (typ) {
+                    var str = "## " + typ + "\n===\n";
+                    if (typeit(formatters[typ], 'function') ) {
+                        str += formatters[typ](dig[typ]);
+                    } else {
+                        str += formatters.log(dig[typ], typ);
+                    }
+                    return str;
+                }).
+                join("\n===\n");
+        });
+        return ret;
+    }
+
+### Log
+
+This is the logging function
+
+    function (msg, level) {
+        var out = this.logs;
+        var args = Array.prototype.slice.call(arguments, 2);
+        args.unshift(msg);
+        if (typeit(level, "undefined")) {
+            out[0].push(args);
+        } else {
+            if (typeit(out[level], "array") ) {
+                outReport[level].push(args);
+            } else {
+                out[level] = [args];
+            }
+        } 
+            
+    }
+
+[formatter]()
+
+    function (list, level) {
+        return list.map(
+                function (args) {
+                    var msg = args.shift();
+                    return  msg + "\n" + 
+                        (args.length ? '' : '\n~~~\n' + args.join("\n"));
+            }).
+            join("\n===\n");
+    }
+
+
+
+### Error
 
 This creates an error function that can be called. It can be overwritten on
 the `Folder.prototype.error` or individually on a doc. 
 
-    function (kind, description) {
+    function () {
         var doc = this;
         var gcd = doc.gcd;
-        var args = Array.prototype.slice.call(arguments, 2);
+        var args = Array.prototype.slice.call(arguments);
 
-        doc.log("ERROR:" + kind + "\n" + description + "\n---\n" + 
-            args.join("\n-\n") );
+        doc.logs.error.push(args); 
         //shuts off all further processing
         gcd.stop();
     }
 
+[formatter]()
 
-!! Add in error doc and figure out how to test it. 
+This can be used to do a foreach on the error argument. 
 
-## Warn
+    function (list) {
+        return list.map(
+            function (args) {
+                var kind = args.shift();
+                var description = args.shift();
+                return  kind + "\n" + description + "\n~~~\n" + 
+                    args.join("\n");
+            }).
+            join("\n===\n");
+    }
+
+
+### Warn
 
 Same as error, except no stopping of execution. 
 
-    function (kind, description) {
+    function () {
         var doc = this;
         var gcd = doc.gcd;
-        var args = Array.prototype.slice.call(arguments, 2);
+        var args = Array.prototype.slice.call(arguments);
 
-        doc.log("WARN:" + kind + "\n" + description + "\n---\n" + 
-            args.join("\n-\n") );
+        doc.logs.warn.push(args);
     }
 
 
