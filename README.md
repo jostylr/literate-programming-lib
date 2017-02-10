@@ -645,7 +645,19 @@ commas, colons, quotes).
   with `val#`. The replacement is sorted based on the length of the key
   value. This is to help with SUBTITLE being replaced before TITLE, for
   example, while allowing one to write it in an order that makes reading
-  make sense. A little unorthodox. We'll see if I regret it. 
+  make sense. This is a bad, but convenient idea. Recommend just using
+  one pair at a time. 
+
+  Alternate signature `regexp, replacement str/func`.
+   This does a regular expression replacement
+  where the first is a reg ( `reg(str, flags)` ) 
+  that acts on the string and replaces it using
+  the usual javascript replacement syntax for the second. 
+
+  The regex syntax can be part of pair sequences. In accordance with
+  shorter first, regex's which typically are epansive, will go last, but
+  amongst regex's, the order of processing is preserved.
+  Recommendation is to not mix in multiple pairs with regexs. 
 * **store** `variable name`  This stores the incoming text into the
   variable name.  This is good for stashing something in mid computation.
   For example, `...|store temp | sub THIS, that | store awe | _"temp"` will
@@ -775,6 +787,9 @@ commas, colons, quotes).
   block and run it through compile, e.g., ` | objectify | .mapc compile`.
   This also allows nesting of objects. Call `|.toString()` to get a
   string. 
+* **regify** Turns the incoming input into a regular expression. First
+  argument are the flags; if none, g is assumed, but if some flags are
+  specificed one should add g. If no global needed use, '-'.
 * **ife** This takes a snippet of code and creates an immediate function
   execution string for embedding in code. the arguments become the
   variable names in both the function call and the function definition. If

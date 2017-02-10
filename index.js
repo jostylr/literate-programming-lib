@@ -1151,47 +1151,71 @@ Folder.commands = {   eval : sync(function ( text, args ) {
     passthru : sync(function (text) {return text;}, "passthru"),
     sub : function (str, args, name) {
         var doc = this;
-        var gcd = this.gcd;
-        args = args.map(function (el) {
-            return el.toString();
-        });
+        var gcd = doc.gcd;
+        var typeit = doc.Folder.requires.typeit;
         
-        var index = 0, al = args.length, k, keys, obj = {}, 
-            i, j, old, newstr, indented;
+        var regs = [];
+        var strs = [];
+        var i, n,  key, typ;
     
-        for (i = 0; i < al; i +=2) {
-           obj[args[i]] = args[i+1]; 
+        n = args.length;
+        for (i = 0; i < n; i += 2) {
+            key = args[i];
+            typ = typeit(key);
+            if (typ === 'string') {
+                strs.push([key, args[i+1]]);
+            } else if (typ === 'regexp') {
+                regs.push([key, args[i+1]]);
+            } else {
+                doc.warn("cmd:sub", 
+                "bad kind; either string or regexp as every other argument.",
+                typ, key, args[i+1]);
+            }
         }
     
-        keys = Object.keys(obj).sort(function (a, b) {
-            if ( a.length > b.length) {
-                return -1;
-            } else if (a.length < b.length) {
-                return 1;
-            } else {
-                return 0;
-            } });
+        strs.sort(function (a,b) {
+            return b[0].length - a[0].length; 
+        });
     
-    
-        k = keys.length;
-        for (j = 0; j < k; j += 1) {
-            index = 0;
-            old = keys[j];
-            newstr = obj.hasOwnProperty(keys[j]) ? obj[keys[j]] : '';
-            while (index < str.length ) {
-                    i = str.indexOf(old, index);
+        strs.forEach(function (el) {
+            var index = 0, i, indented;
+            var toMatch = el[0];
+            var rep = el[1];
+            typ = typeit(rep);
+            if  (typ !== 'string' ) {
+                doc.warn("cmd:sub", "bad replacement; need string", 
+                    typ, toMatch, rep);
+                return; //no replacement done
+            }
+            while (index < str.length) {
+                    i = str.indexOf(toMatch, index);
                 
                     if (i === -1) {
                         break;
                     } else {
-                        indented = doc.indent(newstr, doc.getIndent(str, i));
-                        str = str.slice(0,i) + indented + str.slice(i+old.length);
+                        indented = doc.indent(rep, doc.getIndent(str, i));
+                        str = str.slice(0,i) + indented + str.slice(i+toMatch.length);
                         index = i + indented.length;
-                    }
+                    }   
             }
-        }
+        });
     
-        gcd.emit("text ready:" + name, str);
+        regs.forEach(function (el) {
+            var reg = el[0];
+            var rep = el[1];
+            typ = typeit(rep);
+            if ( (typ !== 'string') && (typ !== 'function') ) {
+                doc.warn("cmd:sub", "bad replacement; need string or function", 
+                    typ, reg, rep);
+                return; //no replacement done
+            }
+        
+            str = str.replace(reg, rep);
+        
+        });
+    
+        gcd.emit("text ready:" + name, str); //example of bare command
+    
     },
     store: sync(function (input, args) {
         var doc = this;
@@ -2922,6 +2946,12 @@ Folder.subCommands = (function () {
     ret.doc =  function () {return this;}; 
     ret.skip = function () {return ;}; 
     ret.reg = ret.regexp = function (str, flag) {
+        if (typeit(flag, 'undefined') ) {
+            flag = 'g'; //global is default
+        }
+        if (flag === '-') {
+            flag = '';
+        }
         return new RegExp(str, flag);
     };
 
@@ -4704,6 +4734,29 @@ Folder.sync("objectify", function (input, args) {
 
     ret = this.augment(ret, "minidoc");
     return ret;    
+
+});
+
+Folder.sync('regify', function (input, args) {
+    var doc = this;
+    var typeit = doc.Folder.requires.typeit;
+    
+
+    var flags;
+    if ( typeit(args[0], 'undefined') ) {
+        flags = 'g';
+    } else {
+       flags = args[0].replace('-', ''); 
+    }
+    var reg;
+
+    try {
+        reg = new RegExp(input, flags);
+        return reg;
+    } catch(e) {
+        doc.error("cmd:regify", "failure to compile regular expression", 
+            "input", input, "flags:", flags, "args:",  args);
+    }
 
 });
 

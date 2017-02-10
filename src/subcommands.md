@@ -52,6 +52,12 @@ can use this as a prototype.
         ret.doc =  function () {return this;}; 
         ret.skip = function () {return ;}; 
         ret.reg = ret.regexp = function (str, flag) {
+            if (typeit(flag, 'undefined') ) {
+                flag = 'g'; //global is default
+            }
+            if (flag === '-') {
+                flag = '';
+            }
             return new RegExp(str, flag);
         };
 

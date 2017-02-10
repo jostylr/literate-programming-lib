@@ -9,7 +9,6 @@ Let's do some evaling
     doc.log("whatever", "jshint", 9, 11);
     doc.logs.out.big = "hey, hey";
     ret = doc.parent.reportOut();
-    console.log(ret);
 
 [out](# "save: | evil")
 

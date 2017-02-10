@@ -40,6 +40,8 @@ establishing convention.
 
     _"objectify"
 
+    _"regify"
+
     _"immediate function execution"
 
     _"caps"
@@ -562,59 +564,94 @@ Reusing i,n. Want to jump by 2, start at 1 as 0 is the compile name.
 ### Sub
 
 This is the sub command which allows us to do substitutions. Each pair of
-arguments is a term and its replacement value. We will sort the keys by length
-so that the largest matches happen first. 
+arguments is a term and its replacement value. 
 
-We will do the replacement using indexOf and splicing due to potential
-conflicts with .replace (the $ replacements and the lack of global aspect if
-given a string). 
+We will
 
-This will indent the subsequent lines so it is appropriate to use with blocks
-of code. 
+1. Separate pairs into str, str  vs. regex, str
+2. Sort the str,str by length so largest matches happen first. 
+3. We execute str,str first. We do this by replacement using indexOf and
+   splicing dure to general conflicts with .replace ($ replacements and lack
+   of global when string is given).
+4. Then we execute the regex pairs, in the order given, using usual .replace
+   techniques. The default behavior of `reg()` subcommand is to generate
+   global so we don't worry about it. 
+
+The str,str construction will indent the subsequent lines so it is appropriate
+to use with blocks of code. There is no special behavior of the reg exs. 
 
 
     function (str, args, name) {
-        var doc = this;
-        var gcd = this.gcd;
+        _"| globals doc, gcd, typeit"
+        var regs = [];
+        var strs = [];
+        var i, n,  key, typ;
 
-This is to ensure all the objects are strings. Since we are sorting on their
-length, we need to make sure they are strings. Using toString seems
-reasonable. Other places are not often troubled because they are simply using
-them as strings in a way that they get typecast. 
+        _":separate regs from strings"
 
+        _":sort string"
 
-        args = args.map(function (el) {
-            return el.toString();
-        });
-        
-        var index = 0, al = args.length, k, keys, obj = {}, 
-            i, j, old, newstr, indented;
+        _":execute string replacements"
 
-        for (i = 0; i < al; i +=2) {
-           obj[args[i]] = args[i+1]; 
+        _":execute regs"
+
+        gcd.emit("text ready:" + name, str); //example of bare command
+
+    }
+
+[separate regs from strings]()
+
+We go through the args, checking every other one to see if it is a string or
+regex. Otherwise, a warning is issue and the pair is skipped. 
+
+    n = args.length;
+    for (i = 0; i < n; i += 2) {
+        key = args[i];
+        typ = typeit(key);
+        if (typ === 'string') {
+            strs.push([key, args[i+1]]);
+        } else if (typ === 'regexp') {
+            regs.push([key, args[i+1]]);
+        } else {
+            doc.warn("cmd:sub", 
+            "bad kind; either string or regexp as every other argument.",
+            typ, key, args[i+1]);
         }
-
-        keys = Object.keys(obj).sort(function (a, b) {
-            if ( a.length > b.length) {
-                return -1;
-            } else if (a.length < b.length) {
-                return 1;
-            } else {
-                return 0;
-            } });
+    }
 
 
-        k = keys.length;
-        for (j = 0; j < k; j += 1) {
-            index = 0;
-            old = keys[j];
-            newstr = obj.hasOwnProperty(keys[j]) ? obj[keys[j]] : '';
-            while (index < str.length ) {
-                _":replace"
-            }
+[sort string]()
+
+This sorts the strings array based on the length of the first element of each
+element (pair array).  We want the longer to come first, so we subtract the
+second first as returning a positive will switch the placement. 
+
+    strs.sort(function (a,b) {
+        return b[0].length - a[0].length; 
+    });
+
+[execute string replacements]()
+
+We want to replace the occurence of the strings. 
+
+    strs.forEach(function (el) {
+        var index = 0, i, indented;
+        var toMatch = el[0];
+        var rep = el[1];
+        _":check rep as str"
+        while (index < str.length) {
+            _":replace"
         }
+    });
 
-        gcd.emit("text ready:" + name, str);
+
+[check rep as str]()
+
+    typ = typeit(rep);
+    if  (typ !== 'string' ) {
+        doc.warn("cmd:sub", "bad replacement; need string", 
+            typ, toMatch, rep);
+        return; //no replacement done
     }
 
 [replace]()
@@ -622,15 +659,37 @@ them as strings in a way that they get typecast.
 This is the function that replaces a part of a string with another.
 
 
-        i = str.indexOf(old, index);
+        i = str.indexOf(toMatch, index);
 
         if (i === -1) {
             break;
         } else {
-            indented = doc.indent(newstr, doc.getIndent(str, i));
-            str = str.slice(0,i) + indented + str.slice(i+old.length);
+            indented = doc.indent(rep, doc.getIndent(str, i));
+            str = str.slice(0,i) + indented + str.slice(i+toMatch.length);
             index = i + indented.length;
-        }
+        }   
+
+[execute regs]()
+
+    regs.forEach(function (el) {
+        var reg = el[0];
+        var rep = el[1];
+        _":check fun or str"
+
+        str = str.replace(reg, rep);
+
+    });
+
+
+[check fun or str]()
+
+    typ = typeit(rep);
+    if ( (typ !== 'string') && (typ !== 'function') ) {
+        doc.warn("cmd:sub", "bad replacement; need string or function", 
+            typ, reg, rep);
+        return; //no replacement done
+    }
+  
 
 ##### cdoc
 
@@ -638,7 +697,19 @@ This is the function that replaces a part of a string with another.
       with `val#`. The replacement is sorted based on the length of the key
       value. This is to help with SUBTITLE being replaced before TITLE, for
       example, while allowing one to write it in an order that makes reading
-      make sense. A little unorthodox. We'll see if I regret it. 
+      make sense. This is a bad, but convenient idea. Recommend just using
+      one pair at a time. 
+
+      Alternate signature `regexp, replacement str/func`.
+       This does a regular expression replacement
+      where the first is a reg ( `reg(str, flags)` ) 
+      that acts on the string and replaces it using
+      the usual javascript replacement syntax for the second. 
+
+      The regex syntax can be part of pair sequences. In accordance with
+      shorter first, regex's which typically are epansive, will go last, but
+      amongst regex's, the order of processing is preserved.
+      Recommendation is to not mix in multiple pairs with regexs. 
 
 ### Store Command
 
@@ -1590,6 +1661,40 @@ character and the escape character is not supposed to escape.
       block and run it through compile, e.g., ` | objectify | .mapc compile`.
       This also allows nesting of objects. Call `|.toString()` to get a
       string. 
+
+
+## regify
+
+    Folder.sync('regify', _":fun");
+
+[fun]()
+
+    function (input, args) {
+        _"|globals doc, typeit"
+
+        var flags;
+        if ( typeit(args[0], 'undefined') ) {
+            flags = 'g';
+        } else {
+           flags = args[0].replace('-', ''); 
+        }
+        var reg;
+
+        try {
+            reg = new RegExp(input, flags);
+            return reg;
+        } catch(e) {
+            doc.error("cmd:regify", "failure to compile regular expression", 
+                "input", input, "flags:", flags, "args:",  args);
+        }
+
+    }
+##### cdoc
+
+    * **regify** Turns the incoming input into a regular expression. First
+      argument are the flags; if none, g is assumed, but if some flags are
+      specificed one should add g. If no global needed use, '-'.
+
 
 ## Immediate Function Execution
 
