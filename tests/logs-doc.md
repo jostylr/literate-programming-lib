@@ -15,39 +15,36 @@ Let's do some evaling
 ---
 DOC: in
 ===
-## 0
-===
-
-===
 ## 2
-===
-message
 
-===
-## error
-===
+* MESSAGE: message
+* DETAILS:
 
-===
-## warn
-===
-what
-just a little something
-~~~
-5
-===
-great
-just a little more
-~~~
+    * arg1
+    * arg2
+***
+## WARN
 
-===
-## out
-===
-big
-~~~
+* KIND: what
+* DESCRIPTION: just a little something
+* DETAILS:
+
+    * 5
+***
+
+* KIND: great
+* DESCRIPTION: just a little more
+***
+## OUT
+### big
+`````
 hey, hey
-~~~
+`````
+***
+## JSHINT
 
-===
-## jshint
-===
-whatever
+* MESSAGE: whatever
+* DETAILS:
+
+    * 9
+    * 11

@@ -44,6 +44,12 @@ var Folder = function (actions) {
     this.comments = Folder.comments;
     this.Folder = Folder;
     
+    this.logs = {
+        error : [],
+        warn : [],
+        out : {},
+        0 : []
+    };
 
     this.done = {
         gcd : new EvW(),
@@ -557,7 +563,7 @@ Folder.prototype.log = function (msg, level) {
         out[0].push(args);
     } else {
         if (typeit(out[level], "array") ) {
-            outReport[level].push(args);
+            out[level].push(args);
         } else {
             out[level] = [args];
         }
@@ -586,36 +592,48 @@ Folder.prototype.formatters = {
             function (args) {
                 var kind = args.shift();
                 var description = args.shift();
-                return  kind + "\n" + description + "\n~~~\n" + 
-                    args.join("\n");
+                var ret = "\n* KIND: " + kind + "\n* DESCRIPTION: " + description;
+                if (args.length) {
+                    ret += "\n* DETAILS:\n\n    * " + 
+                        args.join("\n    * ");
+                }
+                return ret;
             }).
-            join("\n===\n");
+            join("\n***\n");
     },
     warn : function (list) {
         return list.map(
             function (args) {
                 var kind = args.shift();
                 var description = args.shift();
-                return  kind + "\n" + description + "\n~~~\n" + 
-                    args.join("\n");
+                var ret = "\n* KIND: " + kind + "\n* DESCRIPTION: " + description;
+                if (args.length) {
+                    ret += "\n* DETAILS:\n\n    * " + 
+                        args.join("\n    * ");
+                }
+                return ret;
             }).
-            join("\n===\n");
+            join("\n***\n");
     },
     out : function (obj) {
         return Object.keys(obj).
             map(function (key) {
-                return  key + "\n~~~\n" + obj[key] + "\n~~~\n";
+                return  "### " + key + "\n`````\n" + obj[key] + "\n`````";
             }).
             join("\n***\n");
     },
-    log : function (list, level) {
+    log : function (list) {
         return list.map(
                 function (args) {
                     var msg = args.shift();
-                    return  msg + "\n" + 
-                        (args.length ? '' : '\n~~~\n' + args.join("\n"));
+                    var ret = "\n* MESSAGE: " + msg;
+                    if (args.length) {
+                        ret += "\n* DETAILS:\n\n    * " + 
+                            args.join("\n    * ");
+                    }
+                    return ret;
             }).
-            join("\n===\n");
+            join("\n***\n");
     }
 };
 Folder.prototype.reportOut = function (filter) {
@@ -624,23 +642,53 @@ Folder.prototype.reportOut = function (filter) {
     var docs = Object.keys(folder.docs);
     var ret = '';
     docs.forEach(function (key) {
-          ret += "DOC: " + key + "\n===\n";  
           var dig = folder.docs[key].logs;
+          var temp = '';
           var keys =  Object.keys(dig);
           if (typeit(filter, 'function') ) {
-                keys = keys.filter(filter);
+              keys = keys.filter(filter);
           }
-          ret += keys.map (function (typ) {
-                var str = "## " + typ + "\n===\n";
-                if (typeit(formatters[typ], 'function') ) {
-                    str += formatters[typ](dig[typ]);
-                } else {
-                    str += formatters.log(dig[typ], typ);
-                }
-                return str;
-            }).
-            join("\n===\n");
+          temp += keys.map (function (typ) {
+              var str = '';
+              if (typeit(formatters[typ], 'function') ) {
+                  str += formatters[typ](dig[typ]);
+              } else {
+                  str += formatters.log(dig[typ], typ);
+              }
+              if (str) {
+                  str = "## " + typ.toUpperCase() + "\n" + str;
+              }
+              return str;
+          }).
+          filter(function (el) {return !!el;}).
+          join("\n***\n");
+          if (temp) {
+            ret += "DOC: " + key + "\n===\n" + temp;
+          } 
     });
+    var dig = this.logs;
+    var temp = '';
+    var keys =  Object.keys(dig);
+    if (typeit(filter, 'function') ) {
+        keys = keys.filter(filter);
+    }
+    temp += keys.map (function (typ) {
+        var str = '';
+        if (typeit(formatters[typ], 'function') ) {
+            str += formatters[typ](dig[typ]);
+        } else {
+            str += formatters.log(dig[typ], typ);
+        }
+        if (str) {
+            str = "## " + typ.toUpperCase() + "\n" + str;
+        }
+        return str;
+    }).
+    filter(function (el) {return !!el;}).
+    join("\n***\n");
+    if (temp) {
+      ret += "FOLDER LOGS: \n===\n" + temp;
+    } 
     return ret;
 };
 Folder.prototype.logLevel = 0;
@@ -1059,7 +1107,7 @@ Folder.booleans = {
         var typeit = this.Folder.requires.typeit;
         
     
-        args = Array.prototype.slice.call(arguments, 1);
+        var args = Array.prototype.slice.call(arguments, 1);
     
         var t = typeit(obj);
     
@@ -3012,6 +3060,8 @@ Folder.subCommands = (function () {
         return typeit(obj);
     };
     ret.reg = ret.regexp = function (text, flags) {
+        var doc = this;
+        
         if ( typeit(flags) !== 'string' ) {
             flags = 'g';
         } else if (flags.match('-') !== -1) {

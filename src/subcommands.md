@@ -56,6 +56,7 @@ can use this as a prototype.
             return typeit(obj);
         };
         ret.reg = ret.regexp = function (text, flags) {
+            _"|globals doc"
             _"commands::regify:core | sub cmd:regify, subcmd:reg"
         };
 
@@ -632,7 +633,7 @@ checks to see if it is not any of the types that follow.
     function (obj) {
         _"|globals typeit"
 
-        args = Array.prototype.slice.call(arguments, 1);
+        var args = Array.prototype.slice.call(arguments, 1);
 
         var t = typeit(obj);
 

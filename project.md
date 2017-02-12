@@ -218,6 +218,7 @@ We have a default scope called `g` for global.
         this.comments = Folder.comments;
         this.Folder = Folder;
         _"debugging::var tracking:initialize"
+        this.logs = _"diagnostics";
 
         _"events::done when"
         
@@ -414,7 +415,7 @@ keyed entry points to an array. This is created for each doc.
     function (obj) {
         return Object.keys(obj).
             map(function (key) {
-                return  key + "\n~~~\n" + obj[key] + "\n~~~\n";
+                return  "### " + key + "\n`````\n" + obj[key] + "\n`````";
             }).
             join("\n***\n");
     }
@@ -425,31 +426,58 @@ This creates a reporter. The filter is a function that filters out the keys of
 the diagnostic tools. The idea is, for example, to just get a specific kind of
 log message for debugging purposes. 
 
+It is designed to eliminate any parts that are empty of content. 
+
     function (filter) {
         var folder = this;
         var formatters = folder.formatters;
         var docs = Object.keys(folder.docs);
         var ret = '';
         docs.forEach(function (key) {
-              ret += "DOC: " + key + "\n===\n";  
               var dig = folder.docs[key].logs;
-              var keys =  Object.keys(dig);
-              if (typeit(filter, 'function') ) {
-                    keys = keys.filter(filter);
-              }
-              ret += keys.map (function (typ) {
-                    var str = "## " + typ + "\n===\n";
-                    if (typeit(formatters[typ], 'function') ) {
-                        str += formatters[typ](dig[typ]);
-                    } else {
-                        str += formatters.log(dig[typ], typ);
-                    }
-                    return str;
-                }).
-                join("\n===\n");
+              _":text generation | sub DOCSTRING,
+                ec('"DOC: " + key + "\n===\n"') "
         });
+        var dig = this.logs;
+        _":text generation | sub DOCSTRING, 
+            ec('"FOLDER LOGS: \n===\n"') "
         return ret;
     }
+
+[text generation]()
+
+This is the common part of the text. 
+
+    var temp = '';
+    var keys =  Object.keys(dig);
+    if (typeit(filter, 'function') ) {
+        keys = keys.filter(filter);
+    }
+    temp += keys.map (function (typ) {
+        var str = '';
+        if (typeit(formatters[typ], 'function') ) {
+            str += formatters[typ](dig[typ]);
+        } else {
+            str += formatters.log(dig[typ], typ);
+        }
+        if (str) {
+            str = "## " + typ.toUpperCase() + "\n" + str;
+        }
+        return str;
+    }).
+    filter(function (el) {return !!el;}).
+    join("\n***\n");
+    if (temp) {
+      ret += DOCSTRING + temp;
+    } 
+
+[details]()
+
+    if (args.length) {
+        ret += "\n* DETAILS:\n\n    * " + 
+            args.join("\n    * ");
+    }
+
 
 ### Log
 
@@ -463,7 +491,7 @@ This is the logging function
             out[0].push(args);
         } else {
             if (typeit(out[level], "array") ) {
-                outReport[level].push(args);
+                out[level].push(args);
             } else {
                 out[level] = [args];
             }
@@ -473,14 +501,15 @@ This is the logging function
 
 [formatter]()
 
-    function (list, level) {
+    function (list) {
         return list.map(
                 function (args) {
                     var msg = args.shift();
-                    return  msg + "\n" + 
-                        (args.length ? '' : '\n~~~\n' + args.join("\n"));
+                    var ret = "\n* MESSAGE: " + msg;
+                    _"out reporter:details"
+                    return ret;
             }).
-            join("\n===\n");
+            join("\n***\n");
     }
 
 
@@ -509,10 +538,11 @@ This can be used to do a foreach on the error argument.
             function (args) {
                 var kind = args.shift();
                 var description = args.shift();
-                return  kind + "\n" + description + "\n~~~\n" + 
-                    args.join("\n");
+                var ret = "\n* KIND: " + kind + "\n* DESCRIPTION: " + description;
+                _"out reporter:details"
+                return ret;
             }).
-            join("\n===\n");
+            join("\n***\n");
     }
 
 
