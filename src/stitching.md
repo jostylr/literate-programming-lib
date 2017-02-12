@@ -1813,8 +1813,7 @@ Now they are executed before the command.
 
         _":prep command"
 
-                
-        args = doc.argsPrep(args, comname, doc.subCommands, command);
+        args = doc.argsPrep(args, comname, doc.subCommands, command, input);
 
         if (fun) {
             fun.apply(doc, [input, args, comname, command]);
@@ -1905,7 +1904,7 @@ should be of the form [type, val, ...]. Types can be:
 
 Break from list--
 
-    function self (args, name, subs, command ) {
+    function self (args, name, subs, command, input ) {
         var retArgs = [], i, n = args.length;
         var ret, subArgs;
         var cur, doc = this, gcd = this.gcd;
@@ -1917,22 +1916,28 @@ Break from list--
             cur = args[i];
             if (Array.isArray(cur) && cur.sub ) {
                 subArgs = cur.slice(1);
-                if (subArgs.length) {
-                    subArgs = self.call(doc, subArgs, name, subs);
-                }
                 subc = cur[0];
                 normsubc = doc.normalize(subc);
-                try {
+                if (subArgs.length) {
+                    subArgs = self.call(doc, subArgs, name, subs, command, input);
+                }
+                 try {
 
-The first if handles the case of a subcommand being present either in the
+We have a very special subcommand which is just `input`. This returns the
+input object. 
+
+                    if (normsubc === 'input') {
+                        ret = input; 
+
+This handles the case of a subcommand being present either in the
 command subcommand or the generic subcommands. 
 
-                    if ( (sfun =  ( 
+                   } else if ( (sfun =  ( 
                         (csubs && csubs[normsubc] ) || 
                         (subs && subs[normsubc] )    ) ) ) {
                         ret = sfun.apply(doc, subArgs);
 
-The second if looks if there is a leader command. If so, it proceeds. There is
+This looks if there is a leader command. If so, it proceeds. There is
 no need to check if it is a standalone leader since the first if would catch
 that. 
 
@@ -1979,6 +1984,8 @@ argument.
 
 [array ret]()
 
+
+This seems unused???
 
     switch (ret.shift()) {
     case "value" :

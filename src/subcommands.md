@@ -51,18 +51,15 @@ can use this as a prototype.
         ret.null = function () {return null;}; 
         ret.doc =  function () {return this;}; 
         ret.skip = function () {return ;}; 
-        ret.reg = ret.regexp = function (str, flag) {
-            if (typeit(flag, 'undefined') ) {
-                flag = 'g'; //global is default
-            }
-            if (flag === '-') {
-                flag = '';
-            }
-            return new RegExp(str, flag);
+        ret.type = function (obj) {
+            _"|globals typeit"
+            return typeit(obj);
+        };
+        ret.reg = ret.regexp = function (text, flags) {
+            _"commands::regify:core | sub cmd:regify, subcmd:reg"
         };
 
         return ret;
-
     })()
 
 ## Attach Subcommands
@@ -519,7 +516,8 @@ that return booleans.
         var args = Array.prototype.slice.call(arguments, 1);
 
         if ( bool[propname] ) {
-            return bool[propname].call(doc, args);
+            var ret = bool[propname].call(doc, args);
+            return ret;
         } else {
             doc.log("no such boolean tester: ", propname);
             return false;
@@ -541,6 +539,9 @@ These are the default boolean functions.
                 return !!el;
             });
         },
+        "not" : function (args) {
+            return !args[0];
+        },
         "===" :  _":comparator | sub OP, ===",   
         "==" :  _":comparator | sub  OP, ==",   
         ">=" :  _":comparator | sub OP, >=",   
@@ -551,18 +552,21 @@ These are the default boolean functions.
         "!==" :  _":compare all | sub  OP, ===",
         "flag" : function (flag) {
             return this.parent.flags.hasOwnProperty(flag);
-        }
+        },
+        "match" : _":match",
+        "type" : _":type"
     }
    
  [comparator]()
 
      function (args) {
-            var prev = args[0];
-            return args.every(function (el) {
+            var prev = args.shift();
+            var ret = args.every(function (el) {
                 var one = prev;
                 prev = el;
                 return (one OP el);
             });
+            return ret;
         }
 [compare all]()
 
@@ -581,4 +585,69 @@ For something like not equals, we need to compare all the pairs.
         return true;
     }
 
+[match]()
+
+This checks if the first argument has or matches the string/reg that followes
+it. 
+
+    function (args) {
+        _"|globals doc, typeit"
+
+        var str = args[0];
+        var condition = args[1];
+
+        if (typeit(str) !== 'string') {
+            _":match-warn | sub DESC, 
+                first argument needs to be a string"
+        }
+
+        var typ = typeit(condition);
+        
+        if (typ === 'string') {
+            return (str.indexOf(condition) !== -1);
+        } else if (typ === 'regexp') {
+            return (condition.test(str)); 
+        } else {
+            _":match-warn | sub DESC,
+                second argument needs to be string or regex"
+        }
+
+    }
+
+[match-warn]()
+
+    doc.warn("subcmd:boolean match",
+        "DESC",
+        "inputs: ", str, condition);
+    return false;
+
+
+
+[type]()
+
+This uses typeit to check the type of the object and checks to see if it
+matches any of the types. If the second argument is an exclamation point, it
+checks to see if it is not any of the types that follow. 
+
+    function (obj) {
+        _"|globals typeit"
+
+        args = Array.prototype.slice.call(arguments, 1);
+
+        var t = typeit(obj);
+
+        if (args.length === 1) {
+            return t === args[0];
+        } else if (args[0] === '!') {
+            args.shift();
+            return args.every(function (el) {
+                return t !== el;
+            });
+        } else {
+            return args.some(function (el) {
+                return t === el;
+            });
+        }
+
+    }
 

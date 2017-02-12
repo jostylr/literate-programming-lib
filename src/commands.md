@@ -1672,23 +1672,35 @@ character and the escape character is not supposed to escape.
     function (input, args) {
         _"|globals doc, typeit"
 
-        var flags;
-        if ( typeit(args[0], 'undefined') ) {
-            flags = 'g';
-        } else {
-           flags = args[0].replace('-', ''); 
-        }
-        var reg;
+        var text = input;
+        var flags = args[0];
 
-        try {
-            reg = new RegExp(input, flags);
-            return reg;
-        } catch(e) {
-            doc.error("cmd:regify", "failure to compile regular expression", 
-                "input", input, "flags:", flags, "args:",  args);
-        }
+        _":core"
 
     }
+
+[core]()
+
+This is used here and in subcommand reg
+
+    if ( typeit(flags) !== 'string' ) {
+        flags = 'g';
+    } else if (flags.match('-') !== -1) {
+        flags = flags.replace('-', ''); 
+    } else if (flags.match('g') === -1) {
+        flags += 'g';
+    }
+    var reg;
+
+    try {
+        reg = new RegExp(text, flags);
+        return reg;
+    } catch(e) {
+        doc.error("cmd:regify", "failure to compile regular expression", 
+            "to compile:", text, "flags:", flags, 
+            "error:", e.message );
+    }
+
 ##### cdoc
 
     * **regify** Turns the incoming input into a regular expression. First

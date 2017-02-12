@@ -106,7 +106,8 @@ The log array should be cleared between tests.
         "join-filter.md",
         "subcommands.md",
         "logs-doc.md",
-        "sub-reg.md"
+        "sub-reg.md",
+        "sub-input-match.md"
     ].
     slice();
     //slice(31, 32);

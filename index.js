@@ -942,53 +942,62 @@ Folder.booleans = {
             return !!el;
         });
     },
+    "not" : function (args) {
+        return !args[0];
+    },
     "===" :   function (args) {
-            var prev = args[0];
-            return args.every(function (el) {
+            var prev = args.shift();
+            var ret = args.every(function (el) {
                 var one = prev;
                 prev = el;
                 return (one === el);
             });
+            return ret;
         },   
     "==" :   function (args) {
-            var prev = args[0];
-            return args.every(function (el) {
+            var prev = args.shift();
+            var ret = args.every(function (el) {
                 var one = prev;
                 prev = el;
                 return (one == el);
             });
+            return ret;
         },   
     ">=" :   function (args) {
-            var prev = args[0];
-            return args.every(function (el) {
+            var prev = args.shift();
+            var ret = args.every(function (el) {
                 var one = prev;
                 prev = el;
                 return (one >= el);
             });
+            return ret;
         },   
     ">" :   function (args) {
-            var prev = args[0];
-            return args.every(function (el) {
+            var prev = args.shift();
+            var ret = args.every(function (el) {
                 var one = prev;
                 prev = el;
                 return (one > el);
             });
+            return ret;
         },   
     "<=" :   function (args) {
-            var prev = args[0];
-            return args.every(function (el) {
+            var prev = args.shift();
+            var ret = args.every(function (el) {
                 var one = prev;
                 prev = el;
                 return (one <= el);
             });
+            return ret;
         },   
     "<" :   function (args) {
-            var prev = args[0];
-            return args.every(function (el) {
+            var prev = args.shift();
+            var ret = args.every(function (el) {
                 var one = prev;
                 prev = el;
                 return (one < el);
             });
+            return ret;
         },   
     "!=" : function (args) {
         var i, j, n = args.length, cur;
@@ -1016,6 +1025,57 @@ Folder.booleans = {
     },
     "flag" : function (flag) {
         return this.parent.flags.hasOwnProperty(flag);
+    },
+    "match" : function (args) {
+        var doc = this;
+        var typeit = this.Folder.requires.typeit;
+        
+    
+        var str = args[0];
+        var condition = args[1];
+    
+        if (typeit(str) !== 'string') {
+            doc.warn("subcmd:boolean match",
+                "first argument needs to be a string",
+                "inputs: ", str, condition);
+            return false;
+        }
+    
+        var typ = typeit(condition);
+        
+        if (typ === 'string') {
+            return (str.indexOf(condition) !== -1);
+        } else if (typ === 'regexp') {
+            return (condition.test(str)); 
+        } else {
+            doc.warn("subcmd:boolean match",
+                "second argument needs to be string or regex",
+                "inputs: ", str, condition);
+            return false;
+        }
+    
+    },
+    "type" : function (obj) {
+        var typeit = this.Folder.requires.typeit;
+        
+    
+        args = Array.prototype.slice.call(arguments, 1);
+    
+        var t = typeit(obj);
+    
+        if (args.length === 1) {
+            return t === args[0];
+        } else if (args[0] === '!') {
+            args.shift();
+            return args.every(function (el) {
+                return t !== el;
+            });
+        } else {
+            return args.some(function (el) {
+                return t === el;
+            });
+        }
+    
     }
 };
 
@@ -1151,8 +1211,8 @@ Folder.commands = {   eval : sync(function ( text, args ) {
     passthru : sync(function (text) {return text;}, "passthru"),
     sub : function (str, args, name) {
         var doc = this;
-        var gcd = doc.gcd;
-        var typeit = doc.Folder.requires.typeit;
+        var gcd = this.gcd;
+        var typeit = this.Folder.requires.typeit;
         
         var regs = [];
         var strs = [];
@@ -1309,7 +1369,7 @@ Folder.commands = {   eval : sync(function ( text, args ) {
     }, "trim"),
     filter : sync(function (input, args) {
         var doc = this;
-        var typeit = doc.Folder.requires.typeit;
+        var typeit = this.Folder.requires.typeit;
         
         var here = 'cmd:filter';
         var typ = typeit(input);
@@ -1422,7 +1482,7 @@ Folder.commands = {   eval : sync(function ( text, args ) {
     }, "filter"),
     join : sync(function (input, args) {
         var doc = this;
-        var typeit = doc.Folder.requires.typeit;
+        var typeit = this.Folder.requires.typeit;
         
         var here = 'cmd:join';
         var sep = args.shift() || '';
@@ -2933,7 +2993,8 @@ Folder.subCommands = (function () {
         var args = Array.prototype.slice.call(arguments, 1);
     
         if ( bool[propname] ) {
-            return bool[propname].call(doc, args);
+            var ret = bool[propname].call(doc, args);
+            return ret;
         } else {
             doc.log("no such boolean tester: ", propname);
             return false;
@@ -2945,18 +3006,32 @@ Folder.subCommands = (function () {
     ret.null = function () {return null;}; 
     ret.doc =  function () {return this;}; 
     ret.skip = function () {return ;}; 
-    ret.reg = ret.regexp = function (str, flag) {
-        if (typeit(flag, 'undefined') ) {
-            flag = 'g'; //global is default
+    ret.type = function (obj) {
+        var typeit = this.Folder.requires.typeit;
+        
+        return typeit(obj);
+    };
+    ret.reg = ret.regexp = function (text, flags) {
+        if ( typeit(flags) !== 'string' ) {
+            flags = 'g';
+        } else if (flags.match('-') !== -1) {
+            flags = flags.replace('-', ''); 
+        } else if (flags.match('g') === -1) {
+            flags += 'g';
         }
-        if (flag === '-') {
-            flag = '';
+        var reg;
+        
+        try {
+            reg = new RegExp(text, flags);
+            return reg;
+        } catch(e) {
+            doc.error("subcmd:reg", "failure to compile regular expression", 
+                "to compile:", text, "flags:", flags, 
+                "error:", e.message );
         }
-        return new RegExp(str, flag);
     };
 
     return ret;
-
 })();
 
 Folder.defSubCommand =function (sub, f, cmd) {
@@ -4518,8 +4593,7 @@ dp.argFinishingHandler = function (comname) {
                 fun = doc.commands[command];
             }
     
-                
-        args = doc.argsPrep(args, comname, doc.subCommands, command);
+        args = doc.argsPrep(args, comname, doc.subCommands, command, input);
     
         if (fun) {
             fun.apply(doc, [input, args, comname, command]);
@@ -4557,7 +4631,7 @@ dp.whitespaceEscape = function (text) {
 
 };
 
-dp.argsPrep = function self (args, name, subs, command ) {
+dp.argsPrep = function self (args, name, subs, command, input ) {
     var retArgs = [], i, n = args.length;
     var ret, subArgs;
     var cur, doc = this, gcd = this.gcd;
@@ -4569,13 +4643,15 @@ dp.argsPrep = function self (args, name, subs, command ) {
         cur = args[i];
         if (Array.isArray(cur) && cur.sub ) {
             subArgs = cur.slice(1);
-            if (subArgs.length) {
-                subArgs = self.call(doc, subArgs, name, subs);
-            }
             subc = cur[0];
             normsubc = doc.normalize(subc);
-            try {
-                if ( (sfun =  ( 
+            if (subArgs.length) {
+                subArgs = self.call(doc, subArgs, name, subs, command, input);
+            }
+             try {
+                if (normsubc === 'input') {
+                    ret = input; 
+               } else if ( (sfun =  ( 
                     (csubs && csubs[normsubc] ) || 
                     (subs && subs[normsubc] )    ) ) ) {
                     ret = sfun.apply(doc, subArgs);
@@ -4739,23 +4815,28 @@ Folder.sync("objectify", function (input, args) {
 
 Folder.sync('regify', function (input, args) {
     var doc = this;
-    var typeit = doc.Folder.requires.typeit;
+    var typeit = this.Folder.requires.typeit;
     
 
-    var flags;
-    if ( typeit(args[0], 'undefined') ) {
+    var text = input;
+    var flags = args[0];
+
+    if ( typeit(flags) !== 'string' ) {
         flags = 'g';
-    } else {
-       flags = args[0].replace('-', ''); 
+    } else if (flags.match('-') !== -1) {
+        flags = flags.replace('-', ''); 
+    } else if (flags.match('g') === -1) {
+        flags += 'g';
     }
     var reg;
-
+    
     try {
-        reg = new RegExp(input, flags);
+        reg = new RegExp(text, flags);
         return reg;
     } catch(e) {
         doc.error("cmd:regify", "failure to compile regular expression", 
-            "input", input, "flags:", flags, "args:",  args);
+            "to compile:", text, "flags:", flags, 
+            "error:", e.message );
     }
 
 });
@@ -5235,8 +5316,8 @@ Folder.sync("pstore", function (input, args) {
 
 Folder.commands.anon = function (input, args, name) {
     var doc = this;
-    var gcd = doc.gcd;
-    var typeit = doc.Folder.requires.typeit;
+    var gcd = this.gcd;
+    var typeit = this.Folder.requires.typeit;
     
     
     var f = args.shift();
@@ -5261,8 +5342,8 @@ Folder.commands.anon = function (input, args, name) {
 };
 Folder.commands.anonasync = function (input, args, name) {
     var doc = this;
-    var gcd = doc.gcd;
-    var typeit = doc.Folder.requires.typeit;
+    var gcd = this.gcd;
+    var typeit = this.Folder.requires.typeit;
     
     
     var f = args.shift();

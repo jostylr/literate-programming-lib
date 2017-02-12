@@ -551,8 +551,8 @@ the appropriate syntax.
 Some commonly used variables. 
 
     doc : var doc = this;
-    gcd : var gcd = doc.gcd;
-    typeit : var typeit = doc.Folder.requires.typeit;
+    gcd : var gcd = this.gcd;
+    typeit : var typeit = this.Folder.requires.typeit;
     
 
 [json]()
@@ -1326,8 +1326,8 @@ There are several built-in subcommands. Note that these are case insensitive.
   same for the pipe chain. Multiple keys can be given and each associated
   value will be returned as distinct arguments. 
 * `num` `number` This converts the argument(s) to numbers, using js
-  Number function. `n(1, 2, 3)` will create three arguments of integers. To
-  get an array, use `arr(n(1, 2, 3)`
+  Number function. `num(1, 2, 3)` will create three arguments of integers. To
+  get an array, use `arr(num(1, 2, 3)`
 * `date` Returns a date object. `date()` returns what the current now is,
   `date(some date string)` will return a date object as parsed by Date. 
 * `ev` or`eval` will evaluate the argument and use the magic `ret` variable as the
@@ -1343,6 +1343,9 @@ There are several built-in subcommands. Note that these are case insensitive.
 * `true`. This returns the true value.
 * `false`. This returns the false value.
 * `null`. This returns the null value. 
+* `reg` or `regexp` Takes in a regular expression string and possibly some
+  flags and returns a regular expression. Defaults to a global flag; pass in
+  `-` as part of the flags to get non-global. 
 * `doc`. This returns the doc variable. This could be useful in connection to
   the property method and the log subcommand.
 * `skip`. This returns no arguments. 
@@ -1354,11 +1357,17 @@ There are several built-in subcommands. Note that these are case insensitive.
   following are the default tests in the variable `doc.booleans`:
     * `and` checks that all are truthy
     * `or` checks that at least one is truthy`
+    * `not` negates the boolean
     * `===`, `==`, `>`, `>=`, `<`, `<=` tests in sequence the relation. 
     * `!==`, `!=` tests all pairs for non-equality. 
     * `flag` looks to see if the passed in strings are flags that have been
       set. 
-
+    * `match` Takes in a string as first argument and either a string or
+      regular expression to match.
+    * `type` Tests first argument as one of the types that follow (strings). 
+* `input` This returns the incoming input. Should be useful for extraction of
+  information, particularly for boolean tests. 
+* `type` Yields the type of the object in first argument. 
 
 To build one's own command, you can attach a function whose arguments will be
 the arguments passed in. The `this` is the doc object. The current name (say
