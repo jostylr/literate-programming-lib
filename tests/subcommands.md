@@ -19,7 +19,6 @@ subCommands -- testing our subcommands
 
     _"regexp"
 
-[out](# "save:")
 
 
 ## echo

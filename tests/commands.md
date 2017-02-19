@@ -6,7 +6,6 @@ This is a test for multiple commands.
 
     _"|echo Awesome | cmds async, ec(`callback(null, text+ '!!')`) "
 
-[out](# "save:")
 ---
 Dudthing
 

@@ -7,7 +7,6 @@ happens.
     _"more issues"
     this is great_
  
-[out](# "save:")
 
 ## more issues
 

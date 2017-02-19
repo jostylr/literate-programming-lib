@@ -58,7 +58,15 @@ var testrunner = function (file) {
             }
         }
     }
-    
+    var firstName = td.start[0];
+    var firstText = td.in[firstName];
+    console.log(firstName, firstText);
+    if ( !(/^#/).test(firstText) ) {
+        if (firstText) {
+            td.in[firstName] = firstText + '\n[out](#^ "save:")'
+            //console.log(td.in[firstName]);
+        }
+    }
 
 
     var folder = new Litpro({

@@ -5,7 +5,6 @@ this.
 
     _"| cool report(dude), pig(dude) "
 
-[out](# "save:")
 
 ## cool 
 

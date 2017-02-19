@@ -10,7 +10,6 @@ be tested in the dash test.
         | .map fun(`function (el) {return el*args[0];}`, num(3))
         | .join ec(",") "
 
-[out](# "save:")
 ---
 1978
 

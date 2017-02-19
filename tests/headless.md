@@ -1,6 +1,6 @@
 headless - testing save options with no heading
 ---
-
+# Headless
 
 No heading was a problem when processing pipes in a save reference
 

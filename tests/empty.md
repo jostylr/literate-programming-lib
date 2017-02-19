@@ -1,5 +1,6 @@
 empty -- what if stuff is empty?
 ---start:empty
+
 ---start:headless
 No header. What happens?
 

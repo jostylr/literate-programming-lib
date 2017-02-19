@@ -48,7 +48,6 @@ We want to test the join and filter functions
     }`) | join \,\ "
 
 
-[out](# "save: ")
 
 [to load]()
 

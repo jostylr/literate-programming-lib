@@ -6,7 +6,6 @@ Property set, get, store -- testing these commands
     _"obj | when c | pget c "
     _"|echo Awesome | pstore _"obj", d, num(2) | echo _'obj' | pget d, 2"
 
-[out](# "save:")
 
 [storing]()
 

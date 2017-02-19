@@ -214,7 +214,28 @@ array. That should cover most cases.
 
 [check start for save]()
 
-So we want a convenience measure in which if there is no save 
+So we want a convenience measure in which if there is no save our out, then we
+use the beginning block of the first start. 
+
+We have two natural options: 
+* scan all the starts and ins for "out:" and "save:"  directives. Failing to
+find any, we add one `[out](#^ "save:")` to the end of the start. 
+* look for a first header in the first start. Failure leads to appending the
+  save. 
+
+We'll do the second for convenience. 
+
+    var firstName = td.start[0];
+    var firstText = td.in[firstName];
+    console.log(firstName, firstText);
+    if ( !(/^#/).test(firstText) ) {
+        if (firstText) {
+            td.in[firstName] = firstText + '\n[out](#^ "save:")'
+            //console.log(td.in[firstName]);
+        }
+    }
+     
+
 
 
 ### Dealing with logs

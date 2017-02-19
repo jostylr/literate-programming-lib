@@ -9,7 +9,6 @@ This tests the anonymous commands.
     _"|echo Awesome | anonasync 
         ec(`return callback(null, input + '!' + args[0])`), 2 "
 
-[out](# "save:")
 ---
 Awesome!
 Awesome5!6

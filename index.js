@@ -446,6 +446,9 @@ Folder.prototype.parse = function (doc) {
                 ltext = [];
             } else {
                 href = node.destination;
+                if (href === "#%5E") {
+                    href = "#^";
+                }
                 title = node.title;
                 ltext = ltext.join('').trim();
                 

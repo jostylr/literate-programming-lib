@@ -8,10 +8,6 @@ Sub-input-match -- Testing subcommand input and boolean match
         arr(?<=(input(), num(15)), echo, Expand out each point)"
     
     
-
-
-[out](# "save: ")
-
 [text]()
 
     This is some random text

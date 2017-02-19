@@ -7,7 +7,6 @@ Substitutes with regexs
     _"| echo This is greater | sub _"creg", 
         ec("Reverse and some scrambling: $'-$1-$`-$&-$1:") "
 
-[out](# "save:")
 
 # reg
 

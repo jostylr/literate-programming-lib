@@ -4,7 +4,6 @@ This implements comments in headings
 
     _":name"
 
-[out](# "save:")
 
 <!--+ [name]() -->
 

@@ -12,7 +12,6 @@ This should test the ifelse command.
         | if-else arr(?!=(2, 3, 4, 5, 5, 7), sub, some, stone),
            arr(?!=(2, 3, 4, 5, 6, 7), sub, some, rock) "
 
-[out](# "save:")
 ---
 somefinally
 

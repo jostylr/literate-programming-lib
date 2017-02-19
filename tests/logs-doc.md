@@ -1,5 +1,7 @@
 logs, warn, error -- testing out the doc commands
 ---
+# Eval logs
+
 Let's do some evaling
 
     doc.warn("what", "just a little something", 5);

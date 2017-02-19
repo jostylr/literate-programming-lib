@@ -142,6 +142,14 @@ in the heading then.
         ltext = [];
     } else {
         href = node.destination;
+
+Commonmark translates `^` into `%5E`. This undoes that. May want to think
+about a general transformation back or to block it, but this is sufficient for
+now. 
+
+        if (href === "#%5E") {
+            href = "#^";
+        }
         title = node.title;
         ltext = ltext.join('').trim();
         

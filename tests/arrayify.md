@@ -1,5 +1,5 @@
 Arrayify - testing the array making function
-----
+---
 # First
 
     _":main | arrayify | .map _"f|evil" | .toString"

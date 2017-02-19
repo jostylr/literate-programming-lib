@@ -11,7 +11,6 @@ passed into a function -- think of it as named parameters, if you like.
         slice num(1, 2) | cat !"
     _"|paired args(act( _"arr", concat, _"arr"))"
 
-[out](# "save:")
 
 ## op
 
