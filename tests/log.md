@@ -19,13 +19,13 @@ Just some stuff
     great sound
     _":cool|log dude, to"
 
-[hi:start\\:12](# "log:")
+[hi:start\\:12](# "monitor: start")
 
 [cool]()
 
     COOL
 
-[](# "log:")
+[](# "monitor:")
 
 ## Other
 

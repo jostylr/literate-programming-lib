@@ -5,12 +5,15 @@ var fs = require('fs');
 var test = require('tape');
 var Litpro = require('./index.js');
 
-var testdata = {};
 
 var testrunner = function (file) {
 
+
+
     var pieces, name, i, n, td, newline, piece,
         start, text, j, m, filename;
+
+    var testdata = {};
 
     text = fs.readFileSync('./tests/'+file, 'utf-8');
     pieces = text.split("\n---");
@@ -88,16 +91,32 @@ var testrunner = function (file) {
           ]
     });
     var gcd = folder.gcd;
+
     
     var log = td.log; 
 
-    //gcd.makeLog();
-
-    //gcd.monitor('', function (evt, data) { console.log(evt, data); });
+    if (monitor) {
+        //gcd.makeLog();
+        //data too messy so just event name
+        gcd.monitor('', function (evt) { console.log(evt); });
+    }
 
     test(name, function (t) {
         var outs, m, j, out;
 
+        folder.eventlog = function (event, type, data) {
+            folder.log("EVENT: " + event + " DATA: " + data);
+        };
+        folder.cmdlog = function (input, lbl, args) {
+            if (lbl) {
+                args.unshift(lbl);
+            }
+            args.unshift(input);
+            folder.log(args.join("\n~~~\n"));
+        };
+        folder.dirlog = function (name, data) {
+            folder.log("DIR LOG:" + name + "\n" + data);
+        };
         folder.log = function (text) {
             if (log.indexOf(text) !== -1) {
                 t.pass();
@@ -106,7 +125,6 @@ var testrunner = function (file) {
                 t.fail(text);
             }
         };
-        
 
         outs = Object.keys(td.out);
         m  = outs.length;
@@ -117,6 +135,7 @@ var testrunner = function (file) {
             out = outs[j];
             gcd.on("file ready:" + out, equalizer(t, td.out[out]) );
         }
+        
 
         start = td.start;
         n = start.length; 
@@ -127,32 +146,40 @@ var testrunner = function (file) {
             }
         }
 
-        var notEmit = function () { 
-            setTimeout( function () {
-                var key, el;
-                for (key in gcd.whens) {
-                    console.log("NOT EMITTING: " + key + " BECAUSE OF " +
-                        Object.keys(gcd.whens[key].events).join(" ; "));
+        var notEmit = function () {
+            var key, el, nofire;
+            var comreg = /command defined/;
+            var textreg = /text stored/;
+            var savereg = /for save/;
+            for (key in gcd._onces) {
+                el = gcd._onces[key];
+                nofire = el[0];
+                if (comreg.test(nofire)) {
+                    console.log("COMMAND NOT DEFINED: " +
+                        nofire.slice( ("command defined:").length ) );
+                } else if (textreg.test(nofire) ) {
+                    console.log("NOT STORED: " + 
+                        nofire.slice(("text stored:").length) );
+                } else if (savereg.test(nofire) ) {
+                    //nothing; report waits will get it 
+                } else {
+                    console.log("DID NOT FIRE: " + nofire);
                 }
-
-                for (key in gcd._onces) {
-                    el = gcd._onces[key];
-                    console.log("NOT EXECUTED "+ el[1] + " TIMES: " + 
-                        key + " BECAUSE EVENT " + el[0] + 
-                        " DID NOT FIRE. " + el[2]  + " TIMES LEFT"
-                    );
-                }
-
-            });
+           }
         };
 
-       //notEmit();
-
-     //setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
-
+        if (showLogs) {
+            notEmit();
+            setTimeout( function () {
+                console.log(
+                    "Scopes: ", folder.scopes,  
+                    "\nRecording: " , folder.recording
+                )}, 100);
+            setTimeout( function () { 
+                console.log(folder.reportwaits().join("\n")); 
+            }); 
+        }
     });
-   // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
-
 };
 
 var equalizer = function (t, out) {
@@ -169,98 +196,24 @@ var equalizer = function (t, out) {
     };
 };
 
-var testfiles = [  
-   /**/
-   "first.md",
-    "eval.md",
-    "sub.md",
-    "async.md",
-    "scope.md", 
-    "switch.md",
-    "codeblocks.md",
-    "indents.md",
-    "savepipe.md",  
-    "load.md",
-    "asynceval.md",
-    "blockoff.md",
-    "raw.md",
-    "h5.md",
-    "ignore.md",
-    "direval.md",
-    "scopeexists.md",
-    "subindent.md",
-    "templating.md",
-    "empty.md",
-    "switchcmd.md",
-    "pushpop.md",
-    "version.md",
-    "constructor.md",
-    "transform.md",
-    "defaults.md", // 30
-    "dirpush.md", 
-    "mainblock.md", 
-    "linkquotes.md",
-    "backslash.md",
-    "if.md",
-    "nameafterpipe.md",
-    "fsubcommand.md",
-    "directivesubbing.md",
-    "config.md",
-    "log.md",
-    "reports.md",
-    "cycle.md",
-    "store-pipe.md",
-    "comments.md",
-    "lineterm.md",
-    "trailingunderscore.md",
-    "echo.md",
-    "compile.md",
-    "templateexample.md",
-    "store.md",
-    "partial.md",
-    "cd.md",
-    "empty-main.md",
-    "empty-minor.md",
-    "h5pushodd.md",
-    "h5push.md",
-    "compileminor.md",
-    "arrayify.md",
-    "merge.md",
-    "funify.md",
-    "ife.md",
-    "caps.md",
-    "augarrsingle.md",
-    "objectify.md",
-    "miniaugment.md",
-    "compose.md",
-    "assert.md",
-    "wrap.md",
-    "js-string.md",
-    "html-helpers.md",
-    "matrixify.md",
-    "snippets.md",
-    "repeatheaders.md",
-    "capitalizations.md",
-    "headless.md",
-    "erroreval.md",
-    "moresubcommands.md",
-    "dash.md",
-    "ifelse.md",
-    "compile-minidoc.md",
-    "comments-pipes.md",
-    "define.md",
-    "commands.md",
-    "psetgetstore.md",
-    "anon.md",
-    "done.md",
-    "join-filter.md",
-    "subcommands.md",
-    "logs-doc.md",
-    "sub-reg.md",
-    "sub-input-match.md"
-].
-slice();
-//slice(31, 32);
+var reduced = [];
+var showLogs = false;
+var monitor = false;
+var testfiles = fs.readdirSync('./tests').filter(function(el) {
+    if ( (/\.md$/).test(el) ) {
+        if ( (/\_/).test(el) ) {
+            reduced.push(el);
+            showLogs = true;
+            if ( (/\__/).test(el) ) {
+                monitor = true;
+            }
+        }
+        return true;
+    } else {
+        return false;
+    }
+});
+testfiles = (reduced.length !== 0) ? reduced : testfiles;
 
 
 Litpro.commands.readfile = Litpro.prototype.wrapAsync(function (input, args, cb) {

@@ -42,6 +42,8 @@ These are loaded from the src directory.
   into events using commonmark. 
 * [stitching](stitching.md "load:") This is where we stitch all the pieces
   together.
+* [logs](logs.md "load:") This is where the log functions and storage of logs
+  is handled. 
 * [directives](directives.md "load:") The default directives. 
 * [commands](commands.md "load:") The default commands.
 * [subcommands](subcommands.md "load:") The default subcommands.
@@ -126,18 +128,8 @@ Each doc within a folder shares all the directives and commands.
 
     Folder.prototype.join = "\n";
 
-    Folder.prototype.log = _"log";
-    Folder.prototype.error= _"error";
-    Folder.prototype.warn= _"warn";
-    Folder.prototype.formatters = {
-        error: _"error:formatter",
-        warn : _"error:formatter | sub ERROR, WARN",
-        out : _"diagnostics:formatter",
-        log : _"log:formatter"
-    };
-    Folder.prototype.reportOut = _"out reporter";
-    Folder.prototype.logLevel = 0;
-
+    _"logs::"
+   
     Folder.prototype.indicator = "\u2AF6\u2AF6\u2AF6";
 
     Folder.prototype.convertHeading = _"events::convert heading";
@@ -218,7 +210,7 @@ We have a default scope called `g` for global.
         this.comments = Folder.comments;
         this.Folder = Folder;
         _"debugging::var tracking:initialize"
-        this.logs = _"diagnostics";
+        this.logs = _"logs::diagnostics";
 
         _"events::done when"
         
@@ -270,7 +262,6 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.levels[1] = '';
         this.levels[2] = '';
 
-        this.logs = _"diagnostics";
 
         
         this.vars = parent.createScope(file);
@@ -281,9 +272,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.comments = parent.comments; 
         this.colon = parent.colon; 
         this.join = parent.join;
-        this.log = this.parent.log;
-        this.error = this.parent.error;
-        this.warn = this.parent.warn;
+        _"logs::doc"
         this.augment = this.parent.augment;
         this.cmdworker = this.parent.cmdworker;
         this.compose = this.parent.compose;
@@ -396,167 +385,6 @@ This takes in a file name, text, and possibly some more event/handler actions.
 
     }
 
-
-## Diagnostics
-
-We have error, warnings, and logs of various levels. They get collected into a
-single object whose keys are errors, warnings, and numbered log entries. Each
-keyed entry points to an array. This is created for each doc. 
-
-    {
-        error : [],
-        warn : [],
-        out : {},
-        0 : []
-    }
-
-[formatter]()
-
-    function (obj) {
-        return Object.keys(obj).
-            map(function (key) {
-                return  "### " + key + "\n`````\n" + obj[key] + "\n`````";
-            }).
-            join("\n***\n");
-    }
-
-### Out Reporter
-
-This creates a reporter. The filter is a function that filters out the keys of
-the diagnostic tools. The idea is, for example, to just get a specific kind of
-log message for debugging purposes. 
-
-It is designed to eliminate any parts that are empty of content. 
-
-    function (filter) {
-        var folder = this;
-        var formatters = folder.formatters;
-        var docs = Object.keys(folder.docs);
-        var ret = '';
-        docs.forEach(function (key) {
-              var dig = folder.docs[key].logs;
-              _":text generation | sub DOCSTRING,
-                ec('"DOC: " + key + "\n===\n"') "
-        });
-        var dig = this.logs;
-        _":text generation | sub DOCSTRING, 
-            ec('"FOLDER LOGS: \n===\n"') "
-        return ret;
-    }
-
-[text generation]()
-
-This is the common part of the text. 
-
-    var temp = '';
-    var keys =  Object.keys(dig);
-    if (typeit(filter, 'function') ) {
-        keys = keys.filter(filter);
-    }
-    temp += keys.map (function (typ) {
-        var str = '';
-        if (typeit(formatters[typ], 'function') ) {
-            str += formatters[typ](dig[typ]);
-        } else {
-            str += formatters.log(dig[typ], typ);
-        }
-        if (str) {
-            str = "## " + typ.toUpperCase() + "\n" + str;
-        }
-        return str;
-    }).
-    filter(function (el) {return !!el;}).
-    join("\n***\n");
-    if (temp) {
-      ret += DOCSTRING + temp;
-    } 
-
-[details]()
-
-    if (args.length) {
-        ret += "\n* DETAILS:\n\n    * " + 
-            args.join("\n    * ");
-    }
-
-
-### Log
-
-This is the logging function
-
-    function (msg, level) {
-        var out = this.logs;
-        var args = Array.prototype.slice.call(arguments, 2);
-        args.unshift(msg);
-        if (typeit(level, "undefined")) {
-            out[0].push(args);
-        } else {
-            if (typeit(out[level], "array") ) {
-                out[level].push(args);
-            } else {
-                out[level] = [args];
-            }
-        } 
-            
-    }
-
-[formatter]()
-
-    function (list) {
-        return list.map(
-                function (args) {
-                    var msg = args.shift();
-                    var ret = "\n* MESSAGE: " + msg;
-                    _"out reporter:details"
-                    return ret;
-            }).
-            join("\n***\n");
-    }
-
-
-
-### Error
-
-This creates an error function that can be called. It can be overwritten on
-the `Folder.prototype.error` or individually on a doc. 
-
-    function () {
-        var doc = this;
-        var gcd = doc.gcd;
-        var args = Array.prototype.slice.call(arguments);
-
-        doc.logs.error.push(args); 
-        //shuts off all further processing
-        gcd.stop();
-    }
-
-[formatter]()
-
-This can be used to do a foreach on the error argument. 
-
-    function (list) {
-        return list.map(
-            function (args) {
-                var kind = args.shift();
-                var description = args.shift();
-                var ret = "\n* KIND: " + kind + "\n* DESCRIPTION: " + description;
-                _"out reporter:details"
-                return ret;
-            }).
-            join("\n***\n");
-    }
-
-
-### Warn
-
-Same as error, except no stopping of execution. 
-
-    function () {
-        var doc = this;
-        var gcd = doc.gcd;
-        var args = Array.prototype.slice.call(arguments);
-
-        doc.logs.warn.push(args);
-    }
 
 
 ## Globals
@@ -1084,6 +912,8 @@ There are a variety of directives that come built in.
   store the value. You can also use the pipe syntax in the linkname part for
   the value instead. This dominates over the start or option value. A little
   bit easer for the reader to see in rendered form. 
+* **Log** Same as store, except instead of storing it in the doc, it logs it
+  to console. Same exact syntax. 
 * **Transform** `[des|name](#start "transform:|...)` or `[des|name](#start
   ":|...")`.  This takes the value that start points to and transforms it
   using the pipe commands. Note one can store the transformed values by
@@ -1210,7 +1040,7 @@ There are a variety of directives that come built in.
   and toggle between them. For example, you could use the alias `v` for `dev`
   or `deploy` and then have `v::title` be used with just switching what `v`
   points to depending on needs. A bit of a stretch, I admit. 
-* **Log** `[match string](# "log:")` This is a bit digging into the system.
+* **Monitor** `[match string](# "monitor:")` This is a bit digging into the system.
   You can monitor the events being emitted by using what you want to match
   for.  For example, you could put in a block name (all lower cased) and
   monitor all events for that. This gets sent to `doc.log` which by default

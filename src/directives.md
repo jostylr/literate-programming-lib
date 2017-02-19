@@ -4,6 +4,7 @@ Directives allow us to control the document flow.
         "save" : _"save",
         "new scope" : _"new scope",
         "store" : _"store",
+        "monitor" : _"monitor",
         "log" : _"log",
         "out" : _"out",
         "load" : _"load",
@@ -520,6 +521,13 @@ pipe comes first in precedence.
         }
     }
 
+### Log
+
+This logs a value. It is just like store, but only logs the value, not stores
+it. 
+
+    _"store | sub doc.store, doc.dirlog, store, log"
+
 ### Transform
 
 This is the directive for manipulating some text. The href hash tag has the
@@ -582,7 +590,7 @@ that may be the only distinguishing feature (see tests/store.md for example)
 
 
 
-### Log
+### Monitor
 
 This is just a taste of what is possible, but this is a fairly simple taste so
 we will implement it here. 
@@ -590,12 +598,12 @@ we will implement it here.
 The log directive will take in a string and whenever an event matches that
 string, it will log it and its data to the console. 
 
-Form: `[string](# "log:")`
+Form: `[string](# "monitor:")`
 
 If the string has `\:` in it, then that will be replaced with the triple
 colon. Regular colons are not escaped.
 
-An alternate form is  `[](# "log:")`  which will instead listen for any
+An alternate form is  `[](# "monitor:")`  which will instead listen for any
 mention of the current block. Currently not scoped to listen to the file part
 since this would catch other docs using that block name under their own
 nickname for the file. 
@@ -607,6 +615,8 @@ nickname for the file.
         var doc = this;
         var gcd = doc.gcd;
 
+        var name = args.input.trim();
+
         var str = args.link;
         var i;
         while ( (i = str.indexOf("\\:") ) !== -1 )  {
@@ -616,7 +626,7 @@ nickname for the file.
         str = str || doc.colon.escape(args.cur);
 
         gcd.monitor(str, function (ev, data) {
-            doc.log("EVENT: " + ev + " DATA: " + data);
+            doc.eventlog(ev, name, data);
         });
 
     }

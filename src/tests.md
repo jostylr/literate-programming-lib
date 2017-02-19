@@ -6,6 +6,13 @@ introduce a syntax of input/output and related names.
 
 The log array should be cleared between tests. 
 
+Underscores in filenames trigger different behavior; one underscore will limit
+test runs to just those and produce some simple info. Two underscores will
+list all events fired. 
+
+Only files wit `.md` extension are considered, but all of them are. To have
+one not be run, change extension to, say, `.mdn`
+
     /*global require, setTimeout, console*/
     /*jslint evil:true*/
 
@@ -13,104 +20,12 @@ The log array should be cleared between tests.
     var test = require('tape');
     var Litpro = require('./index.js');
 
-    var testdata = {};
 
     var testrunner = _"testrunner";
 
     var equalizer = _"equalizer";
 
-    var testfiles = [  
-       /**/
-       "first.md",
-        "eval.md",
-        "sub.md",
-        "async.md",
-        "scope.md", 
-        "switch.md",
-        "codeblocks.md",
-        "indents.md",
-        "savepipe.md",  
-        "load.md",
-        "asynceval.md",
-        "blockoff.md",
-        "raw.md",
-        "h5.md",
-        "ignore.md",
-        "direval.md",
-        "scopeexists.md",
-        "subindent.md",
-        "templating.md",
-        "empty.md",
-        "switchcmd.md",
-        "pushpop.md",
-        "version.md",
-        "constructor.md",
-        "transform.md",
-        "defaults.md", // 30
-        "dirpush.md", 
-        "mainblock.md", 
-        "linkquotes.md",
-        "backslash.md",
-        "if.md",
-        "nameafterpipe.md",
-        "fsubcommand.md",
-        "directivesubbing.md",
-        "config.md",
-        "log.md",
-        "reports.md",
-        "cycle.md",
-        "store-pipe.md",
-        "comments.md",
-        "lineterm.md",
-        "trailingunderscore.md",
-        "echo.md",
-        "compile.md",
-        "templateexample.md",
-        "store.md",
-        "partial.md",
-        "cd.md",
-        "empty-main.md",
-        "empty-minor.md",
-        "h5pushodd.md",
-        "h5push.md",
-        "compileminor.md",
-        "arrayify.md",
-        "merge.md",
-        "funify.md",
-        "ife.md",
-        "caps.md",
-        "augarrsingle.md",
-        "objectify.md",
-        "miniaugment.md",
-        "compose.md",
-        "assert.md",
-        "wrap.md",
-        "js-string.md",
-        "html-helpers.md",
-        "matrixify.md",
-        "snippets.md",
-        "repeatheaders.md",
-        "capitalizations.md",
-        "headless.md",
-        "erroreval.md",
-        "moresubcommands.md",
-        "dash.md",
-        "ifelse.md",
-        "compile-minidoc.md",
-        "comments-pipes.md",
-        "define.md",
-        "commands.md",
-        "psetgetstore.md",
-        "anon.md",
-        "done.md",
-        "join-filter.md",
-        "subcommands.md",
-        "logs-doc.md",
-        "sub-reg.md",
-        "sub-input-match.md"
-    ].
-    slice();
-    //slice(31, 32);
+    _"testfiles"
 
 
     Litpro.commands.readfile = Litpro.prototype.wrapAsync(_"test async", "readfile");
@@ -133,8 +48,12 @@ process the inputs.
 
     function (file) {
  
+
+
         var pieces, name, i, n, td, newline, piece,
             start, text, j, m, filename;
+    
+        var testdata = {};
 
         text = fs.readFileSync('./tests/'+file, 'utf-8');
         pieces = text.split("\n---");
@@ -149,7 +68,7 @@ process the inputs.
         };
 
         
-        _":set up test data"
+        _"set up test data"
 
 
         var folder = new Litpro({
@@ -163,25 +82,20 @@ process the inputs.
               ]
         });
         var gcd = folder.gcd;
+
         
         var log = td.log; 
 
-        //gcd.makeLog();
-
-        //gcd.monitor('', function (evt, data) { console.log(evt, data); });
+        if (monitor) {
+            //gcd.makeLog();
+            //data too messy so just event name
+            gcd.monitor('', function (evt) { console.log(evt); });
+        }
 
         test(name, function (t) {
             var outs, m, j, out;
 
-            folder.log = function (text) {
-                if (log.indexOf(text) !== -1) {
-                    t.pass();
-                } else {
-                    console.log(text);
-                    t.fail(text);
-                }
-            };
-            
+            _"dealing with logs"
 
             outs = Object.keys(td.out);
             m  = outs.length;
@@ -192,6 +106,7 @@ process the inputs.
                 out = outs[j];
                 gcd.on("file ready:" + out, equalizer(t, td.out[out]) );
             }
+            
 
             start = td.start;
             n = start.length; 
@@ -202,38 +117,54 @@ process the inputs.
                 }
             }
 
-            var notEmit = function () { 
+            var notEmit = _"not emitting";
+
+            if (showLogs) {
+                notEmit();
                 setTimeout( function () {
-                    var key, el;
-                    for (key in gcd.whens) {
-                        console.log("NOT EMITTING: " + key + " BECAUSE OF " +
-                            Object.keys(gcd.whens[key].events).join(" ; "));
-                    }
-
-                    for (key in gcd._onces) {
-                        el = gcd._onces[key];
-                        console.log("NOT EXECUTED "+ el[1] + " TIMES: " + 
-                            key + " BECAUSE EVENT " + el[0] + 
-                            " DID NOT FIRE. " + el[2]  + " TIMES LEFT"
-                        );
-                    }
-
-                });
-            };
-
-           //notEmit();
-
-         //setTimeout( function () { console.log(folder.reportwaits().join("\n")); }); 
-
+                    console.log(
+                        "Scopes: ", folder.scopes,  
+                        "\nRecording: " , folder.recording
+                    )}, 100);
+                setTimeout( function () { 
+                    console.log(folder.reportwaits().join("\n")); 
+                }); 
+            }
         });
-       // setTimeout( function () {console.log("Scopes: ", folder.scopes,  "\nReports: " ,  folder.reports ,  "\nRecording: " , folder.recording)}, 100);
-
     }
 
 
+## Testfiles
+
+To gather the files, we read the tests directory, filter on`.md` files, and we
+see if there are any that contain an underscore. If so, we flag that as on
+the list to run and ignore the others. With one underscore, we run it and give
+out some basic information. With two underscores, we monitor it. This is
+global (assuming just one file at a time, anyway).
+
+    var reduced = [];
+    var showLogs = false;
+    var monitor = false;
+    var testfiles = fs.readdirSync('./tests').filter(function(el) {
+        if ( (/\.md$/).test(el) ) {
+            if ( (/\_/).test(el) ) {
+                reduced.push(el);
+                showLogs = true;
+                if ( (/\__/).test(el) ) {
+                    monitor = true;
+                }
+            }
+            return true;
+        } else {
+            return false;
+        }
+    });
+    testfiles = (reduced.length !== 0) ? reduced : testfiles;
 
 
-[set up test data]() 
+
+
+## Set up test data
 
 Here we put the tests into testdata either as an input or output. If there are
 just two, we assume the first is input and the second is output. The default
@@ -276,7 +207,105 @@ array. That should cover most cases.
         }
     }
 
-   
+
+### Dealing with logs
+
+This is a bit of a pain with logs. Trying to make it somewhat work. This cuts
+out the doc.log normal behavior. We can try that out in a different place
+(logs-doc.md).  
+
+So here we want to convert the incoming command log and directive log into
+their original form which worked for these tests. The second argument is the
+type. 
+
+    folder.eventlog = _":event log";
+    folder.cmdlog = _":cmd log";
+    folder.dirlog = _":dir log";
+    folder.log = function (text) {
+        if (log.indexOf(text) !== -1) {
+            t.pass();
+        } else {
+            console.log(text);
+            t.fail(text);
+        }
+    };
+            
+[event log]() 
+
+Here we want something of the form `EVENT: ... DATA: ...`
+
+    function (event, type, data) {
+        folder.log("EVENT: " + event + " DATA: " + data);
+    }
+    
+    
+[dir log]() 
+
+
+    function (name, data) {
+        folder.log("DIR LOG:" + name + "\n" + data);
+    }
+
+[cmd log]()
+
+Here we join the input with the args using tildas to separate. 
+
+    function (input, lbl, args) {
+        if (lbl) {
+            args.unshift(lbl);
+        }
+        args.unshift(input);
+        folder.log(args.join("\n~~~\n"));
+    }
+  
+### Not emitting
+
+This hopefully is useful diagnostic information for saying why something did
+not fire. 
+
+    function () {
+        var key, el, nofire;
+        var comreg = /command defined/;
+        var textreg = /text stored/;
+        var savereg = /for save/;
+        for (key in gcd._onces) {
+            el = gcd._onces[key];
+            nofire = el[0];
+            if (comreg.test(nofire)) {
+                console.log("COMMAND NOT DEFINED: " +
+                    nofire.slice( ("command defined:").length ) );
+            } else if (textreg.test(nofire) ) {
+                console.log("NOT STORED: " + 
+                    nofire.slice(("text stored:").length) );
+            } else if (savereg.test(nofire) ) {
+                //nothing; report waits will get it 
+            } else {
+                console.log("DID NOT FIRE: " + nofire);
+            }
+       }
+    }
+
+[junk]()
+
+    function () { 
+        setTimeout( function () {
+            var key, el;
+            for (key in gcd.whens) {
+                console.log("NOT EMITTING: " + key + " BECAUSE OF " +
+                    Object.keys(gcd.whens[key].events).join(" ; "));
+            }
+
+            for (key in gcd._onces) {
+                el = gcd._onces[key];
+                console.log("NOT EXECUTED "+ el[1] + " TIMES: " + 
+                    key + " BECAUSE EVENT " + el[0] + 
+                    " DID NOT FIRE. " + el[2]  + " TIMES LEFT"
+                );
+            }
+
+        });
+    }
+
 ### Equalizer
 
 This is just a little function constructor to close around the handler for the
@@ -353,39 +382,96 @@ using the file structures.
     }
 
 
+## Testfiles -- old
 
-### Test list
-
-
-Test list
-+ first was basic concatenation
-+ command piping 
-+ arguments using compiled blocks
-+ async 
-+ variables, storing and retrieving, scopes. 
-+ switch piping
-+ indented code block, code fence, pre, code fence with ignore, saving with
-  default
-+ getting subbed multiline indented blocks correct
-+ command piping (save)
-+ multiple input, output documents
-+ async eval
-+ test backslashing and implement compiling
-+ command definitions
-+ block on/off to exclude blocks 
-+ raw
-+ heading levels 5 and 6
-+ directives to change ignorable languages
-+ eval as directive
-+ feedback for things that have not been compiled
-+ error catching for evals? 
-
-- something to run over headings, such as test h5 headings. at least an
-  example.  Decided not to do this. Maybe a litpro-tape module for
-  implementing a test directive. I am not sure what a doc helper might do. I
-  think the basic idea is simply that it is a convenience to have common
-  headings without interfering and that we have a little bit of help against
-  name changes in the path syntax without that path syntax going nuts beyond
-  reason. I like the independent sections not depending on it, but doc and
-  test are a different matter. 
-
+    [  
+       /**/
+       "first.md",
+        "eval.md",
+        "sub.md",
+        "async.md",
+        "scope.md", 
+        "switch.md",
+        "codeblocks.md",
+        "indents.md",
+        "savepipe.md",  
+        "load.md",
+        "asynceval.md",
+        "blockoff.md",
+        "raw.md",
+        "h5.md",
+        "ignore.md",
+        "direval.md",
+        "scopeexists.md",
+        "subindent.md",
+        "templating.md",
+        "empty.md",
+        "switchcmd.md",
+        "pushpop.md",
+        "version.md",
+        "constructor.md",
+        "transform.md",
+        "defaults.md", // 30
+        "dirpush.md", 
+        "mainblock.md", 
+        "linkquotes.md",
+        "backslash.md",
+        "if.md",
+        "nameafterpipe.md",
+        "fsubcommand.md",
+        "directivesubbing.md",
+        "config.md",
+        "reports.md",
+        "cycle.md",
+        "store-pipe.md",
+        "comments.md",
+        "lineterm.md",
+        "trailingunderscore.md",
+        "echo.md",
+        "compile.md",
+        "templateexample.md",
+        "store.md",
+        "partial.md",
+        "cd.md",
+        "empty-main.md",
+        "empty-minor.md",
+        "h5pushodd.md",
+        "h5push.md",
+        "compileminor.md",
+        "arrayify.md",
+        "merge.md",
+        "funify.md",
+        "ife.md",
+        "caps.md",
+        "augarrsingle.md",
+        "objectify.md",
+        "miniaugment.md",
+        "compose.md",
+        "assert.md",
+        "wrap.md",
+        "js-string.md",
+        "html-helpers.md",
+        "matrixify.md",
+        "snippets.md",
+        "repeatheaders.md",
+        "capitalizations.md",
+        "headless.md",
+        "erroreval.md",
+        "moresubcommands.md",
+        "dash.md",
+        "ifelse.md",
+        "compile-minidoc.md",
+        "comments-pipes.md",
+        "define.md",
+        "commands.md",
+        "psetgetstore.md",
+        "anon.md",
+        "done.md",
+        "join-filter.md",
+        "subcommands.md",
+        "sub-reg.md",
+        "sub-input-match.md",
+        "log.md",
+        "logs-doc.md"
+    ].
+    slice(-1)

@@ -667,7 +667,8 @@ commas, colons, quotes).
   async operations hanging about. Best to have unique names. See push and
   pop commands for a better way to do this. 
 * **log** This will output a concatenated string to doc.log (default
-  console.log) with the incoming text and the arguments. This is a good
+  console.log) with the incoming text and the arguments. The first
+  argument is treated as an idenitifer in the output. This is a good
   way to see what is going on in the middle of a transformation.
 * **raw** `start, end` This will look for start in the raw text of the
   file and end in the file and return everything in between. The start and

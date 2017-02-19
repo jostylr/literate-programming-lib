@@ -47,6 +47,9 @@ var Folder = function (actions) {
     this.logs = {
         error : [],
         warn : [],
+        events : [],
+        "command log" : [],
+        "directive log" : {},
         out : {},
         0 : []
     };
@@ -586,8 +589,26 @@ Folder.prototype.warn= function () {
 
     doc.logs.warn.push(args);
 };
+Folder.prototype.dirlog = function (name, data) {
+    var doc = this;
+    
+    var out = doc.logs;
+    if (!name) {
+        name = 'dirlog'+this.uniq();
+        doc.warn('dir:log', 'need unique name for directive log', name);
+    }
+    out["directive log"][name] = data;
+} ;
+Folder.prototype.cmdlog = function (input, lbl, data) {
+    var out = this.logs;
+    out['command log'].push([lbl, input, data]);
+} ;
+Folder.prototype.eventlog = function (event, lbl, data) {
+    var out = this.logs;
+    out.events.push([lbl, event, data]);
+} ;
 Folder.prototype.formatters = {
-    error: function (list) {
+    "error": function (list) {
         return list.map(
             function (args) {
                 var kind = args.shift();
@@ -599,9 +620,9 @@ Folder.prototype.formatters = {
                 }
                 return ret;
             }).
-            join("\n***\n");
+            join('\n***\n');
     },
-    warn : function (list) {
+    "warn": function (list) {
         return list.map(
             function (args) {
                 var kind = args.shift();
@@ -613,16 +634,16 @@ Folder.prototype.formatters = {
                 }
                 return ret;
             }).
-            join("\n***\n");
+            join('\n***\n');
     },
-    out : function (obj) {
+    "out": function (obj) {
         return Object.keys(obj).
             map(function (key) {
                 return  "### " + key + "\n`````\n" + obj[key] + "\n`````";
             }).
-            join("\n***\n");
+            join('\n***\n');
     },
-    log : function (list) {
+    "log": function (list) {
         return list.map(
                 function (args) {
                     var msg = args.shift();
@@ -633,7 +654,68 @@ Folder.prototype.formatters = {
                     }
                     return ret;
             }).
-            join("\n***\n");
+            join('\n***\n');
+    },
+    "command log": function (list) {
+        var types = {};
+        list.forEach(function (el) {
+            var lbl = el[0];
+            if (!(types[lbl]) ) {
+                types[lbl] = [];
+            }
+            types[lbl].push(el.slice(1));
+        });
+        return Object.keys(types).map(function (el) {
+            var str = "### " + el + "\n";
+            str += types[el].map(function (evd) {
+                var event = evd[0];
+                var data = evd[0];
+                return event + '\n~~~\n' + 
+                    data.join('\n~~~\n');
+            }).
+            join('\n***\n');
+            return str;
+        }).
+        join('\n***\n');
+    } ,
+    "one arg": function (list) {
+        var ret = '';
+        ret += list.map(
+            function (args) {
+                return args.shift();
+            }).
+            join("\n");
+        return ret;
+    } ,
+    "directive log": function (obj) {
+        var keys = Object.keys(obj);
+        return keys.map(function (name) {
+            var data = obj[name];
+            return name + "\n`````\n" + data + "\n`````\n";
+        }).
+        join("\n***\n");
+    },
+    "events": function (list) {
+        var types = {};
+        list.forEach(function (el) {
+            var lbl = el[0];
+            if (!(types[lbl]) ) {
+                types[lbl] = [];
+            }
+            types[lbl].push(el.slice(1));
+        });
+        return Object.keys(types).map(function (el) {
+            var str = "### " + el + "\n";
+            str += types[el].map(function (evd) {
+                var event = evd[0];
+                var data = evd[0];
+                return event + '\n`````\n' + 
+                    data + '\n`````\n';
+            }).
+            join('\n***\n');
+            return str;
+        }).
+        join('\n***\n');
     }
 };
 Folder.prototype.reportOut = function (filter) {
@@ -661,9 +743,9 @@ Folder.prototype.reportOut = function (filter) {
               return str;
           }).
           filter(function (el) {return !!el;}).
-          join("\n***\n");
+          join('\n***\n');
           if (temp) {
-            ret += "DOC: " + key + "\n===\n" + temp;
+            ret +=  (ret ? "\n" : "") + "DOC: " + key + "\n===\n" + temp;
           } 
     });
     var dig = this.logs;
@@ -685,13 +767,13 @@ Folder.prototype.reportOut = function (filter) {
         return str;
     }).
     filter(function (el) {return !!el;}).
-    join("\n***\n");
+    join('\n***\n');
     if (temp) {
-      ret += "FOLDER LOGS: \n===\n" + temp;
+      ret +=  (ret ? "\n" : "") + "FOLDER LOGS: \n===\n" + temp;
     } 
     return ret;
 };
-Folder.prototype.logLevel = 0;
+Folder.prototype.logLevel = 0; 
 
 Folder.prototype.indicator = "\u2AF6\u2AF6\u2AF6";
 
@@ -1337,11 +1419,12 @@ Folder.commands = {   eval : sync(function ( text, args ) {
     }, "store"),
     log : sync(function (input, args) {
         var doc = this;
-        if (args && args.length) {
-            doc.log(input + "\n~~~\n" + args.join("\n~~~\n"));
-        } else {
-            doc.log(input);
+        args = args || [''];
+        var type = args.shift();
+        if (!type) {
+            type = '';
         }
+        doc.cmdlog(input, type, args);
         return input;
     }, "log"),
     async : async(function (text, args, callback) {
@@ -2150,10 +2233,12 @@ Folder.directives = {
             state.value = state.options;
         }
     }),
-    "log" : function (args) {
+    "monitor" : function (args) {
         
         var doc = this;
         var gcd = doc.gcd;
+    
+        var name = args.input.trim();
     
         var str = args.link;
         var i;
@@ -2164,10 +2249,49 @@ Folder.directives = {
         str = str || doc.colon.escape(args.cur);
     
         gcd.monitor(str, function (ev, data) {
-            doc.log("EVENT: " + ev + " DATA: " + data);
+            doc.eventlog(ev, name, data);
         });
     
     },
+    "log" : dirFactory(function (state) {
+        var linkname = state.linkname;
+    
+        state.emitname =  "for log:" + this.file + ":" + linkname;
+    }, function (state) {
+        var doc = this;
+        var c = doc.colon.v;
+        var linkname = state.linkname;
+    
+        var f = function (data) {
+            if (state.varname[0] === c) {
+                //allowing minor blocks to get the major block directive is in
+                state.varname = state.cur.split(c)[0] + state.varname; 
+            }
+            doc.dirlog(state.varname, data);
+        };
+        f._label = "logDir;;" + linkname;
+    
+        state.handler = f;
+    
+    }, function (state) {
+    
+        var ln = state.linkname;
+        var ind = ln.indexOf("|");
+        if (ind !== -1) {
+            state.varname = ln.slice(0, ind).trim();
+            state.block = state.start;
+            state.start = '';
+            state.value = ln.slice(ind+1).trim();
+        } else {
+            state.varname = state.linkname;
+        }
+    
+        if (state.options) {
+            state.block = state.start;
+            state.start = '';
+            state.value = state.options;
+        }
+    }),
     "out" : dirFactory(function (state) {
         state.emitname = "for out:" + this.file + ":" + this.colon.escape(state.linkname);
     }, function (state) {
@@ -3525,12 +3649,6 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
     this.levels[1] = '';
     this.levels[2] = '';
 
-    this.logs = {
-        error : [],
-        warn : [],
-        out : {},
-        0 : []
-    };
 
     
     this.vars = parent.createScope(file);
@@ -3541,9 +3659,21 @@ var Doc = Folder.prototype.Doc = function (file, text, parent, actions) {
     this.comments = parent.comments; 
     this.colon = parent.colon; 
     this.join = parent.join;
+    this.logs = {
+        error : [],
+        warn : [],
+        events : [],
+        "command log" : [],
+        "directive log" : {},
+        out : {},
+        0 : []
+    };
     this.log = this.parent.log;
     this.error = this.parent.error;
     this.warn = this.parent.warn;
+    this.dirlog = this.parent.dirlog;
+    this.cmdlog = this.parent.cmdlog;
+    this.eventlog = this.parent.eventlog;
     this.augment = this.parent.augment;
     this.cmdworker = this.parent.cmdworker;
     this.compose = this.parent.compose;

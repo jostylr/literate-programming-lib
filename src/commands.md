@@ -745,11 +745,12 @@ joins the args and input with `\n---\n`
 
     function (input, args) {
         var doc = this;
-        if (args && args.length) {
-            doc.log(input + "\n~~~\n" + args.join("\n~~~\n"));
-        } else {
-            doc.log(input);
+        args = args || [''];
+        var type = args.shift();
+        if (!type) {
+            type = '';
         }
+        doc.cmdlog(input, type, args);
         return input;
     }
 
@@ -757,7 +758,8 @@ joins the args and input with `\n---\n`
 ##### cdoc
 
     * **log** This will output a concatenated string to doc.log (default
-      console.log) with the incoming text and the arguments. This is a good
+      console.log) with the incoming text and the arguments. The first
+      argument is treated as an idenitifer in the output. This is a good
       way to see what is going on in the middle of a transformation.
 
 ### Raw
