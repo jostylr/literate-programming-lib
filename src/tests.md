@@ -25,6 +25,8 @@ one not be run, change extension to, say, `.mdn`
 
     var equalizer = _"equalizer";
 
+    var spaces = _"spaces";
+
     _"testfiles"
 
 
@@ -58,7 +60,7 @@ process the inputs.
         text = fs.readFileSync('./tests/'+file, 'utf-8');
         pieces = text.split("\n---");
         
-        name = file + ": " + pieces.shift().split('-')[0].trim();
+        name = file + ": " + spaces(file) +  pieces.shift().trim();
 
         td = testdata[name] = {
             start : [],
@@ -125,7 +127,7 @@ process the inputs.
                     console.log(
                         "Scopes: ", folder.scopes,  
                         "\nRecording: " , folder.recording
-                    )}, 100);
+                    );}, 100);
                 setTimeout( function () { 
                     console.log(folder.reportwaits().join("\n")); 
                 }); 
@@ -203,9 +205,16 @@ array. That should cover most cases.
                 if( td.log[0]) {
                     td.log[0] = td.log[0].slice(1);
                 }
+            } else if (piece.slice(0, 8) === "reports:") {
+                td.reports = piece.slice(newline+1);
             }
         }
     }
+    _":check start for save"
+
+[check start for save]()
+
+So we want a convenience measure in which if there is no save 
 
 
 ### Dealing with logs
@@ -218,6 +227,16 @@ So here we want to convert the incoming command log and directive log into
 their original form which worked for these tests. The second argument is the
 type. 
 
+    if (td.log) {
+        _":log replace"
+    } else if (td.reports) {
+        _":reports"
+    }
+          
+[log replace]()
+
+This replaces the log functions for inspection.
+
     folder.eventlog = _":event log";
     folder.cmdlog = _":cmd log";
     folder.dirlog = _":dir log";
@@ -229,7 +248,8 @@ type.
             t.fail(text);
         }
     };
-            
+
+
 [event log]() 
 
 Here we want something of the form `EVENT: ... DATA: ...`
@@ -257,6 +277,28 @@ Here we join the input with the args using tildas to separate.
         args.unshift(input);
         folder.log(args.join("\n~~~\n"));
     }
+
+[reports]()
+
+This checks the report format. This is a bit tricky in that we need to do this
+at the end of the process, but it is not always clear when that happens. We
+will assume this is for nonasync with just one in file. The queueEmpty should
+be fine to use after the parsing is done event has been dealt with. 
+
+    gcd.on("parsing done", function () {
+        gcd.queueEmpty = function () {
+            var rep = folder.reportOut();
+            if (rep === td.reports) {
+                t.pass("report testing");
+            } else {
+                console.log(
+                    "ACTUAL:\n" + rep + 
+                    "\n~~~\n" +
+                    "EXPECTED:\n" + td.reports
+                );
+            }
+        };
+    });
   
 ### Not emitting
 
@@ -381,97 +423,18 @@ using the file structures.
         setTimeout(f, 5);
     }
 
+## Spaces
 
-## Testfiles -- old
+This adds spaces if needed in between filename and description to get past
+the equals messages. 
 
-    [  
-       /**/
-       "first.md",
-        "eval.md",
-        "sub.md",
-        "async.md",
-        "scope.md", 
-        "switch.md",
-        "codeblocks.md",
-        "indents.md",
-        "savepipe.md",  
-        "load.md",
-        "asynceval.md",
-        "blockoff.md",
-        "raw.md",
-        "h5.md",
-        "ignore.md",
-        "direval.md",
-        "scopeexists.md",
-        "subindent.md",
-        "templating.md",
-        "empty.md",
-        "switchcmd.md",
-        "pushpop.md",
-        "version.md",
-        "constructor.md",
-        "transform.md",
-        "defaults.md", // 30
-        "dirpush.md", 
-        "mainblock.md", 
-        "linkquotes.md",
-        "backslash.md",
-        "if.md",
-        "nameafterpipe.md",
-        "fsubcommand.md",
-        "directivesubbing.md",
-        "config.md",
-        "reports.md",
-        "cycle.md",
-        "store-pipe.md",
-        "comments.md",
-        "lineterm.md",
-        "trailingunderscore.md",
-        "echo.md",
-        "compile.md",
-        "templateexample.md",
-        "store.md",
-        "partial.md",
-        "cd.md",
-        "empty-main.md",
-        "empty-minor.md",
-        "h5pushodd.md",
-        "h5push.md",
-        "compileminor.md",
-        "arrayify.md",
-        "merge.md",
-        "funify.md",
-        "ife.md",
-        "caps.md",
-        "augarrsingle.md",
-        "objectify.md",
-        "miniaugment.md",
-        "compose.md",
-        "assert.md",
-        "wrap.md",
-        "js-string.md",
-        "html-helpers.md",
-        "matrixify.md",
-        "snippets.md",
-        "repeatheaders.md",
-        "capitalizations.md",
-        "headless.md",
-        "erroreval.md",
-        "moresubcommands.md",
-        "dash.md",
-        "ifelse.md",
-        "compile-minidoc.md",
-        "comments-pipes.md",
-        "define.md",
-        "commands.md",
-        "psetgetstore.md",
-        "anon.md",
-        "done.md",
-        "join-filter.md",
-        "subcommands.md",
-        "sub-reg.md",
-        "sub-input-match.md",
-        "log.md",
-        "logs-doc.md"
-    ].
-    slice(-1)
+    function (file) {
+        var n = ("ok ... should be equal").length - file.length;
+        var i;
+        var ret = '';
+        for (i = 0; i < n; i += 1 ) {
+            ret += ' ';
+        }
+        return ret;
+    }
+

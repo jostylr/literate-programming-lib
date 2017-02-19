@@ -454,6 +454,8 @@ There are a variety of directives that come built in.
   store the value. You can also use the pipe syntax in the linkname part for
   the value instead. This dominates over the start or option value. A little
   bit easer for the reader to see in rendered form. 
+* **Log** Same as store, except instead of storing it in the doc, it logs it
+  to console. Same exact syntax. 
 * **Transform** `[des|name](#start "transform:|...)` or `[des|name](#start
   ":|...")`.  This takes the value that start points to and transforms it
   using the pipe commands. Note one can store the transformed values by
@@ -580,7 +582,7 @@ There are a variety of directives that come built in.
   and toggle between them. For example, you could use the alias `v` for `dev`
   or `deploy` and then have `v::title` be used with just switching what `v`
   points to depending on needs. A bit of a stretch, I admit. 
-* **Log** `[match string](# "log:")` This is a bit digging into the system.
+* **Monitor** `[match string](# "monitor:")` This is a bit digging into the system.
   You can monitor the events being emitted by using what you want to match
   for.  For example, you could put in a block name (all lower cased) and
   monitor all events for that. This gets sent to `doc.log` which by default

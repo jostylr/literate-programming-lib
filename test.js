@@ -18,7 +18,7 @@ var testrunner = function (file) {
     text = fs.readFileSync('./tests/'+file, 'utf-8');
     pieces = text.split("\n---");
     
-    name = file + ": " + pieces.shift().split('-')[0].trim();
+    name = file + ": " + spaces(file) +  pieces.shift().trim();
 
     td = testdata[name] = {
         start : [],
@@ -53,9 +53,12 @@ var testrunner = function (file) {
                 if( td.log[0]) {
                     td.log[0] = td.log[0].slice(1);
                 }
+            } else if (piece.slice(0, 8) === "reports:") {
+                td.reports = piece.slice(newline+1);
             }
         }
     }
+    
 
 
     var folder = new Litpro({
@@ -104,27 +107,44 @@ var testrunner = function (file) {
     test(name, function (t) {
         var outs, m, j, out;
 
-        folder.eventlog = function (event, type, data) {
-            folder.log("EVENT: " + event + " DATA: " + data);
-        };
-        folder.cmdlog = function (input, lbl, args) {
-            if (lbl) {
-                args.unshift(lbl);
-            }
-            args.unshift(input);
-            folder.log(args.join("\n~~~\n"));
-        };
-        folder.dirlog = function (name, data) {
-            folder.log("DIR LOG:" + name + "\n" + data);
-        };
-        folder.log = function (text) {
-            if (log.indexOf(text) !== -1) {
-                t.pass();
-            } else {
-                console.log(text);
-                t.fail(text);
-            }
-        };
+        if (td.log) {
+            folder.eventlog = function (event, type, data) {
+                folder.log("EVENT: " + event + " DATA: " + data);
+            };
+            folder.cmdlog = function (input, lbl, args) {
+                if (lbl) {
+                    args.unshift(lbl);
+                }
+                args.unshift(input);
+                folder.log(args.join("\n~~~\n"));
+            };
+            folder.dirlog = function (name, data) {
+                folder.log("DIR LOG:" + name + "\n" + data);
+            };
+            folder.log = function (text) {
+                if (log.indexOf(text) !== -1) {
+                    t.pass();
+                } else {
+                    console.log(text);
+                    t.fail(text);
+                }
+            };
+        } else if (td.reports) {
+            gcd.on("parsing done", function () {
+                gcd.queueEmpty = function () {
+                    var rep = folder.reportOut();
+                    if (rep === td.reports) {
+                        t.pass("report testing");
+                    } else {
+                        console.log(
+                            "ACTUAL:\n" + rep + 
+                            "\n~~~\n" +
+                            "EXPECTED:\n" + td.reports
+                        );
+                    }
+                };
+            });
+        }
 
         outs = Object.keys(td.out);
         m  = outs.length;
@@ -174,7 +194,7 @@ var testrunner = function (file) {
                 console.log(
                     "Scopes: ", folder.scopes,  
                     "\nRecording: " , folder.recording
-                )}, 100);
+                );}, 100);
             setTimeout( function () { 
                 console.log(folder.reportwaits().join("\n")); 
             }); 
@@ -194,6 +214,16 @@ var equalizer = function (t, out) {
         }
         t.equals(text, out);
     };
+};
+
+var spaces = function (file) {
+    var n = ("ok ... should be equal").length - file.length;
+    var i;
+    var ret = '';
+    for (i = 0; i < n; i += 1 ) {
+        ret += ' ';
+    }
+    return ret;
 };
 
 var reduced = [];
