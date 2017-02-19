@@ -60,10 +60,9 @@ var testrunner = function (file) {
     }
     var firstName = td.start[0];
     var firstText = td.in[firstName];
-    console.log(firstName, firstText);
     if ( !(/^#/).test(firstText) ) {
         if (firstText) {
-            td.in[firstName] = firstText + '\n[out](#^ "save:")'
+            td.in[firstName] = firstText + '\n[out](#^ "save:")';
             //console.log(td.in[firstName]);
         }
     }
@@ -115,7 +114,7 @@ var testrunner = function (file) {
     test(name, function (t) {
         var outs, m, j, out;
 
-        if (td.log) {
+        if (td.log.length > 0) {
             folder.eventlog = function (event, type, data) {
                 folder.log("EVENT: " + event + " DATA: " + data);
             };
@@ -141,9 +140,10 @@ var testrunner = function (file) {
             gcd.on("parsing done", function () {
                 gcd.queueEmpty = function () {
                     var rep = folder.reportOut();
-                    if (rep === td.reports) {
+                    if (rep.trim() === td.reports.trim()) {
                         t.pass("report testing");
                     } else {
+                        t.fail("bad report");
                         console.log(
                             "ACTUAL:\n" + rep + 
                             "\n~~~\n" +
@@ -157,7 +157,7 @@ var testrunner = function (file) {
         outs = Object.keys(td.out);
         m  = outs.length;
         
-        t.plan(m+log.length);
+        t.plan(m+log.length+ (td.reports ? 1 : 0));
         
         for (j = 0; j < m; j += 1) {
             out = outs[j];

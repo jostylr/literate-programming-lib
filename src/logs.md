@@ -1,6 +1,6 @@
 This deals with the log data
 
-    _":fp | sub SEP, '\n***\n', FEN, '\n`````\n', ARG, '\n~~~\n'  " 
+    _":fp | sub SEP, '\n* * *\n', FEN, '\n`````\n', ARG, '\n~~~\n'  " 
 
 [fp]()
 
@@ -155,6 +155,10 @@ It is designed to eliminate any parts that are empty of content.
         var dig = this.logs;
         _":text generation | sub DOCSTRING, 
             ec('"FOLDER LOGS: \n===\n"') "
+
+The fences may add too many newlines, so we remove one.
+
+        ret = ret.replace(FEN + "\n", FEN);
         return ret;
     }
 
@@ -266,7 +270,6 @@ Same as error, except no stopping of execution.
 
     function () {
         var doc = this;
-        var gcd = doc.gcd;
         var args = Array.prototype.slice.call(arguments);
 
         doc.logs.warn.push(args);
@@ -286,7 +289,7 @@ This has the form event, label, data. The label allows us to group them.
         out.events.push([lbl, event, data]);
     } 
             
-[formatter]()
+[pre-formatter]()
 
 Sort by lbl, then use lbl as a `###` heading and have `event` on its own line
 followed by code fences and data.
@@ -304,15 +307,25 @@ followed by code fences and data.
             var str = "### " + el + "\n";
             str += types[el].map(function (evd) {
                 var event = evd[0];
-                var data = evd[0];
-                return event + FEN + 
-                    data + FEN;
+                var data = evd[1];
+                return event + 
+                    DATA;
             }).
             join(SEP);
             return str;
         }).
         join(SEP);
     }
+
+[formatter]()
+
+    _":pre-formatter | sub DATA, _':data'"
+
+[data]()
+
+This is for the data.
+
+    (data ? (FEN + data + FEN) : '')
 
 ### command log
 
@@ -326,8 +339,11 @@ same function as event log with a bit of change in names.
 Similar idea to event log, but the data are the args of the log (except for
 first one) and thus we want to join the data
     
-    _"events:formatter | sub data + FEN, 
-        ec('data.join(ARG)'), FEN, ARG " 
+    _"events:pre-formatter | sub DATA, _':args'"
+    
+[args]()
+
+    (data.length ? (ARG + data.join(ARG) ) : '' )
 
 ### directive log
 
@@ -351,9 +367,9 @@ We want to sort by name and then do `name \n fence data`
         var keys = Object.keys(obj);
         return keys.map(function (name) {
             var data = obj[name];
-            return name + "\n`````\n" + data + "\n`````\n";
+            return name + FEN + data + FEN;
         }).
-        join("\n***\n");
+        join(SEP);
     }
     
 

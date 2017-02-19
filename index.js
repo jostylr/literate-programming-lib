@@ -587,7 +587,6 @@ Folder.prototype.error= function () {
 };
 Folder.prototype.warn= function () {
     var doc = this;
-    var gcd = doc.gcd;
     var args = Array.prototype.slice.call(arguments);
 
     doc.logs.warn.push(args);
@@ -623,7 +622,7 @@ Folder.prototype.formatters = {
                 }
                 return ret;
             }).
-            join('\n***\n');
+            join('\n* * *\n');
     },
     "warn": function (list) {
         return list.map(
@@ -637,14 +636,14 @@ Folder.prototype.formatters = {
                 }
                 return ret;
             }).
-            join('\n***\n');
+            join('\n* * *\n');
     },
     "out": function (obj) {
         return Object.keys(obj).
             map(function (key) {
                 return  "### " + key + "\n`````\n" + obj[key] + "\n`````";
             }).
-            join('\n***\n');
+            join('\n* * *\n');
     },
     "log": function (list) {
         return list.map(
@@ -657,7 +656,7 @@ Folder.prototype.formatters = {
                     }
                     return ret;
             }).
-            join('\n***\n');
+            join('\n* * *\n');
     },
     "command log": function (list) {
         var types = {};
@@ -672,15 +671,15 @@ Folder.prototype.formatters = {
             var str = "### " + el + "\n";
             str += types[el].map(function (evd) {
                 var event = evd[0];
-                var data = evd[0];
-                return event + '\n~~~\n' + 
-                    data.join('\n~~~\n');
+                var data = evd[1];
+                return event + 
+                    (data.length ? ('\n~~~\n' + data.join('\n~~~\n') ) : '' );
             }).
-            join('\n***\n');
+            join('\n* * *\n');
             return str;
         }).
-        join('\n***\n');
-    } ,
+        join('\n* * *\n');
+    },
     "one arg": function (list) {
         var ret = '';
         ret += list.map(
@@ -694,9 +693,9 @@ Folder.prototype.formatters = {
         var keys = Object.keys(obj);
         return keys.map(function (name) {
             var data = obj[name];
-            return name + "\n`````\n" + data + "\n`````\n";
+            return name + '\n`````\n' + data + '\n`````\n';
         }).
-        join("\n***\n");
+        join('\n* * *\n');
     },
     "events": function (list) {
         var types = {};
@@ -711,14 +710,14 @@ Folder.prototype.formatters = {
             var str = "### " + el + "\n";
             str += types[el].map(function (evd) {
                 var event = evd[0];
-                var data = evd[0];
-                return event + '\n`````\n' + 
-                    data + '\n`````\n';
+                var data = evd[1];
+                return event + 
+                    (data ? ('\n`````\n' + data + '\n`````\n') : '');
             }).
-            join('\n***\n');
+            join('\n* * *\n');
             return str;
         }).
-        join('\n***\n');
+        join('\n* * *\n');
     }
 };
 Folder.prototype.reportOut = function (filter) {
@@ -746,7 +745,7 @@ Folder.prototype.reportOut = function (filter) {
               return str;
           }).
           filter(function (el) {return !!el;}).
-          join('\n***\n');
+          join('\n* * *\n');
           if (temp) {
             ret +=  (ret ? "\n" : "") + "DOC: " + key + "\n===\n" + temp;
           } 
@@ -770,10 +769,11 @@ Folder.prototype.reportOut = function (filter) {
         return str;
     }).
     filter(function (el) {return !!el;}).
-    join('\n***\n');
+    join('\n* * *\n');
     if (temp) {
       ret +=  (ret ? "\n" : "") + "FOLDER LOGS: \n===\n" + temp;
     } 
+    ret = ret.replace('\n`````\n' + "\n", '\n`````\n');
     return ret;
 };
 Folder.prototype.logLevel = 0; 

@@ -102,7 +102,7 @@ process the inputs.
             outs = Object.keys(td.out);
             m  = outs.length;
             
-            t.plan(m+log.length);
+            t.plan(m+log.length+ (td.reports ? 1 : 0));
             
             for (j = 0; j < m; j += 1) {
                 out = outs[j];
@@ -227,10 +227,9 @@ We'll do the second for convenience.
 
     var firstName = td.start[0];
     var firstText = td.in[firstName];
-    console.log(firstName, firstText);
     if ( !(/^#/).test(firstText) ) {
         if (firstText) {
-            td.in[firstName] = firstText + '\n[out](#^ "save:")'
+            td.in[firstName] = firstText + '\n[out](#^ "save:")';
             //console.log(td.in[firstName]);
         }
     }
@@ -248,7 +247,7 @@ So here we want to convert the incoming command log and directive log into
 their original form which worked for these tests. The second argument is the
 type. 
 
-    if (td.log) {
+    if (td.log.length > 0) {
         _":log replace"
     } else if (td.reports) {
         _":reports"
@@ -309,9 +308,10 @@ be fine to use after the parsing is done event has been dealt with.
     gcd.on("parsing done", function () {
         gcd.queueEmpty = function () {
             var rep = folder.reportOut();
-            if (rep === td.reports) {
+            if (rep.trim() === td.reports.trim()) {
                 t.pass("report testing");
             } else {
+                t.fail("bad report");
                 console.log(
                     "ACTUAL:\n" + rep + 
                     "\n~~~\n" +
