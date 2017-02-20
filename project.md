@@ -411,6 +411,8 @@ Some commonly used variables.
     doc : var doc = this;
     gcd : var gcd = this.gcd;
     typeit : var typeit = this.Folder.requires.typeit;
+    colon : var colon = this.colon.v;
+    normalize : var normalize = this.parent.Folder.normalize;
     
 
 [json]()

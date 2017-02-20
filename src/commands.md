@@ -67,10 +67,16 @@ establishing convention.
     _"comments"
 
     _"commands"
+    
+    _"mapc"
 
+    _"for in"
+    
     _"pget pset pstore"
 
     _"anonymous commands"
+
+    _"json"
     
 
 ## Doc
@@ -1643,7 +1649,7 @@ character and the escape character is not supposed to escape.
             });
         }
 
-        ret = this.augment(ret, "minidoc");
+        //ret = this.augment(ret, "minidoc");
         return ret;    
 
     }
@@ -2312,6 +2318,303 @@ This is where we make the names, based on the position.
       argument and that is an array, wrap that in an array)). 
 
 
+## mapc
+
+This runs each element of the input (assuming array or obj) and applies a
+command. Else, it applies the command. Shortname of `*`. 
+
+    
+    Folder.commands['*'] = Folder.commands.mapc = _":fun";
+
+[fun]()
+
+    function self (input, args, name) {
+       _"|globals doc, gcd, colon, typeit, normalize"
+
+Make sure command is normalized
+
+        args[0] = normalize(args[0]);
+                
+If command does not exist, wait until it does and call itself again. 
+
+        if (! (doc.commands[args[0]]) ) {
+            gcd.once("command defined:" + args[0], function () {
+                self.call(doc, input, args, name);
+            });
+            return;
+        } 
+
+        var cmd = args.shift();
+
+        var t = typeit(input);
+
+        var newarr, i, n;
+        var newobj, keys;
+        var setup = "mapc setup:" + name;
+        var ready = "mapc ready:" + name;
+        var track;
+        
+        if (t === 'array') {
+            _":setup array"
+        } else if (t === 'object') {
+            _":setup object"
+        } else {
+            doc.commands[cmd].call(doc, input, args, name);
+        }
+
+    }
+
+[setup array]()
+
+We need to iterate over the input, generating a unique name for each command,
+adding it to a .when so that when they are all done, we issue the next command
+using a new array of results to pass along. 
+
+    track = gcd.when(setup, ready);
+    track.silence(setup);
+    n = input.length;
+    newarr = [];
+    for (i = 0; i < n; i += 1) {
+        gcd.when("text ready:" + name + colon + i, ready);
+        doc.commands[cmd].call(doc, input[i], args, name + colon + i);
+    }
+    gcd.on(ready, function (data) {
+        data.forEach(function (el) {
+            var ind = el[0].split(colon).reverse()[0]; //gets i
+            var idata = el[1];
+            newarr[ind] = idata;
+        });
+        gcd.emit("text ready:" + name, newarr);
+    });
+    gcd.emit(setup);
+
+[setup object]()
+
+Similar to the array, but we iterate over the keys. Also different from the
+array, we scan the args for `*KEY*` and replace that in the args. 
+
+    
+    track = gcd.when(setup, ready);
+    track.silence(setup);
+    keys = Object.keys(input);
+    newobj = {};
+    var keyreg = /(\*KEY\*)(\**)/g;
+    console.log(keys);
+    keys.forEach(function (key) {
+        gcd.when("text ready:" + name + colon + key, 
+            ready);
+        var newargs = args.map(function (el) {
+            if (typeit(el, 'string') ) {
+                el = el.replace(keyreg, _":replace key");
+            }
+            return el;
+        });
+        doc.commands[cmd].call(doc, input[key], newargs, name + colon + key);
+    });
+    gcd.on(ready, function (data) {
+        data.forEach(function (el) {
+            var key = el[0].split(colon).reverse()[0]; //gets key
+            var kdata = el[1];
+            newobj[key] = kdata;
+        });
+        console.log(newobj);
+        gcd.emit("text ready:" + name, newobj);
+    });
+    gcd.emit(setup);
+
+
+[replace key]()
+
+This is inserts the key and handles escaping by removing an asterisk. 
+
+    function (full, first, asters) {
+        if (asters.length !== 0) {
+            return first + asters.slice(1);
+        } else {
+            return key;
+        }
+    }
+
+##### cdoc
+
+    * **mapc** or **`*`** with `cmd, arg1, ...` 
+    This takes the input and applies `cmd` to each, if array or obj.
+    Otherwise, just appleis command to whole input. `*cmds arr(...), arr(...)`
+    allows a sequence of commands to happen. For the object, if the args
+    contains `*KEY*`, then that gets replaced by the key under consideration. 
+
+## for in 
+
+This does a forEach for the object. 
+
+The function takes in a function to act in the first argument, a pass-in
+object or value as second argument,  and has an optional sort object (key or
+value will sort by default order by keys or values, respectively, nothing
+means whatever ordering it happens to be in) for the third argument. 
+
+This can function as a foreach, a map, or a reduce. The return value will be
+passed along. If it is undefined, it gets converted to null. 
+
+If, at the end, the return value of f is null, then the object is passed
+along as is. 
+
+
+    Folder.sync("forin", _":fun");
+
+[fun]()
+
+    function (input, args) {
+        _"| globals doc, typeit"
+
+        var ret, keys; 
+
+        var fun = args[0];
+        var initval = args[1];
+        var protosort = args[2];
+        var sort;
+        _":check fun"
+        _":setup sort"
+        _":initval"
+
+        var t = typeit(input);
+
+        if ( t === 'object' ) {
+            _":object iterate"
+        } else if ( t === 'array' ) {
+            _":array iterate"
+        } else {
+            ret = fun(input, '', initval, input);
+        }
+        if ( typeit(ret) !== "null") {
+            return ret;
+        } else {
+            return input;
+        }
+    }
+
+
+
+        
+[iterate]()
+
+We have set it up so that the array and object iterations are nearly
+identical. We just need to change it to start. 
+
+    if (sort) {
+        sort(keys);
+    }
+    ret = initval;
+    keys.forEach(function (key) {
+        ret = fun( input[key], key, ret, input);
+        if (typeit(ret, 'undefined')) {
+            ret = null;
+        }
+    });
+
+
+[object iterate]()
+
+We use the keys and then we sort them.
+
+        keys =  Object.keys(input);
+        _":iterate"
+       
+
+[array iterate]()
+
+We create the indices as keys to allow for sorting and for fitting in with the
+object iteration. 
+
+    keys = input.map(function (el, ind) {return ind;});
+    _":iterate"
+
+
+[check fun]()
+
+We need the first argument to be a function. 
+
+    if (typeit(fun) !== 'function') {
+        doc.warn("cmd:forin", 
+            "first argument needs to be function; doing nothing", 
+            typeit(fun), input, args
+        );
+        return input;
+    }
+
+
+[setup sort]()
+
+If there is a sort argument (true means default, function, use that), we need
+to set up a sort function that will do the work. The sort function is assumed
+to have the signature (key a, key b, val a, val b, input). We wrap that in a
+more standard function sort function that passes all of that. 
+
+    if (protosort === 'key') {
+        sort = function (a, b) {
+            _":compare"
+        };
+    } else if (protosort === 'value') {
+        sort = function (key1, key2) {
+            var a = input[key1];
+            var b = input[key2];
+            _":compare"
+        };
+    } else if (typeit(protosort, 'function') ) {
+        sort = function (a,b) {
+            return protosort(a, b, input[a], input[b], input);
+        };
+    } else {
+        sort = false;
+    }
+
+
+[compare]()
+
+    if ( a < b) {
+        return -1; 
+    } else if ( a > b) {
+        return 1;
+    } else {
+        return 0; 
+    }
+   
+
+[initval]()
+
+The initial value is what it is, unless it is undefined. Then we convert that
+to null. 
+
+    if (typeit(initval, 'undefined') ) {
+        initval = null;
+    }
+
+
+##### cdoc
+
+    * **forin** The args are 
+      `function f (val, key, ret, input), initial value, sort order`.
+      This iterates over the input object. 
+      
+      If the input is not an array or object, then `f` is called on the input
+      itself as `val` with a `key` of an empty string, and the `ret` is just
+      the initial value. 
+
+      The return value of `f` is used in the third plave of the next loop. If
+      it is undefined, `null` is passed in. 
+      
+       All functions should be synchronous. All values will be visited; there
+       is no way to break out of the loop though one could have the function
+       do nothing if the ret value was a particular kind (say, looking for
+       false values, it starts true and if it becomes false, then it just
+       returns that for all later ones). This is not designed for large number
+       of keys. 
+
+      The sort should be a comparison function that expects the following
+      arguments: `key1, key2, value1, value2, input`.  Alternatively, it can
+      send in the strings `key` or `value` to sort the order by intrinsic key or
+      value meaning. Note that value needs to be natively comparable in some
+      meaningful sense if `value` is sent in. 
+
 
 ## pget pset pstore
 
@@ -2408,6 +2711,45 @@ We need to switch the input and the value in terms of incoming and outgoing.
     * **pstore** This stores the input into the first argument (should be
       object or array) using the rest of the arguments to define. This returns
       the value.
+
+## JSON
+
+This is a trivial JSON conversion layer. 
+
+    Folder.sync('toJSON', _":to");
+    Folder.sync('fromJSON', _":from");
+
+[to]()
+
+    function (input, args) {
+        try {
+            return JSON.stringify(input, args[0], args[1]); 
+        } catch (e) {
+            doc.warn("cmd:toJSON", "Failed to stringify", 
+               e.message, input, args);
+            return '';
+        }
+    }
+
+[from]()
+
+    function (input, args) {
+        try {
+           return JSON.parse(input, args[0]);
+        } catch (e) {
+            doc.warn("cmd:fromJSON", "Failed to parse", 
+               e.message, input, args);
+            return {};
+        }   
+    }
+
+
+##### cdoc
+
+    * **toJSON** Returns a JSON representation of input. Uses JSON.stringify
+      and passes in the first two args (whitelist, spaces) to allow full features. 
+    * **fromJSON** Returns an object from a JSON representation. Uses
+      JSON.parse and passes in first argument (reviver function) if present. 
 
 ## anonymous commands
 

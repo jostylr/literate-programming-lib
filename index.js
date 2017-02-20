@@ -4991,7 +4991,7 @@ Folder.sync("objectify", function (input, args) {
         });
     }
 
-    ret = this.augment(ret, "minidoc");
+    //ret = this.augment(ret, "minidoc");
     return ret;    
 
 });
@@ -5404,6 +5404,176 @@ Folder.commands.cmds = function (input, seq, finalname) {
     }
 };
 
+Folder.commands['*'] = Folder.commands.mapc = function self (input, args, name) {
+   var doc = this;
+   var gcd = this.gcd;
+   var colon = this.colon.v;
+   var typeit = this.Folder.requires.typeit;
+   var normalize = this.parent.Folder.normalize;
+   
+    args[0] = normalize(args[0]);
+    if (! (doc.commands[args[0]]) ) {
+        gcd.once("command defined:" + args[0], function () {
+            self.call(doc, input, args, name);
+        });
+        return;
+    } 
+
+    var cmd = args.shift();
+
+    var t = typeit(input);
+
+    var newarr, i, n;
+    var newobj, keys;
+    var setup = "mapc setup:" + name;
+    var ready = "mapc ready:" + name;
+    var track;
+    
+    if (t === 'array') {
+        track = gcd.when(setup, ready);
+        track.silence(setup);
+        n = input.length;
+        newarr = [];
+        for (i = 0; i < n; i += 1) {
+            gcd.when("text ready:" + name + colon + i, ready);
+            doc.commands[cmd].call(doc, input[i], args, name + colon + i);
+        }
+        gcd.on(ready, function (data) {
+            data.forEach(function (el) {
+                var ind = el[0].split(colon).reverse()[0]; //gets i
+                var idata = el[1];
+                newarr[ind] = idata;
+            });
+            gcd.emit("text ready:" + name, newarr);
+        });
+        gcd.emit(setup);
+    } else if (t === 'object') {
+        track = gcd.when(setup, ready);
+        track.silence(setup);
+        keys = Object.keys(input);
+        newobj = {};
+        var keyreg = /(\*KEY\*)(\**)/g;
+        console.log(keys);
+        keys.forEach(function (key) {
+            gcd.when("text ready:" + name + colon + key, 
+                ready);
+            var newargs = args.map(function (el) {
+                if (typeit(el, 'string') ) {
+                    el = el.replace(keyreg, function (full, first, asters) {
+                        if (asters.length !== 0) {
+                            return first + asters.slice(1);
+                        } else {
+                            return key;
+                        }
+                    });
+                }
+                return el;
+            });
+            doc.commands[cmd].call(doc, input[key], newargs, name + colon + key);
+        });
+        gcd.on(ready, function (data) {
+            data.forEach(function (el) {
+                var key = el[0].split(colon).reverse()[0]; //gets key
+                var kdata = el[1];
+                newobj[key] = kdata;
+            });
+            console.log(newobj);
+            gcd.emit("text ready:" + name, newobj);
+        });
+        gcd.emit(setup);
+    } else {
+        doc.commands[cmd].call(doc, input, args, name);
+    }
+
+};
+
+Folder.sync("forin", function (input, args) {
+    var doc = this;
+    var typeit = this.Folder.requires.typeit;
+    
+
+    var ret, keys; 
+
+    var fun = args[0];
+    var initval = args[1];
+    var protosort = args[2];
+    var sort;
+    if (typeit(fun) !== 'function') {
+        doc.warn("cmd:forin", 
+            "first argument needs to be function; doing nothing", 
+            typeit(fun), input, args
+        );
+        return input;
+    }
+    if (protosort === 'key') {
+        sort = function (a, b) {
+            if ( a < b) {
+                return -1; 
+            } else if ( a > b) {
+                return 1;
+            } else {
+                return 0; 
+            }
+        };
+    } else if (protosort === 'value') {
+        sort = function (key1, key2) {
+            var a = input[key1];
+            var b = input[key2];
+            if ( a < b) {
+                return -1; 
+            } else if ( a > b) {
+                return 1;
+            } else {
+                return 0; 
+            }
+        };
+    } else if (typeit(protosort, 'function') ) {
+        sort = function (a,b) {
+            return protosort(a, b, input[a], input[b], input);
+        };
+    } else {
+        sort = false;
+    }
+    if (typeit(initval, 'undefined') ) {
+        initval = null;
+    }
+
+    var t = typeit(input);
+
+    if ( t === 'object' ) {
+            keys =  Object.keys(input);
+            if (sort) {
+                sort(keys);
+            }
+            ret = initval;
+            keys.forEach(function (key) {
+                ret = fun( input[key], key, ret, input);
+                if (typeit(ret, 'undefined')) {
+                    ret = null;
+                }
+            });
+    } else if ( t === 'array' ) {
+        keys = input.map(function (el, ind) {return ind;});
+        if (sort) {
+            sort(keys);
+        }
+        ret = initval;
+        keys.forEach(function (key) {
+            ret = fun( input[key], key, ret, input);
+            if (typeit(ret, 'undefined')) {
+                ret = null;
+            }
+        });
+    } else {
+        ret = fun(input, '', initval, input);
+    }
+    if ( typeit(ret) !== "null") {
+        return ret;
+    } else {
+        return input;
+    }
+});
+
 Folder.sync("pget", function (input, args) {
     var doc = this;
     var typeit = doc.Folder.requires.typeit;
@@ -5555,6 +5725,25 @@ Folder.commands.anonasync = function (input, args, name) {
     f.call(doc, input, args, callback, name);
 
 
-}; 
+};
+
+Folder.sync('toJSON', function (input, args) {
+    try {
+        return JSON.stringify(input, args[0], args[1]); 
+    } catch (e) {
+        doc.warn("cmd:toJSON", "Failed to stringify", 
+           e.message, input, args);
+        return '';
+    }
+});
+Folder.sync('fromJSON', function (input, args) {
+    try {
+       return JSON.parse(input, args[0]);
+    } catch (e) {
+        console.log("cmd:fromJSON", "Failed to parse", 
+           e.message, input, args);
+        return {};
+    }   
+}); 
 
 module.exports = Folder;

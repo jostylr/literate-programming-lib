@@ -865,6 +865,34 @@ and if it
   2`, e.g., `cmds sub, arr(awe, dud), cat, arr(dude, what)`... If it is
   just one argument, then the array is not needed (if it is just one
   argument and that is an array, wrap that in an array)). 
+* **mapc** or **`*`** with `cmd, arg1, ...` 
+This takes the input and applies `cmd` to each, if array or obj.
+Otherwise, just appleis command to whole input. `*cmds arr(...), arr(...)`
+allows a sequence of commands to happen. For the object, if the args
+contains `*KEY*`, then that gets replaced by the key under consideration. 
+* **forin** The args are 
+  `function f (val, key, ret, input), initial value, sort order`.
+  This iterates over the input object. 
+  
+  If the input is not an array or object, then `f` is called on the input
+  itself as `val` with a `key` of an empty string, and the `ret` is just
+  the initial value. 
+
+  The return value of `f` is used in the third plave of the next loop. If
+  it is undefined, `null` is passed in. 
+  
+   All functions should be synchronous. All values will be visited; there
+   is no way to break out of the loop though one could have the function
+   do nothing if the ret value was a particular kind (say, looking for
+   false values, it starts true and if it becomes false, then it just
+   returns that for all later ones). This is not designed for large number
+   of keys. 
+
+  The sort should be a comparison function that expects the following
+  arguments: `key1, key2, value1, value2, input`.  Alternatively, it can
+  send in the strings `key` or `value` to sort the order by intrinsic key or
+  value meaning. Note that value needs to be natively comparable in some
+  meaningful sense if `value` is sent in. 
 * **pget** Gets the property named by the arguments.
 * **pset** Sets the property named by the arguments with the last
   argument being the value. May create objects and arrays as
@@ -872,6 +900,10 @@ and if it
 * **pstore** This stores the input into the first argument (should be
   object or array) using the rest of the arguments to define. This returns
   the value.
+* **toJSON** Returns a JSON representation of input. Uses JSON.stringify
+  and passes in the first two args (whitelist, spaces) to allow full features. 
+* **fromJSON** Returns an object from a JSON representation. Uses
+  JSON.parse and passes in first argument (reviver function) if present. 
 * **anon** The first argument should be a function or string that can be
   converted into a function of command form, namely the arguments are
   `input, arguments` and the `this` is `doc` though that is also in a

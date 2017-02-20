@@ -4,7 +4,7 @@ Arrayify - testing the array making function
 
     _":main | arrayify | .map _"f|evil" | .toString"
     _":other | arrayify ec(' ') | .join -"
-    _":more | arrayify | .mapc compile, , what, 75 "
+    _":more | arrayify | mapc compile, , what, 75 "
 
 [out](# "save:")
 
