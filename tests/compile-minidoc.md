@@ -4,11 +4,18 @@ Compile-minidoc -- testing compile minidoc
 
 This should compile a minidoc. 
 
-[out](# "save: | echo arr(1, 2, 3 ) | minidoc :a, :b, :c  | .compile ralph") 
+[out](# "save: | echo arr(1, 2, 3 ) 
+    | minors a, b, c  
+    | templating ralph ") 
 
 ## Ralph
 
     \_":a" = \_":b" = \_":c"
+
+
+[d]()
+
+    hey
 
 ---
 1 = 2 = 3

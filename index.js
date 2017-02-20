@@ -328,7 +328,11 @@ var typeit = Folder.requires.typeit = function (input, test) {
         type = 'undefined';
     }
     if (test) {
-        return (type === test);
+        if (test[0] === '!') {
+            return type !== test.slice(1);
+        } else {
+            return (type === test);
+        }
     } else {
         return type;
     }
@@ -1062,7 +1066,7 @@ Folder.fcd = new EvW();
 
 Folder.postInit = function () {}; //a hook for plugin this modification
 Folder.plugins = {};
-Folder.leaders = ['.', '-', '#'];
+Folder.leaders = ['.', '-', '#', '*'];
 Folder.dash = {};
 Folder.booleans = { 
     "and" : function (args) {
@@ -1412,7 +1416,7 @@ Folder.commands = {   eval : sync(function ( text, args ) {
     },
     store: sync(function (input, args) {
         var doc = this;
-    
+        
         var vname = doc.colon.escape(args[0]);
     
         if (vname) {
@@ -1420,6 +1424,16 @@ Folder.commands = {   eval : sync(function ( text, args ) {
         }
         return input; 
     }, "store"),
+    clear: sync(function (input, args) {
+        var doc = this;
+    
+        var vname = doc.colon.escape(args[0]);
+    
+        if (vname) {
+            doc.store(vname, null);
+        }
+        return input; 
+    }, "clear"),
     log : sync(function (input, args) {
         var doc = this;
         args = args || [''];
@@ -5412,12 +5426,14 @@ Folder.commands['*'] = Folder.commands.mapc = function self (input, args, name) 
    var normalize = this.parent.Folder.normalize;
    
     args[0] = normalize(args[0]);
-    if (! (doc.commands[args[0]]) ) {
-        gcd.once("command defined:" + args[0], function () {
-            self.call(doc, input, args, name);
-        });
-        return;
-    } 
+    if (doc.leaders.indexOf(args[0][0]) === -1) {
+        if (! (doc.commands[args[0]]) ) {
+            gcd.once("command defined:" + args[0], function () {
+                self.call(doc, input, args, name);
+            });
+            return;
+        } 
+    }
 
     var cmd = args.shift();
 
@@ -5748,6 +5764,67 @@ Folder.sync('fromJSON', function (input, args) {
            e.message, input, args);
         return {};
     }   
+});
+
+Folder.sync("minors", function (input, args) {
+    var doc = this;
+    
+    var i, n;
+    var ret = {};
+    var t = typeit(input);
+    if (t !== 'array') {
+        ret[ args[0] | ''] = input;
+        return ret;
+    }
+    
+    n = Math.min(input.length, args.length);
+    if (input.length !== args.length) {
+        doc.warn("cmd:minors", "array lengths do not match", 
+            input, args);
+    }
+
+    for (i=0; i < n; i += 1) {
+        ret[args[i]] = input[i];
+    }
+    return ret;
 }); 
+
+Folder.commands.templating = function (input, args, name) {
+    var doc = this;
+    var gcd = this.gcd;
+    var colon = this.colon.v;
+    
+    if (typeit(input) !== 'object') {
+        doc.warn("cmd:templating",
+            "input needs to be an object", 
+            input, args);
+        return input;
+    }
+    if ( typeit(args[0], '!string') ) {
+        doc.warn("cmd:templating",
+            "first argument needs to be a string (section name)",
+            input, args);
+    }
+
+    console.log(input, args, name);
+
+    var section = doc.colon.escape(args[0]);
+    var template = name + colon + "template recalled";
+    var store = name + colon + "template store";
+    var clear = name + colon + "template clear";
+    var minorblockname = name + ":*KEY*";
+
+    gcd.flatWhen( ["text ready:" + template, "text ready:" + store], 
+        "template ready:" + name);
+    gcd.once("template ready:" + name, function (data) { 
+        gcd.once("text ready:" + name, function () {
+            doc.cmdworker("mapc", input, ['clear', minorblockname], clear);
+        });
+        doc.cmdworker("compile", data[0], [name], name);
+    });
+    
+    doc.retrieve(section, "text ready:" + template);
+    doc.cmdworker("mapc", input, ['store', minorblockname], store ); 
+}; 
 
 module.exports = Folder;

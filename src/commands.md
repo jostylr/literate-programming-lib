@@ -4,6 +4,7 @@ Here we have common commands.
         passthru : sync(function (text) {return text;}, "passthru"),
         sub : _"sub",
         store: sync(_"store command", "store"),
+        clear: sync(_"clear command", "clear"),
         log : sync(_"log", "log"),
         async : async(_"async eval", "async"),
         compile : _"compile",
@@ -77,6 +78,10 @@ establishing convention.
     _"anonymous commands"
 
     _"json"
+
+    _"minors"
+
+    _"templating"
     
 
 ## Doc
@@ -724,7 +729,7 @@ even though the storing may not yet be done.
 
     function (input, args) {
         var doc = this;
-
+        
         var vname = doc.colon.escape(args[0]);
 
         if (vname) {
@@ -744,6 +749,27 @@ even though the storing may not yet be done.
       async operations hanging about. Best to have unique names. See push and
       pop commands for a better way to do this. 
 
+### Clear Command
+
+This is a thin wrapper of the store function but to clear it. If a null value
+is passed into doc.store, it clears the item.
+
+    function (input, args) {
+        var doc = this;
+
+        var vname = doc.colon.escape(args[0]);
+
+        if (vname) {
+            doc.store(vname, null);
+        }
+        return input; 
+    }
+
+##### cdoc
+
+    * **clear** `variable name`. This removes the variable name and passes
+      along the input. The input has no impat on this.  
+    
 ### Log
 
 This outputs the input and args to the doc.log function. In particular, it
@@ -2335,14 +2361,18 @@ Make sure command is normalized
 
         args[0] = normalize(args[0]);
                 
-If command does not exist, wait until it does and call itself again. 
+If command does not exist, wait until it does and call itself again. For
+leaders, we skip any check. So if we want to use `**rand`, make sure `rand` is
+already defined. 
 
-        if (! (doc.commands[args[0]]) ) {
-            gcd.once("command defined:" + args[0], function () {
-                self.call(doc, input, args, name);
-            });
-            return;
-        } 
+        if (doc.leaders.indexOf(args[0][0]) === -1) {
+            if (! (doc.commands[args[0]]) ) {
+                gcd.once("command defined:" + args[0], function () {
+                    self.call(doc, input, args, name);
+                });
+                return;
+            } 
+        }
 
         var cmd = args.shift();
 
@@ -2831,3 +2861,120 @@ a set of lines which suggests to enclose that in a function for a command.
    * **anon-async** Just like `anon` but the first function should expect
      `input, args, callback` as the signature and call the callback when done,
      passing along `err, data` into it. 
+
+
+## minors
+
+This takes in an array as input and associates an object whose keys are the
+arguments with values in the array as ordered. Generally good for splitting
+some template into an object with appropriate keys for templating. 
+
+    Folder.sync("minors", _":fun"); 
+
+[fun]()
+
+    function (input, args) {
+        _"| globals doc"
+        var i, n;
+        var ret = {};
+        _":check for array and lengths"
+
+        for (i=0; i < n; i += 1) {
+            ret[args[i]] = input[i];
+        }
+        return ret;
+    }
+
+[check for array and lengths]()
+
+    var t = typeit(input);
+    if (t !== 'array') {
+        ret[ args[0] | ''] = input;
+        return ret;
+    }
+
+    n = Math.min(input.length, args.length);
+    if (input.length !== args.length) {
+        doc.warn("cmd:minors", "array lengths do not match", 
+            input, args);
+    }
+
+##### cdoc 
+
+    * **minors** This converts the input from an array into an object, using
+      the arguments as the keys. If there is a mismatch in length, than the
+      shorter is used and the rest is discarded. If the input is not an array,
+      then it becomes the sole value in the object returned with key as first
+      argument or empty string. 
+
+
+## templating
+
+This deals with templating by having an incoming object whose keys will be the
+minors of the block name that is in arg1. We run through it, storing them,
+then compiling, then clearing, using a tracker to ensure no conflicts. We use
+the same name as there may be other related blocks that are needed that are
+not custom. 
+
+    Folder.commands.templating = _":fun";
+
+[fun]()
+
+    function (input, args, name) {
+        _"|globals doc, gcd, colon"
+        _":check inputs"
+
+        console.log(input, args, name);
+
+        var section = doc.colon.escape(args[0]);
+        var template = name + colon + "template recalled";
+        var store = name + colon + "template store";
+        var clear = name + colon + "template clear";
+        var minorblockname = name + ":*KEY*";
+
+        gcd.flatWhen( ["text ready:" + template, "text ready:" + store], 
+            "template ready:" + name);
+
+The first data entry is the template and we use the compile command. The name
+is the name we have stored the object keys under. 
+
+        gcd.once("template ready:" + name, function (data) { 
+            gcd.once("text ready:" + name, function () {
+                doc.cmdworker("mapc", input, ['clear', minorblockname], clear);
+            });
+            doc.cmdworker("compile", data[0], [name], name);
+        });
+        
+        doc.retrieve(section, "text ready:" + template);
+
+Evoke the store command, storing the keys with the prefix of name. 
+
+        doc.cmdworker("mapc", input, ['store', minorblockname], store ); 
+    }
+
+
+
+[check inputs]()
+
+The first argument should be a string naming a block. The input should be an
+object whose keys will become minors in the blocks names. 
+
+
+    if (typeit(input) !== 'object') {
+        doc.warn("cmd:templating",
+            "input needs to be an object", 
+            input, args);
+        return input;
+    }
+    if ( typeit(args[0], '!string') ) {
+        doc.warn("cmd:templating",
+            "first argument needs to be a string (section name)",
+            input, args);
+    }
+
+    
+##### cdoc
+
+    * **templating** This expects an object as an input. Its keys will be
+      minor block names when compiling the template named by the first
+      argument. It will send along the compiled text.

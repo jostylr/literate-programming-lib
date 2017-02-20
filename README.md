@@ -668,6 +668,8 @@ commas, colons, quotes).
   Be careful that the variable temp could get overwritten if there are any
   async operations hanging about. Best to have unique names. See push and
   pop commands for a better way to do this. 
+* **clear** `variable name`. This removes the variable name and passes
+  along the input. The input has no impat on this.  
 * **log** This will output a concatenated string to doc.log (default
   console.log) with the incoming text and the arguments. The first
   argument is treated as an idenitifer in the output. This is a good
@@ -908,7 +910,15 @@ contains `*KEY*`, then that gets replaced by the key under consideration.
   converted into a function of command form, namely the arguments are
   `input, arguments` and the `this` is `doc` though that is also in a
   closure if it is a string evaluated. The function should be synchronous
-  and return the value to send on.     
+  and return the value to send on. 
+* **minors** This converts the input from an array into an object, using
+  the arguments as the keys. If there is a mismatch in length, than the
+  shorter is used and the rest is discarded. If the input is not an array,
+  then it becomes the sole value in the object returned with key as first
+  argument or empty string. 
+* **templating** This expects an object as an input. Its keys will be
+  minor block names when compiling the template named by the first
+  argument. It will send along the compiled text.    
 * **minidoc** `minidoc :title, :body` This takes an array and converts
   into an object where they key value is either the args as keys and the
   values the relevant input items or the item in the array is a

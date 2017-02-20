@@ -146,7 +146,7 @@ Each doc within a folder shares all the directives and commands.
 
     Folder.postInit = function () {}; //a hook for plugin this modification
     Folder.plugins = {};
-    Folder.leaders = ['.', '-', '#'];
+    Folder.leaders = ['.', '-', '#', '*'];
     Folder.dash = {};
     Folder.booleans = _"subcommands::booleans";
 

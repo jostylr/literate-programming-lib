@@ -163,7 +163,11 @@ Otherwise, the type is returned.
             type = 'undefined';
         }
         if (test) {
-            return (type === test);
+            if (test[0] === '!') {
+                return type !== test.slice(1);
+            } else {
+                return (type === test);
+            }
         } else {
             return type;
         }
