@@ -251,6 +251,13 @@ type.
         _":log replace"
     } else if (td.reports) {
         _":reports"
+    } else {
+        _":convert warn"
+        _":convert warn | sub warn, error, WARNING, ERROR"
+        folder.log = function () {
+            var args = Array.prototype.slice.call(arguments, 0);
+            console.log.apply(console, args);
+        };
     }
           
 [log replace]()
@@ -321,6 +328,16 @@ be fine to use after the parsing is done event has been dealt with.
         };
     });
   
+[convert warn]()
+
+    folder.warn = function (kind, description ) {
+        console.error("\nWARNING:\nKind: " + kind +
+            "\nDescription: " + description + 
+            "\nArgs:\n" + 
+            Array.prototype.slice.call(arguments, 2).join("\n~~~\n"));
+    };
+   
+
 ### Not emitting
 
 This hopefully is useful diagnostic information for saying why something did

@@ -2722,6 +2722,7 @@ This is a trivial JSON conversion layer.
 [to]()
 
     function (input, args) {
+        _"|globals doc"
         try {
             return JSON.stringify(input, args[0], args[1]); 
         } catch (e) {
@@ -2734,6 +2735,7 @@ This is a trivial JSON conversion layer.
 [from]()
 
     function (input, args) {
+        _"|globals doc"
         try {
            return JSON.parse(input, args[0]);
         } catch (e) {

@@ -152,6 +152,23 @@ var testrunner = function (file) {
                     }
                 };
             });
+        } else {
+            folder.warn = function (kind, description ) {
+                console.error("\nWARNING:\nKind: " + kind +
+                    "\nDescription: " + description + 
+                    "\nArgs:\n" + 
+                    Array.prototype.slice.call(arguments, 2).join("\n~~~\n"));
+            };
+            folder.error = function (kind, description ) {
+                console.error("\nERROR:\nKind: " + kind +
+                    "\nDescription: " + description + 
+                    "\nArgs:\n" + 
+                    Array.prototype.slice.call(arguments, 2).join("\n~~~\n"));
+            };
+            folder.log = function () {
+                var args = Array.prototype.slice.call(arguments, 0);
+                console.log.apply(console, args);
+            };
         }
 
         outs = Object.keys(td.out);

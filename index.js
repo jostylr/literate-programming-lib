@@ -5728,6 +5728,8 @@ Folder.commands.anonasync = function (input, args, name) {
 };
 
 Folder.sync('toJSON', function (input, args) {
+    var doc = this;
+    
     try {
         return JSON.stringify(input, args[0], args[1]); 
     } catch (e) {
@@ -5737,10 +5739,12 @@ Folder.sync('toJSON', function (input, args) {
     }
 });
 Folder.sync('fromJSON', function (input, args) {
+    var doc = this;
+    
     try {
        return JSON.parse(input, args[0]);
     } catch (e) {
-        console.log("cmd:fromJSON", "Failed to parse", 
+        doc.warn("cmd:fromJSON", "Failed to parse", 
            e.message, input, args);
         return {};
     }   
