@@ -16,8 +16,6 @@ Here we have common commands.
         echo : sync(_"echo", "echo"),
         get : _"get",
         array : sync(_"array", "array"),
-        minidoc : sync(_"minidoc::", "minidoc"),
-        augment : _"augments::", 
         push : sync(_"push", "push"),
         pop : sync(_"pop", "pop"),
         "." : _"dot",
@@ -83,6 +81,12 @@ establishing convention.
 
     _"templating"
     
+    _"clone merge"
+
+    _"apply"
+    
+    Folder.prototype.cmdworker = _"command worker"; 
+    
 
 ## Doc
 
@@ -95,14 +99,6 @@ This produces the command documentation.
     commas, colons, quotes).
 
     _"comdoc | .join \n"    
-    * **minidoc** `minidoc :title, :body` This takes an array and converts
-      into an object where they key value is either the args as keys and the
-      values the relevant input items or the item in the array is a
-      two-element array whose first is the key and second is the value. The
-      named keys in the arguments skip over the two-element arrays. minidocs
-      are augmented with some methods.  See the augment section.
-    * **augment** `augment type` This augments the object with the methods
-      contained in the type augment object. See the augment section. 
     _"matrix::doc"
 
 
@@ -728,9 +724,12 @@ This is a thin wrapper of the store function. It returns the input immediately
 even though the storing may not yet be done. 
 
     function (input, args) {
-        var doc = this;
-        
-        var vname = doc.colon.escape(args[0]);
+        _"|globals doc, colon, colesc"
+
+        var vname = colesc(args[0]);
+        if (args[1]) {
+            vname = vname + colon +  colesc(args[1]);
+        }
 
         if (vname) {
             doc.store(vname, input);
@@ -754,16 +753,7 @@ even though the storing may not yet be done.
 This is a thin wrapper of the store function but to clear it. If a null value
 is passed into doc.store, it clears the item.
 
-    function (input, args) {
-        var doc = this;
-
-        var vname = doc.colon.escape(args[0]);
-
-        if (vname) {
-            doc.store(vname, null);
-        }
-        return input; 
-    }
+    _"store command | sub ec('vname, input'), ec('vname, null')"
 
 ##### cdoc
 
@@ -834,7 +824,15 @@ irrelevant.
 Bloody spaces and newlines
 
     function (input) {
-        return input.trim();
+        _"|globals typeit"
+        var t = typeit(input);
+        if (t === 'string') {
+            return input.trim();
+        }
+        if ( (t === 'undefined') || (t === 'null') ) {
+            return '';
+        }
+        return input.toString().trim();
     }
 
 ##### cdoc
@@ -864,7 +862,6 @@ This filters objects and arrays.
                 input, args);
             return input;
         }
-        _":is augment"
         return ret;
     }
 
@@ -878,11 +875,8 @@ to keep the value.
 If no arguments are passed in to filter, then all keys are kept. 
 
 
-    //check for augmented, use object.keys, then otherwise use
     // Object.keys() and then filter on the keys
-    var keys = (input.hasOwnProperty("_augments") )? 
-        input.keys() :
-        Object.keys(input);
+    var keys = Object.keys(input);
     keys.sort();
     if (args.length === 0) {
         args[0] = true;
@@ -995,14 +989,6 @@ negative counts from the end).
         }
     }
 
-[is augment]()
-
-If it is an augmented object, we transfer the augmentation. 
-
-    if (input.hasOwnProperty('_augments') ) {
-       ret = doc.augment(ret, input._augments.type);
-    }
-
 [warn]()
 
 A common warning statement.
@@ -1025,9 +1011,9 @@ A common warning statement.
           all this essentially copies the object. 
       
       It filters the object based on these criteria and returns the new
-      object, augmenting it if it is an augmented object. 
+      object.
 
-      For an array, it is similar except an (possibly augmented) array is
+      For an array, it is similar except an array is
       returned. 
 
         * #  either actual number or one that parses into it. This pushes the
@@ -1165,18 +1151,11 @@ It takes an optional command
 This shunts the input and the arguments into an array to be passed onto the
 next pipe.
 
-Slice is probably unnecessary, but in case args arrays got reused, this would
-protect from that. 
-
-We also augment the array to have the custom properties for the "arr" object.
-
     function (input, args) {
-        var doc = this;
-        var ret = args.slice();
-        ret.unshift(input);
-        ret = doc.augment(ret, "arr");
-        return ret;
+        args.unshift(input);
+        return args;
     }
+    
 ##### sync
 
     arr 
@@ -1206,7 +1185,7 @@ Basic test and also, having some inline stuff.
 
 
     * **array** `array a1, a2, ...` This creates an array out of the input and
-      arguments. This is an augmented array.
+      arguments. 
 
 
 ## Dot
@@ -1222,8 +1201,7 @@ Adding a little async option. If the object has a method that is the command,
 but with a `.` in front, then we call that as if it was a command. Otherwise,
 we assume a normal property. 
 
-If property does not exist yet, this causes a problem, but augmenting will
-stop the flow within the same pipeline. 
+If property does not exist yet, this causes a problem.
 
     function (input, args, name, cmdname) {
         var doc = this;
@@ -1586,7 +1564,6 @@ character and the escape character is not supposed to escape.
             });
         }
          
-        ret = this.augment(ret, "arr");
         return ret;
 
     }
@@ -1675,7 +1652,6 @@ character and the escape character is not supposed to escape.
             });
         }
 
-        //ret = this.augment(ret, "minidoc");
         return ret;    
 
     }
@@ -2036,7 +2012,7 @@ single word. The others we throw in as is.
 
 ## Html-table
 
-This takes in a matrix (see augmented matrix type) and spits out an html table.
+This takes in a matrix and spits out an html table.
 
 This could also have been a property of matrices, but it feels like something
 that is a command on it to produce something new. 
@@ -2055,7 +2031,11 @@ that is a command on it to produce something new.
         if (Array.isArray(type) ) {
             _":make row | sub td, th, row, type"
         }
-       
+      
+        if (mat.mat) {
+            mat = mat.mat; //allows for matrix, but if not then dbl arr
+        }
+
         mat.forEach(function (row) {
             _":make row"    
         });
@@ -2069,7 +2049,7 @@ that is a command on it to produce something new.
 
 ##### cdoc
 
-    * **html-table** This requires an array of arrays; augmented matrix is
+    * **html-table** This requires an array of arrays; matrix is
       good. The first argument should either be an array of headers or
       nothing. It uses the same argument convention of html-wrap for the rest
       of the arguments, being attributes on the html table element. We could
@@ -2360,19 +2340,6 @@ command. Else, it applies the command. Shortname of `*`.
 Make sure command is normalized
 
         args[0] = normalize(args[0]);
-                
-If command does not exist, wait until it does and call itself again. For
-leaders, we skip any check. So if we want to use `**rand`, make sure `rand` is
-already defined. 
-
-        if (doc.leaders.indexOf(args[0][0]) === -1) {
-            if (! (doc.commands[args[0]]) ) {
-                gcd.once("command defined:" + args[0], function () {
-                    self.call(doc, input, args, name);
-                });
-                return;
-            } 
-        }
 
         var cmd = args.shift();
 
@@ -2389,7 +2356,7 @@ already defined.
         } else if (t === 'object') {
             _":setup object"
         } else {
-            doc.commands[cmd].call(doc, input, args, name);
+            doc.cmdworker(cmd, input, args, name);
         }
 
     }
@@ -2406,7 +2373,7 @@ using a new array of results to pass along.
     newarr = [];
     for (i = 0; i < n; i += 1) {
         gcd.when("text ready:" + name + colon + i, ready);
-        doc.commands[cmd].call(doc, input[i], args, name + colon + i);
+        doc.cmdworker(cmd, input[i], args, name + colon + i);
     }
     gcd.on(ready, function (data) {
         data.forEach(function (el) {
@@ -2429,7 +2396,6 @@ array, we scan the args for `*KEY*` and replace that in the args.
     keys = Object.keys(input);
     newobj = {};
     var keyreg = /(\*KEY\*)(\**)/g;
-    console.log(keys);
     keys.forEach(function (key) {
         gcd.when("text ready:" + name + colon + key, 
             ready);
@@ -2439,7 +2405,7 @@ array, we scan the args for `*KEY*` and replace that in the args.
             }
             return el;
         });
-        doc.commands[cmd].call(doc, input[key], newargs, name + colon + key);
+        doc.cmdworker(cmd, input[key], newargs, name + colon + key);
     });
     gcd.on(ready, function (data) {
         data.forEach(function (el) {
@@ -2447,7 +2413,6 @@ array, we scan the args for `*KEY*` and replace that in the args.
             var kdata = el[1];
             newobj[key] = kdata;
         });
-        console.log(newobj);
         gcd.emit("text ready:" + name, newobj);
     });
     gcd.emit(setup);
@@ -2874,29 +2839,46 @@ some template into an object with appropriate keys for templating.
 [fun]()
 
     function (input, args) {
-        _"| globals doc"
-        var i, n;
+        _"| globals doc, typeit"
         var ret = {};
-        _":check for array and lengths"
+        _":check for array"
 
-        for (i=0; i < n; i += 1) {
-            ret[args[i]] = input[i];
-        }
+        input.forEach(function (el) {
+            var key;
+            if ( typeit(el, 'array') && (el.length === 2) ) {
+                key = el[0].trim();
+                ret[key] = el[1];
+            } else {
+                key = args.shift();
+                if (typeit(key, 'string') ) {
+                    key = key.trim();
+                    if (typeit(el, '!array') ) {
+                        ret[key] = el;
+                    } else {
+                        ret[key] = el[0];
+                    }
+                } else {
+                    doc.warn("cmd:minors",
+                        "not enough keys for unnamed entry",
+                        input, args);
+                }
+            }
+        });
+        //empty bits for rest
+        args.forEach(function (el) {
+            if (! ret.hasOwnProperty(el) ) {
+                ret[el] = '';
+            }
+        });
         return ret;
     }
 
-[check for array and lengths]()
+[check for array]()
 
     var t = typeit(input);
     if (t !== 'array') {
         ret[ args[0] | ''] = input;
         return ret;
-    }
-
-    n = Math.min(input.length, args.length);
-    if (input.length !== args.length) {
-        doc.warn("cmd:minors", "array lengths do not match", 
-            input, args);
     }
 
 ##### cdoc 
@@ -2924,29 +2906,24 @@ not custom.
         _"|globals doc, gcd, colon"
         _":check inputs"
 
-        console.log(input, args, name);
 
-        var section = doc.colon.escape(args[0]);
-        var template = name + colon + "template recalled";
         var store = name + colon + "template store";
         var clear = name + colon + "template clear";
         var minorblockname = name + ":*KEY*";
 
-        gcd.flatWhen( ["text ready:" + template, "text ready:" + store], 
+        gcd.flatWhen( "text ready:" + store, 
             "template ready:" + name);
 
 The first data entry is the template and we use the compile command. The name
 is the name we have stored the object keys under. 
 
-        gcd.once("template ready:" + name, function (data) { 
+        gcd.once("template ready:" + name, function () { 
             gcd.once("text ready:" + name, function () {
                 doc.cmdworker("mapc", input, ['clear', minorblockname], clear);
             });
-            doc.cmdworker("compile", data[0], [name], name);
+            doc.cmdworker("compile", args[0], [name], name);
         });
         
-        doc.retrieve(section, "text ready:" + template);
-
 Evoke the store command, storing the keys with the prefix of name. 
 
         doc.cmdworker("mapc", input, ['store', minorblockname], store ); 
@@ -2968,13 +2945,102 @@ object whose keys will become minors in the blocks names.
     }
     if ( typeit(args[0], '!string') ) {
         doc.warn("cmd:templating",
-            "first argument needs to be a string (section name)",
+            "first argument needs to be a string to be compiled",
             input, args);
+        return '';
     }
 
     
 ##### cdoc
 
     * **templating** This expects an object as an input. Its keys will be
-      minor block names when compiling the template named by the first
+      minor block names when compiling the template given by the first
       argument. It will send along the compiled text.
+
+
+## clone merge
+
+Just thin wrapper from requires. Could use some inspection.
+
+    Folder.sync("merge", function (input, args) {
+        args.unshift(input);
+        return merge.apply(args);
+    });
+    Folder.sync("clone", function (input) {
+        return clone(input);
+    });
+
+    
+##### cdoc
+
+    * **merge** Merges arrays or objects. 
+    * **clone** Clones an array or object. 
+
+## apply
+
+The first argument is the key. The second is the command (if string) or
+function. The rest are arguments to plug into 
+   
+    Folder.commands.apply = _":fun"; 
+
+[fun]()
+
+    function (input, args, name) {
+        _"|globals doc, gcd, colon"
+        
+        var key = args[0];
+        var cmd = args[1];
+        args = args.slice(2);
+        var data;
+        if (typeit(cmd, 'string') ) {
+            var ename = name + colon + "apply" + colon + key + colon + cmd; 
+            gcd.once("text ready:" + ename, function (data) {
+                _":return"
+            });
+            doc.cmdworker(cmd, input[key], args, ename); 
+        } else if (typeit(cmd, 'function') ) {
+            args.unshift(input);
+            data = cmd.apply(null, args);
+            _":return"
+        }
+
+    }
+
+[return]()
+
+    input[key] = data;
+    gcd.emit("text ready:" + name, input);
+
+
+##### cdoc
+
+    * **apply** This applies a function or command to a property of an object
+      and replaces it. Clone first if you do not want to replace, but have a
+      new. The first arguments is the key, the second is the commnd string or
+      function, and the rest are the args to pass in. It returns the object
+      with the modified property. 
+
+    
+## Command worker
+
+This deals with invoking a command in something like .apply or .mapc. 
+
+    function (cmd, input, args, ename) {
+        _"|globals doc, gcd, leaders, typeit"
+        
+        var lead;
+
+        if ( (leaders.indexOf(cmd[0]) !== -1) && (cmd.length > 1) )  {
+            lead = cmd[0];
+            cmd = cmd.slice(1);
+            args.unshift(cmd);
+            doc.commands[lead].call(doc, input, args, ename, ".");
+        } else if ( typeit(doc.commands[cmd], 'function') ) {
+            doc.commands[cmd].call(doc, input, args, ename, cmd );
+        } else {
+            gcd.once("command defined:" + cmd, function () {
+                doc.commands[cmd].call(doc, input, args, ename, cmd );
+            });
+        }
+    }
+

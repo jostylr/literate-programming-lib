@@ -1,6 +1,5 @@
 Compose -- testing simple composition
 ---
-# Composing
 
 Need to test composing.
 
@@ -8,27 +7,26 @@ Need to test composing.
 
     _"stuff | longsplit \n-!-\n, arr(;, some, more) "
 
-    _"tb | compsplit temp, _'template'  "
+    _"tb | compsplit _'template'  "
     
-    _"t | nlsplit temp2, _'template'  "
+    _"t | nlsplit temp2  "
 
     _"| arrtest"
 
-[out](# "save: ")
 
 [longsplit](# "compose: split $0 | join @1, kool, @1")
 
-[split](# "compose: .split $0 | augment arr | .trim | .join 5 ")
+[split](# "compose: .split $0 | *trim | .join 5 ")
 
-[nlsplit](# "compose: .split \n---\n |  minidoc :title, :body | ->$1 
-    | .store $0 | get template | compile $0 
-    | ->$2 | $1-> | .clear $0 | $2-> ")
+[nlsplit](# "compose: .split \n---\n | minors title, body | ->$1 | 
+    | *store $0, *KEY* | get template | compile $0 | log 
+    | ->$2 | $1-> | # *clear $0, *KEY* | $2-> ")
 
-[compsplit](# "compose: .split \n---\n |  minidoc :title, :body 
-    | .compile template")
+[compsplit](# "compose: .split \n---\n |  minors title, body  
+    | templating $0 ")
 
 [arrtest](# "compose: echo this | ->@0 | echo that\nhar\n | ->@0
-    | $0->| |  .trim | .join ! ")
+    | $0->| | *trim | .join ! ")
 
 
 ## template

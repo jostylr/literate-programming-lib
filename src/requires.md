@@ -125,7 +125,7 @@ This is a recursive clone of the object.
             keys = Object.keys(input);
             n = keys.length;
             for ( i=0; i <n; i+=1) {
-				output[i] = clone(input[i]);
+				output[keys[i]] = clone(input[keys[i]]);
             }
 		}
 		return output;

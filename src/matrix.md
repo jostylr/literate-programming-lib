@@ -1,15 +1,19 @@
 This creates a two dimension array from the text. 
 
-    Folder.plugins.matrixify = {
-        row : "\n",
-        col : ",", 
-        esc : "\\",
-        trim : true
-    };
+
+    var Matrix = _"constructor";
+
+    Matrix.prototype = _"prototype";
 
     Folder.sync("matrixify", _":fun");
 
 [fun]() 
+
+    function (input, args) {
+        return new Matrix(input, args);
+    }
+
+## Constructor
 
 Note that pushing the row array into the result is correct; we want an array
 of arrays.
@@ -18,16 +22,16 @@ We escape it by slicing out the escape character if the next is an escaped
 character. 
 
     function (code, args) {
-        var plug = this.plugins.matrixify;
-        var rowsep = args[0] || plug.row;
-        var colsep = args[1] || plug.col;
-        var escsep = args[2] || plug.esc;
-        var trim = ( typeof args[3] !== "undefined") ? args[3] : plug.trim;
+        var rowsep = args[0] || this.rowsep;
+        var colsep = args[1] || this.colsep;
+        var esc = args[2] || this.esc;
+        var doTrim = ( typeof args[3] !== "undefined") ? args[3] : this.doTrim;
+        
         var i = 0;
         var start = 0;
         var row = [];
-        var result = [row];
-        var seps = [rowsep, escsep, colsep];
+        this.mat = [row];
+        var seps = [rowsep, esc, colsep];
         var char;
         while (i < code.length) {
             char = code[i];
@@ -35,11 +39,11 @@ character.
                 row.push(code.slice(start, i));
                 start = i + 1;
                 row = [];
-                result.push(row);
+                this.mat.push(row);
             } else if (char === colsep) {
                 row.push(code.slice(start, i));
                 start = i + 1;
-            } else if (char === escsep) {
+            } else if (char === esc) {
                 char = code[i+1];
                 if (seps.indexOf(char) !== -1) {
                     code = code.slice(0,i) + char +
@@ -49,11 +53,10 @@ character.
             i += 1;
         }
         row.push(code.slice(start));
-        result = this.augment(result, "mat");
-        if (trim) {
-            result = result.trim();
+        if (doTrim) {
+            this.trim();
         }
-        return result;
+        return this;
     }
 
 ## Doc
@@ -68,7 +71,7 @@ character.
       `f()` in the fourth argument if not desired. All the characters should
       be just that, of length 1. 
 
-      This returns an augmented object, a matrix that has the properties:
+      This returns a matrix (prototyped) that has the properties:
       * `transpose` This returns a new matrix with flipped rows and columns.
       * `trim` This trims the entries in the matrix, returning the original.
       * `num` This converts every entry into a number, when possible. 
@@ -77,11 +80,15 @@ character.
         entry, the arguments being `element, inner index, outer index, the
         row object, the matrix`. 
 
-## Methods 
+## Prototype 
 
-This is where we create various matrix augmented properties.
+This is where we create various matrix prototype properties.
 
      {
+        rowsep : "\n",
+        colsep : ",", 
+        esc : "\\",
+        doTrim : true,
         transpose : _"mat transpose",
         traverse : _"mat traverse",
         trim : _"mat trim",
@@ -96,22 +103,23 @@ This flips the matrix, a two-d array. It returns a new object since we have a
 mess unless it is square. 
 
     function () {
-        var mat = this;
-        var result = [];
-        var oldcols = mat.reduce(function (n, el) {
+        var old = this.mat;
+        var ret = new Matrix('', []);
+        var result = ret.mat;
+        var oldcols = old.reduce(function (n, el) {
             return Math.max(n, el.length);
         }, 0);
         var i;
         for (i=0; i < oldcols; i += 1) {
             result[i] = [];
         }
-        var oldrows = mat.length, j;
+        var oldrows = old.length, j;
         for (i = 0; i < oldcols; i+= 1) {
             for (j=0; j< oldrows ; j += 1) {
-                result[i][j] = mat[j][i];
+                result[i][j] = old[j][i];
             }
         }
-        return this._augments.self(result);
+        return ret; 
     }
 
 ## Mat traverse
@@ -122,12 +130,12 @@ then it replaces that value.
     function (fun) {
         var mat = this;
         if ( (typeof fun) !== "function" ) {
-            //this is an error, not sue who to tell
+            //this is an error, not sure who to tell
             return;
         }
-        this.forEach(function (row, rind) {
+        mat.mat.forEach(function (row, rind) {
             row = row.forEach(function (el, ind) {
-                var val = fun(el, ind, rind, row, mat);
+                var val = fun(el, ind, rind, row, mat.mat);
                 if (typeof val !== "undefined") {
                     row[ind] = val;
                 }
@@ -156,7 +164,8 @@ is not bad for large matrices.
 ### Mat  clone
 
     function () {
-        var clone = [[]];
+        var ret = new Matrix('', []);
+        var clone = ret.mat;
         var currow = 0;
         cloning = function (el, ind, rind) {
             if (rind === currow) {
@@ -170,7 +179,7 @@ is not bad for large matrices.
             }
         };
         this.traverse(cloning);
-        return this;
+        return ret;
     }
 
 ### Mat num

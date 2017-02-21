@@ -47,9 +47,6 @@ These are loaded from the src directory.
 * [directives](directives.md "load:") The default directives. 
 * [commands](commands.md "load:") The default commands.
 * [subcommands](subcommands.md "load:") The default subcommands.
-* [augments](augments.md "load:") The augment setup.
-* [arrays](arrays.md "load:") augmented arrays
-* [minidoc](minidoc.md "load:") augments of the minidoc variety
 * [matrix](matrix.md "load:") This implements 2d tables
 * [tests](tests.md "load:") This the setup for our tests. 
 * [debugging](debugging.md "load:") Woefully inadequate, but a start. 
@@ -101,7 +98,7 @@ an object on Folder that are then used as prototypes for the folder instances.
 Each doc within a folder shares all the directives and commands. 
 
 
-    /*global require, module, console */
+    /*global require, module */
     /*jslint evil:true*/
 
     var EvW = require('event-when');
@@ -161,14 +158,12 @@ Each doc within a folder shares all the directives and commands.
 
     Folder.defSubCommand =_"Subcommands::Attach Subcommands";
 
-    _"augments::folder prototype"
-
     var Doc = Folder.prototype.Doc = _"doc constructor";
 
     _"stitching::"
  
     _"commands::more" 
-
+    
     module.exports = Folder;
  
 
@@ -273,7 +268,6 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
         this.colon = parent.colon; 
         this.join = parent.join;
         _"logs::doc"
-        this.augment = this.parent.augment;
         this.cmdworker = this.parent.cmdworker;
         this.compose = this.parent.compose;
         this.scopes = this.parent.scopes;
@@ -412,7 +406,9 @@ Some commonly used variables.
     gcd : var gcd = this.gcd;
     typeit : var typeit = this.Folder.requires.typeit;
     colon : var colon = this.colon.v;
+    colesc : var colesc = this.colon.escape;
     normalize : var normalize = this.parent.Folder.normalize;
+    leaders : var leaders = this.leaders;
     
 
 [json]()
@@ -1028,15 +1024,13 @@ There are a variety of directives that come built in.
   throws it through some pipes, and then stores it as an item in an array with
   the array stored under var name. These are stored in the order of appearance
   in the document. The optional pipe syntax after var name will yield the
-  value that starts and we ignore `#start` in that case. This produces an
-  augmented array.
+  value that starts and we ignore `#start` in that case.
 * **h5** `[varname](#heading "h5: opt | cmd1, ...")` This is a directive that
   makes h5 headings that match `heading` act like the push above where it is
   being pushed to an array that will eventually populate `varname`. It takes
   an optional argument which could be `off` to stop listening for the headings
   (this is useful to have scoped behavior) and `full` which will give the
-  event name as well as the text; the default is just the text.  This produces
-  an augmented array.
+  event name as well as the text; the default is just the text.  
 * **Link Scope** `[alias name](# "link scope:scopename")` This creates an
   alias for an existing scope. This can be useful if you want to use one name
   and toggle between them. For example, you could use the alias `v` for `dev`
@@ -1069,74 +1063,6 @@ There are a variety of directives that come built in.
 
 
 COMDOC
-
- ### Augment
-
-We have `.` methods that we can invoke and the augment command adds in
-properties based on objects stored in `doc.plugins.augment`. Any key in that
-object is a valid type for the command. We currently have two pre-defined
-augment types: `minidoc` and `arr`. The ones with just a `.` only make sense
-as commands.  
-
- #### minidoc
-
-* `.store arg1` will take the object and store all of its properties with
-  prefix arg1 if supplied. If the key has a colon in it, it will be escaped so
-  that `{":title" : "cool"} | .store pre` can be accessed by `cool:title`.
-* `.clear arg1` Removes the variables stored in the scope (undoes store).
-  Mostly to be used in the `.compile` command for tidying up. Best not to rely
-  on the cleanup happening at any particular time so don't use unless your
-  sure.
-* `.mapc cmd, arg1, arg2, ...` Applies the cmd and args to each of the values
-  in the object, replacing the values with the new ones. 
-* `.apply key, cmd, arg1, arg2, ..` Applies the cmd and args with input being
-  `obj[key]` value. This overwrites the `obj[key]` value with the new value. 
-* `.clone` Makes a new object with same properties and methods. This is a
-  shallow clone. You can use this with push and pop to modify the object and
-  then go back to the original state.
-* `.compile blockname` This uses the blockname as a reference to a template
-  whose sections will be filled with the corresponding keys of the minidoc.
-  The assumption is that the keys stat with colons. Any that don't will
-  probably not match.
-* `.set key, val` Sets the key to the value
-* `.get key` Gets the value of that key
-* `.keys` will give an array of the non-augmented keys. It takes one optional
-  argument; a true boolean will cause it to be sorted with the default sort; a
-  function will be presumed to be comparison function and it will be sorted
-  according to that. Otherwise, the keys are returned as is. 
-* `.toString` will print a representation of the original object. By default
-  the separators are colon and newlines, but the first two arguments can
-  change that. It is also possible to pass in a function that acts on each key
-  and value in third and fourth slots to wrap them. 
-* `.strip` This strips the object of its augmented properties. 
-* `.forIn` A foreach, map, or reduce rolled into one acting on the non-augment
-  properties. It takes three arguments. The first is mandatory and is the
-  function to be called on each pair. The second is an initial value or a
-  container object. The third is a sort order, as in keys. The signature of
-  the function is key, property value, intial value/last returned value, self.
-  If the third stuff is undefined, then self becomes third. The final returned
-  value of the function is what is returned, but if that is undefined, then
-  the object itself is returned. 
-
- #### arr
-
-These methods return new, augmented arrays.
-
-* `.trim` Trims every entry in the array if it has that property. Undefined
-  elements become empty strings. Other stuff becomes strings as well, trimmed
-  of course. 
-* `.splitsep sep` This splits each entry into an array using the separator.
-  The default separator is `\n---\n`. 
-* `.mapc cmd, arg1, arg2, ...` Maps each element through the commands as input
-  with the given arguments being used. 
-* `.pluck i` This assumes the array is an array of arrays and takes the ith
-  element of each array, returning a new array. 
-* `.put i, full` This takes an incoming array and places each of the elements
-  in the ith position of the corresponding element in full. Reverse of pluck,
-  in some ways.
-* `.get i` Gets ith value. Negatives count down from last position, i.e., `get
-  -1` retrieves the last element of the array.
-* `.set i, val` Sets ith value to val. 
 
  ## Built-in Subcommands
 

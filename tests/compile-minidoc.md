@@ -6,7 +6,7 @@ This should compile a minidoc.
 
 [out](# "save: | echo arr(1, 2, 3 ) 
     | minors a, b, c  
-    | templating ralph ") 
+    | templating _'ralph' ") 
 
 ## Ralph
 

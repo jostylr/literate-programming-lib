@@ -1206,8 +1206,7 @@ array.
         if (Array.isArray(a)) {
             a.push(data);
         } else {
-            cmdargs[parseInt(m[1], 10)] = 
-                doc.augment([data], "arr");
+            cmdargs[parseInt(m[1], 10)] = [data]; 
         }
         gcd.emit("text ready:" + name + c + pos, data);
         return;
@@ -1445,8 +1444,6 @@ This responds to push events and stores the value.
     if (! Array.isArray(data) ) {
         data = [data];
     }
-    data = doc.augment(data, "arr");
-
 
     if (doc) {
         doc.store(name, data);
@@ -1499,10 +1496,6 @@ This returns an array from the .when which is by default flattened.
         }
         
         var pipes = temp[1];
-
-To ensure that the array is an augmented array, we inject a command here
-
-        pipes = "augment arr" + (pipes ? " |" + pipes : "");
 
         var name = colon.escape(args.link);
         var whendone = "text ready:" + doc.file + ":" + name + colon.v  + "sp" ;

@@ -254,7 +254,7 @@ type.
     } else {
         _":convert warn"
         _":convert warn | sub warn, error, WARNING, ERROR"
-        folder.log = function () {
+        folder.cmdlog = folder.log = function () {
             var args = Array.prototype.slice.call(arguments, 0);
             console.log.apply(console, args);
         };

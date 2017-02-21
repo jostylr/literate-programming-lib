@@ -568,15 +568,13 @@ There are a variety of directives that come built in.
   throws it through some pipes, and then stores it as an item in an array with
   the array stored under var name. These are stored in the order of appearance
   in the document. The optional pipe syntax after var name will yield the
-  value that starts and we ignore `#start` in that case. This produces an
-  augmented array.
+  value that starts and we ignore `#start` in that case.
 * **h5** `[varname](#heading "h5: opt | cmd1, ...")` This is a directive that
   makes h5 headings that match `heading` act like the push above where it is
   being pushed to an array that will eventually populate `varname`. It takes
   an optional argument which could be `off` to stop listening for the headings
   (this is useful to have scoped behavior) and `full` which will give the
-  event name as well as the text; the default is just the text.  This produces
-  an augmented array.
+  event name as well as the text; the default is just the text.  
 * **Link Scope** `[alias name](# "link scope:scopename")` This creates an
   alias for an existing scope. This can be useful if you want to use one name
   and toggle between them. For example, you could use the alias `v` for `dev`
@@ -691,9 +689,9 @@ commas, colons, quotes).
       all this essentially copies the object. 
   
   It filters the object based on these criteria and returns the new
-  object, augmenting it if it is an augmented object. 
+  object.
 
-  For an array, it is similar except an (possibly augmented) array is
+  For an array, it is similar except an array is
   returned. 
 
     * #  either actual number or one that parses into it. This pushes the
@@ -725,7 +723,7 @@ commas, colons, quotes).
   fails to work in compositions. So get is its replacement. This ignores
   the input and starts its own chain of inputs. 
 * **array** `array a1, a2, ...` This creates an array out of the input and
-  arguments. This is an augmented array.
+  arguments. 
 * **.** `. propname, arg1, arg2,... ` This is the dot command and it
   accesses property name which is the first argument; the object is the
   input (typically a string, but can be anything). If the property is a
@@ -825,7 +823,7 @@ and if it
   quotes. 
   `text-> | html-wrap p data, pretty, data-var=right`
   will lead to  `<p class="data pretty" data-var="right">text</p>`
-* **html-table** This requires an array of arrays; augmented matrix is
+* **html-table** This requires an array of arrays; matrix is
   good. The first argument should either be an array of headers or
   nothing. It uses the same argument convention of html-wrap for the rest
   of the arguments, being attributes on the html table element. We could
@@ -917,16 +915,15 @@ contains `*KEY*`, then that gets replaced by the key under consideration.
   then it becomes the sole value in the object returned with key as first
   argument or empty string. 
 * **templating** This expects an object as an input. Its keys will be
-  minor block names when compiling the template named by the first
-  argument. It will send along the compiled text.    
-* **minidoc** `minidoc :title, :body` This takes an array and converts
-  into an object where they key value is either the args as keys and the
-  values the relevant input items or the item in the array is a
-  two-element array whose first is the key and second is the value. The
-  named keys in the arguments skip over the two-element arrays. minidocs
-  are augmented with some methods.  See the augment section.
-* **augment** `augment type` This augments the object with the methods
-  contained in the type augment object. See the augment section. 
+  minor block names when compiling the template given by the first
+  argument. It will send along the compiled text.
+* **merge** Merges arrays or objects. 
+* **clone** Clones an array or object. 
+* **apply** This applies a function or command to a property of an object
+  and replaces it. Clone first if you do not want to replace, but have a
+  new. The first arguments is the key, the second is the commnd string or
+  function, and the rest are the args to pass in. It returns the object
+  with the modified property.     
 * **matrixify** This takes in some text and splits into a two dimensional
   array using the passed in separators. The first separator divides the
   columns, the second divides the rows. The result is an array each of
@@ -937,7 +934,7 @@ contains `*KEY*`, then that gets replaced by the key under consideration.
   `f()` in the fourth argument if not desired. All the characters should
   be just that, of length 1. 
 
-  This returns an augmented object, a matrix that has the properties:
+  This returns a matrix (prototyped) that has the properties:
   * `transpose` This returns a new matrix with flipped rows and columns.
   * `trim` This trims the entries in the matrix, returning the original.
   * `num` This converts every entry into a number, when possible. 
@@ -945,74 +942,6 @@ contains `*KEY*`, then that gets replaced by the key under consideration.
   * `traverse` This runs through the matrix, applying a function to each
     entry, the arguments being `element, inner index, outer index, the
     row object, the matrix`. 
-
-### Augment
-
-We have `.` methods that we can invoke and the augment command adds in
-properties based on objects stored in `doc.plugins.augment`. Any key in that
-object is a valid type for the command. We currently have two pre-defined
-augment types: `minidoc` and `arr`. The ones with just a `.` only make sense
-as commands.  
-
-#### minidoc
-
-* `.store arg1` will take the object and store all of its properties with
-  prefix arg1 if supplied. If the key has a colon in it, it will be escaped so
-  that `{":title" : "cool"} | .store pre` can be accessed by `cool:title`.
-* `.clear arg1` Removes the variables stored in the scope (undoes store).
-  Mostly to be used in the `.compile` command for tidying up. Best not to rely
-  on the cleanup happening at any particular time so don't use unless your
-  sure.
-* `.mapc cmd, arg1, arg2, ...` Applies the cmd and args to each of the values
-  in the object, replacing the values with the new ones. 
-* `.apply key, cmd, arg1, arg2, ..` Applies the cmd and args with input being
-  `obj[key]` value. This overwrites the `obj[key]` value with the new value. 
-* `.clone` Makes a new object with same properties and methods. This is a
-  shallow clone. You can use this with push and pop to modify the object and
-  then go back to the original state.
-* `.compile blockname` This uses the blockname as a reference to a template
-  whose sections will be filled with the corresponding keys of the minidoc.
-  The assumption is that the keys stat with colons. Any that don't will
-  probably not match.
-* `.set key, val` Sets the key to the value
-* `.get key` Gets the value of that key
-* `.keys` will give an array of the non-augmented keys. It takes one optional
-  argument; a true boolean will cause it to be sorted with the default sort; a
-  function will be presumed to be comparison function and it will be sorted
-  according to that. Otherwise, the keys are returned as is. 
-* `.toString` will print a representation of the original object. By default
-  the separators are colon and newlines, but the first two arguments can
-  change that. It is also possible to pass in a function that acts on each key
-  and value in third and fourth slots to wrap them. 
-* `.strip` This strips the object of its augmented properties. 
-* `.forIn` A foreach, map, or reduce rolled into one acting on the non-augment
-  properties. It takes three arguments. The first is mandatory and is the
-  function to be called on each pair. The second is an initial value or a
-  container object. The third is a sort order, as in keys. The signature of
-  the function is key, property value, intial value/last returned value, self.
-  If the third stuff is undefined, then self becomes third. The final returned
-  value of the function is what is returned, but if that is undefined, then
-  the object itself is returned. 
-
-#### arr
-
-These methods return new, augmented arrays.
-
-* `.trim` Trims every entry in the array if it has that property. Undefined
-  elements become empty strings. Other stuff becomes strings as well, trimmed
-  of course. 
-* `.splitsep sep` This splits each entry into an array using the separator.
-  The default separator is `\n---\n`. 
-* `.mapc cmd, arg1, arg2, ...` Maps each element through the commands as input
-  with the given arguments being used. 
-* `.pluck i` This assumes the array is an array of arrays and takes the ith
-  element of each array, returning a new array. 
-* `.put i, full` This takes an incoming array and places each of the elements
-  in the ith position of the corresponding element in full. Reverse of pluck,
-  in some ways.
-* `.get i` Gets ith value. Negatives count down from last position, i.e., `get
-  -1` retrieves the last element of the array.
-* `.set i, val` Sets ith value to val. 
 
 ## Built-in Subcommands
 

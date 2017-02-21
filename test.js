@@ -165,7 +165,7 @@ var testrunner = function (file) {
                     "\nArgs:\n" + 
                     Array.prototype.slice.call(arguments, 2).join("\n~~~\n"));
             };
-            folder.log = function () {
+            folder.cmdlog = folder.log = function () {
                 var args = Array.prototype.slice.call(arguments, 0);
                 console.log.apply(console, args);
             };
