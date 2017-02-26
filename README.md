@@ -935,6 +935,10 @@ contains `*KEY*`, then that gets replaced by the key under consideration.
   be just that, of length 1. 
 
   This returns a matrix (prototyped) that has the properties:
+  * `rows` Iterates a function over the rows. If an array is returned, it
+    replaces the row. 
+  * `cols` Iterates a function over the cols and will also replace the
+    columns if an array is returned. 
   * `transpose` This returns a new matrix with flipped rows and columns.
   * `trim` This trims the entries in the matrix, returning the original.
   * `num` This converts every entry into a number, when possible. 
@@ -942,6 +946,10 @@ contains `*KEY*`, then that gets replaced by the key under consideration.
   * `traverse` This runs through the matrix, applying a function to each
     entry, the arguments being `element, inner index, outer index, the
     row object, the matrix`. 
+  * `equals` This takes in a second matrix and checks if they are strictly
+    equal. 
+  * `print` This prints the matrix using the passed in row and col
+    separator or using the property
 
 ## Built-in Subcommands
 

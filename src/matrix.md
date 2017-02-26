@@ -38,9 +38,9 @@ character.
 
 If it is a string passed in, then we parse it and create.
  
-    rowsep = args[0] || this.rowsep;
-    colsep = args[1] || this.colsep;
-    esc = args[2] || this.esc;
+    rowsep = this.rowsep = args[0] || this.rowsep;
+    colsep = this.colsep = args[1] || this.colsep;
+    esc = this.escp =  args[2] || this.esc;
     doTrim = ( typeof args[3] !== "undefined") ? args[3] : this.doTrim;
     
     i = 0;
@@ -85,6 +85,10 @@ If it is a string passed in, then we parse it and create.
       be just that, of length 1. 
 
       This returns a matrix (prototyped) that has the properties:
+      * `rows` Iterates a function over the rows. If an array is returned, it
+        replaces the row. 
+      * `cols` Iterates a function over the cols and will also replace the
+        columns if an array is returned. 
       * `transpose` This returns a new matrix with flipped rows and columns.
       * `trim` This trims the entries in the matrix, returning the original.
       * `num` This converts every entry into a number, when possible. 
@@ -92,6 +96,10 @@ If it is a string passed in, then we parse it and create.
       * `traverse` This runs through the matrix, applying a function to each
         entry, the arguments being `element, inner index, outer index, the
         row object, the matrix`. 
+      * `equals` This takes in a second matrix and checks if they are strictly
+        equal. 
+      * `print` This prints the matrix using the passed in row and col
+        separator or using the property
 
 ## Prototype 
 
@@ -107,7 +115,11 @@ This is where we create various matrix prototype properties.
         trim : _"mat trim",
         clone :  "_mat clone",
         num : _"mat num",
-        scale : _"mat scale"
+        scale : _"mat scale",
+        rows : _"rows",
+        cols : _"cols",
+        equals : _"equals",
+        print : _"print"
     }
 
 ## Mat transpose
@@ -220,4 +232,100 @@ This converts everything into a number or NaN.
     }
 
 
+## rows
 
+This creates a copy of the rows and applies the incoming function to it.
+
+The matrix is inherently row-based so we can just do a forEach over them. 
+
+    function (f, val) {
+        var red = (typeit(val, "!undefined") );
+        var self = this;
+        var mat = self.mat;
+        mat.forEach(function (row, ind) {
+            var ret = f(row.slice(), ind, self, val);
+            if (typeit(ret, 'array') ) {
+                mat[ind] = ret;
+            } else {
+                val = ret;
+            }
+        });
+        if ( red ) {
+            return val;
+        } else {
+            return self;
+        }
+    }
+    
+## cols
+
+This creates a copy of the columns and applies the incoming function to it.
+
+The matrix is inherently row-based so we use the transpose function (transpose
+--> rows --> transpose). If the
+columns get modified, then replace the original matrix object's matrix with
+the new ones. This is not cool. 
+
+    function (f, val) {
+        var red = typeit(val, "!undefined");
+        var self = this;
+        var trans = self.transpose();
+        val = trans.rows(f, val);
+        var dbl = trans.transpose();
+        if (! (dbl.equals(self) ) ) {
+            self.mat = dbl.mat;
+        }
+        if ( red ) {
+            return val;
+        } else {
+            return self;
+        }
+    }  
+
+## equals
+
+Are the values of the two matrices the same? Any differences and we return
+false. 
+
+    function (other) {
+        var self = this;
+        var i, n, srow, orow, j, m;
+        var smat = self.mat;
+        var omat = other.mat;
+        if (smat.length !== omat.length) {
+            return false;
+        }
+        n = smat.length;
+        for (i = 0; i < n; i +=1) {
+            srow = smat[i];
+            orow = omat[i];
+            if (srow.length !== orow.length) {
+                return false;
+            } 
+            m = srow.length;
+            for (j= 0; j < m; j += 1) {
+                if (srow[j] !== orow[j] ) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+## Print
+
+This prints the matrix. 
+
+Should deal with escaping stuff as well. But leaving that off for now. This is
+mainly for quick printing out. 
+
+    function (rowsep, colsep) {
+        var self = this;
+        rowsep = (typeit(rowsep, 'undefined') ) ? this.rowsep : rowsep;
+        colsep = (typeit(colsep, 'undefined') ) ? this.colsep : colsep;
+        var ret = [];
+        self.rows(function (row) {
+            ret.push(row.join(rowsep));
+        });
+        return ret.join(colsep);
+    }

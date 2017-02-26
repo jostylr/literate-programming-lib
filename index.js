@@ -4746,13 +4746,19 @@ Folder.sync("html-table", function (mat, options) {
         ret += "<tr><th>" + type.join("</th><th>") + "</th></tr>\n";
     }
   
-    if (mat.mat) {
-        mat = mat.mat; //allows for matrix, but if not then dbl arr
+
+    var f = function (row) {
+        ret += "<tr><td>" + row.join("</td><td>") + "</td></tr>\n";
+        return null;
+    };   
+
+    if (mat.rows) {
+        mat.rows(f); //allows for matrix, but if not then dbl arr
+    } else {
+        mat.forEach(f);
     }
 
-    mat.forEach(function (row) {
-        ret += "<tr><td>" + row.join("</td><td>") + "</td></tr>\n";    
-    });
+
     ret += "</table>\n";
     return ret; 
 });
@@ -4876,9 +4882,9 @@ return ret;
 var Matrix = function (code, args) {
     var rowsep, colsep, esc, doTrim, i, start, row, seps, char;
     if (typeit(code, 'string')) {
-        rowsep = args[0] || this.rowsep;
-        colsep = args[1] || this.colsep;
-        esc = args[2] || this.esc;
+        rowsep = this.rowsep = args[0] || this.rowsep;
+        colsep = this.colsep = args[1] || this.colsep;
+        esc = this.escp =  args[2] || this.esc;
         doTrim = ( typeof args[3] !== "undefined") ? args[3] : this.doTrim;
         
         i = 0;
@@ -4981,6 +4987,73 @@ Matrix.prototype =  {
         };
         this.traverse(fun);
         return this;
+    },
+    rows : function (f, val) {
+        var red = (typeit(val, "!undefined") );
+        var self = this;
+        var mat = self.mat;
+        mat.forEach(function (row, ind) {
+            var ret = f(row.slice(), ind, self, val);
+            if (typeit(ret, 'array') ) {
+                mat[ind] = ret;
+            } else {
+                val = ret;
+            }
+        });
+        if ( red ) {
+            return val;
+        } else {
+            return self;
+        }
+    },
+    cols : function (f, val) {
+        var red = typeit(val, "!undefined");
+        var self = this;
+        var trans = self.transpose();
+        val = trans.rows(f, val);
+        var dbl = trans.transpose();
+        if (! (dbl.equals(self) ) ) {
+            self.mat = dbl.mat;
+        }
+        if ( red ) {
+            return val;
+        } else {
+            return self;
+        }
+    }  ,
+    equals : function (other) {
+        var self = this;
+        var i, n, srow, orow, j, m;
+        var smat = self.mat;
+        var omat = other.mat;
+        if (smat.length !== omat.length) {
+            return false;
+        }
+        n = smat.length;
+        for (i = 0; i < n; i +=1) {
+            srow = smat[i];
+            orow = omat[i];
+            if (srow.length !== orow.length) {
+                return false;
+            } 
+            m = srow.length;
+            for (j= 0; j < m; j += 1) {
+                if (srow[j] !== orow[j] ) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    },
+    print : function (rowsep, colsep) {
+        var self = this;
+        rowsep = (typeit(rowsep, 'undefined') ) ? this.rowsep : rowsep;
+        colsep = (typeit(colsep, 'undefined') ) ? this.colsep : colsep;
+        var ret = [];
+        self.rows(function (row) {
+            ret.push(row.join(rowsep));
+        });
+        return ret.join(colsep);
     }
 };
 

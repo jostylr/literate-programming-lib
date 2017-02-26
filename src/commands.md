@@ -2034,13 +2034,19 @@ that is a command on it to produce something new.
             _":make row | sub td, th, row, type"
         }
       
-        if (mat.mat) {
-            mat = mat.mat; //allows for matrix, but if not then dbl arr
+    
+        var f = function (row) {
+            _":make row"
+            return null;
+        };   
+
+        if (mat.rows) {
+            mat.rows(f); //allows for matrix, but if not then dbl arr
+        } else {
+            mat.forEach(f);
         }
 
-        mat.forEach(function (row) {
-            _":make row"    
-        });
+
         ret += "</table>\n";
         return ret; 
     }
