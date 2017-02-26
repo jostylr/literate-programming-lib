@@ -694,7 +694,7 @@ We need to track the command numbering for the event emitting.
             } else if (text[ind] === "|") {
                 start = ind += 1;
             } else {
-                gcd.emit("error:bad terminating character in command" + 
+                doc.warn("parsing cmd", "bad terminating character in command " + 
                     name, [start, ind, text[ind]]);
             }
 
@@ -738,7 +738,7 @@ automatically receive the previous bit as the incoming text.
         }
         command = colon.escape(command);
         comname = name + colon.v + start;
-        
+
         gcd.once("arguments ready:" + comname, 
             doc.argFinishingHandler(comname));
 
@@ -769,7 +769,7 @@ process arguments.
         break;
 
     } else if (chr === "|") {
-        // nothing to do; just done. 
+        ind -= 1; // this is so the pipe is seen next
     } else {
         ind = doc.argProcessing(text, ind, quote, comname, mainblock );
     }
@@ -1327,6 +1327,9 @@ quote. It ignores initial whitespace. In 1 is the straight text, if any, and
 then in 2 is the character to signal what to do next (quote ends processing,
 pipe ends command, comma ends argument, underscore may initiate substitution,
 and slash may initiate escaping).
+
+
+! These don't seem to be used???
 
         argument : {
             "'" : /\s*([^,|\\']*)([\S\s])/g,

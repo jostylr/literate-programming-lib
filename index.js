@@ -3643,7 +3643,7 @@ dp.pipeParsing = function (text, ind, quote, name, mainblock, toEmit, textEmit) 
             }
             command = colon.escape(command);
             comname = name + colon.v + start;
-            
+        
             gcd.once("arguments ready:" + comname, 
                 doc.argFinishingHandler(comname));
         
@@ -3662,7 +3662,7 @@ dp.pipeParsing = function (text, ind, quote, name, mainblock, toEmit, textEmit) 
                 break;
             
             } else if (chr === "|") {
-                // nothing to do; just done. 
+                ind -= 1; // this is so the pipe is seen next
             } else {
                 ind = doc.argProcessing(text, ind, quote, comname, mainblock );
             }
@@ -3680,7 +3680,7 @@ dp.pipeParsing = function (text, ind, quote, name, mainblock, toEmit, textEmit) 
         } else if (text[ind] === "|") {
             start = ind += 1;
         } else {
-            gcd.emit("error:bad terminating character in command" + 
+            doc.warn("parsing cmd", "bad terminating character in command " + 
                 name, [start, ind, text[ind]]);
         }
 
