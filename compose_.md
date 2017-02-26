@@ -7,13 +7,11 @@ Need to test composing.
 
     _"stuff | longsplit \n-!-\n, arr(;, some, more) "
 
-    _"tb | compsplit  "
+    _"tb | compsplit _'template'  "
     
     _"t | nlsplit temp2  "
 
     _"| arrtest"
-
-    _"tb|botharrows rrl"
 
 
 [longsplit](# "compose: split $0 | join @1, kool, @1")
@@ -21,18 +19,15 @@ Need to test composing.
 [split](# "compose: .split $0 | *trim | .join 5 ")
 
 [nlsplit](# "compose: .split \n---\n | minors title, body | ->$1 | 
-    | *store $0, *KEY* | get template | compile $0 
-    | ->$2 | $1->*clear $0, *KEY* | $2-> ")
+    | *store $0, *KEY* | get template | compile $0  
+    | ->$2 | $1->*clear$2-> $0, *KEY*  ")
 
 [compsplit](# "compose: .split \n---\n |  minors title, body  
-    | get->$0 template | templating $0 ")
+    | templating $0 ")
 
 [arrtest](# "compose: echo this | ->@0 | echo that\nhar\n | ->@0
     | $0->| | *trim | .join ! ")
 
-[botharrows](# "compose: .split->$1 \n 
-    | $0->sub->$2 r, t 
-    | *sub $2, heck, ---, $0") 
 
 ## template
 
@@ -76,8 +71,3 @@ ttl
 
 this!that
 har
-
-heck
-rrl
-body
-body

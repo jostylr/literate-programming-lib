@@ -2022,34 +2022,34 @@ Folder.prototype.compose = function () {
             var pos = parseInt(bit.slice(bit.lastIndexOf(colon.v) + 1), 10)+1;
             var cmd = arrs[pos][0];
             var args = arrs[pos].slice(1);
-        
-            var m, a;
-            if (cmd === '') {
-                gcd.emit("text ready:" + name + c + pos, data);
-                return;
+            var full = function (cmd) {
+                var ret = [];
+                var m, lind, rind;
             
-            // store into ith arg    
-            } else if ( (m = cmd.match(/^\-\>\$(\d+)$/) ) ) {
-                cmdargs[parseInt(m[1], 10)] = data; 
-                gcd.emit("text ready:" + name + c + pos, data);
-                return;
-            
-            // retrieve from ith arg
-            } else if ( (m = cmd.match(/^\$(\d+)\-\>$/) ) ) {
-                gcd.emit("text ready:" + name + c + pos, 
-                    cmdargs[parseInt(m[1], 10)]);
-                return;
-            
-            } else if ( (m = cmd.match(/^\-\>\@(\d+)$/) ) ) {
-                a = cmdargs[parseInt(m[1], 10)];
-                if (Array.isArray(a)) {
-                    a.push(data);
+                //get arg # as input
+                if ( (m = cmd.match(/^\$(\d+)\-\>/) ) ) {
+                   ret[0] = parseInt(m[1], 10);
+                   lind = m[0].length;
                 } else {
-                    cmdargs[parseInt(m[1], 10)] = [data]; 
+                    ret[0] = null;
+                    lind = 0;
                 }
-                gcd.emit("text ready:" + name + c + pos, data);
-                return;
-            }
+            
+                //store result in #
+                if ( (m = cmd.match(/\-\>\$(\d+)$/) ) ) {
+                    ret[2] = parseInt(m[1], 10);
+                    rind = m.index;
+                } else {
+                    ret[2] = null;
+                    rind = cmd.length;
+                }
+            
+                //cmd is in between
+                ret[1] = cmd.slice(lind, rind);
+            
+                return ret;
+            
+            };
         
             var arrtracker = {}; 
             var ds = /^([$]+)(\d+)$/;
@@ -2103,8 +2103,54 @@ Folder.prototype.compose = function () {
                 }
             }
         
+            var m, a;
+            if (cmd === '') {
+                gcd.emit("text ready:" + name + c + pos, data);
+                return;
+            
+            // store into ith arg    
+            } else if ( (m = cmd.match(/^\-\>\$(\d+)$/) ) ) {
+                cmdargs[parseInt(m[1], 10)] = data; 
+                gcd.emit("text ready:" + name + c + pos, data);
+                return;
+            
+            // retrieve from ith arg
+            } else if ( (m = cmd.match(/^\$(\d+)\-\>$/) ) ) {
+                gcd.emit("text ready:" + name + c + pos, 
+                    cmdargs[parseInt(m[1], 10)]);
+                return;
+            
+            } else if ( (m = cmd.match(/^\-\>\@(\d+)$/) ) ) {
+                a = cmdargs[parseInt(m[1], 10)];
+                if (Array.isArray(a)) {
+                    a.push(data);
+                } else {
+                    cmdargs[parseInt(m[1], 10)] = [data]; 
+                }
+                gcd.emit("text ready:" + name + c + pos, data);
+                return;
+            } 
         
-            doc.cmdworker(cmd, data, args, name + c + pos);
+            m = full(cmd);
+            if (m[0] !== null) {
+                input = cmdargs[m[0]];
+            } else {
+                input = data;
+            }
+            
+            if (m[2] !== null) {
+                gcd.on("text ready:" + name + c + pos + c + m[2], function (newdata) { 
+                    cmdargs[m[2]] = newdata;
+                    //data is input to pass along
+                    gcd.emit("text ready:" + name + c + pos, data); 
+                });
+                doc.cmdworker(m[1], input, args, name + c + pos + c + m[2]);
+            } else {
+                doc.cmdworker(m[1], input, args, name + c + pos);
+            
+            }   
+            return ;
+        
         
         };
 

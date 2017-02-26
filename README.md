@@ -529,7 +529,10 @@ There are a variety of directives that come built in.
   into the ith variable to use later as a named dollar sign variable, `$i->`
   which sends along the ith variable to the next pipe, `->@i` which pushes the
   value onto the ith element, assuming it is an array (it creates an array if
-  no array is found).  
+  no array is found). There is also a special variant of `$i->cmd->$j` where
+ if the first arrow is present, then it uses argument `i` as the input and if
+ the second arrow is present, then it saves the output into argument `j`,
+ sending the original input on instead of the output. 
 * **Partial** `[cmdname](#block "partial: oldcmdname, argplace | pipes...")` This
   takes a command, `oldcmdname`, and makes a new command, `cmdname`, by
   replacing an argument slot, `argplace` zero-based, with whatever the block
@@ -967,7 +970,7 @@ There are several built-in subcommands. Note that these are case insensitive.
   will strip the quotes. This is useful as the appearance of a quote will mask
   all other mechanics. So `e("a, b and _this")` will produce a literal
   argument of `a, b, and _this`. Multiple arguments will be stripped and
-  passed on as multipel arguments.  
+  passed on as multiple arguments.  
 * `join` The first entry is the joiner separator and it joins the rest
   of the arguments. For arrays, they are flattened with the separator as well
   (just one level -- then it gets messy and wrong, probably). 

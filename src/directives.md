@@ -1067,13 +1067,14 @@ definition time and the `cmdargs` are the arguments passed in at the invocation.
         var pos = parseInt(bit.slice(bit.lastIndexOf(colon.v) + 1), 10)+1;
         var cmd = arrs[pos][0];
         var args = arrs[pos].slice(1);
-
-        _":deal with special commands"
+        var full = _":full";
 
         _":modify args"
 
+        _":deal with special commands"
 
-        doc.cmdworker(cmd, data, args, name + c + pos);
+        _":combo special or plain"
+
 
     }
     
@@ -1210,9 +1211,65 @@ array.
         }
         gcd.emit("text ready:" + name + c + pos, data);
         return;
+    } 
+
+[combo special or plain]()
+
+Here we allow for the syntax `$i->cmd->$j`  where the $i-> is replacing the
+input with the i-th argument, and ->$j
+
+    m = full(cmd);
+    if (m[0] !== null) {
+        input = cmdargs[m[0]];
+    } else {
+        input = data;
     }
 
+    if (m[2] !== null) {
+        gcd.on("text ready:" + name + c + pos + c + m[2], function (newdata) { 
+            cmdargs[m[2]] = newdata;
+            //data is input to pass along
+            gcd.emit("text ready:" + name + c + pos, data); 
+        });
+        doc.cmdworker(m[1], input, args, name + c + pos + c + m[2]);
+    } else {
+        doc.cmdworker(m[1], input, args, name + c + pos);
 
+    }   
+    return ;
+
+[full]()
+
+This is to parse out the errors and get the commands. 
+
+    function (cmd) {
+        var ret = [];
+        var m, lind, rind;
+
+        //get arg # as input
+        if ( (m = cmd.match(/^\$(\d+)\-\>/) ) ) {
+           ret[0] = parseInt(m[1], 10);
+           lind = m[0].length;
+        } else {
+            ret[0] = null;
+            lind = 0;
+        }
+
+        //store result in #
+        if ( (m = cmd.match(/\-\>\$(\d+)$/) ) ) {
+            ret[2] = parseInt(m[1], 10);
+            rind = m.index;
+        } else {
+            ret[2] = null;
+            rind = cmd.length;
+        }
+
+        //cmd is in between
+        ret[1] = cmd.slice(lind, rind);
+
+        return ret;
+
+    }
 
 ### eval
 
