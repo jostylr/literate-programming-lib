@@ -617,28 +617,26 @@ Folder.prototype.formatters = {
             function (args) {
                 var kind = args.shift();
                 var description = args.shift();
-                var ret = "\n* KIND: " + kind + "\n* DESCRIPTION: " + description;
+                var ret = "### " + kind + "\n" + description + "\n";
                 if (args.length) {
-                    ret += "\n* DETAILS:\n\n    * " + 
-                        args.join("\n    * ");
+                    ret += args.join("\n* ");
                 }
                 return ret;
             }).
-            join('\n* * *\n');
+            join("\n");
     },
     "warn": function (list) {
         return list.map(
             function (args) {
                 var kind = args.shift();
                 var description = args.shift();
-                var ret = "\n* KIND: " + kind + "\n* DESCRIPTION: " + description;
+                var ret = "### " + kind + "\n" + description + "\n";
                 if (args.length) {
-                    ret += "\n* DETAILS:\n\n    * " + 
-                        args.join("\n    * ");
+                    ret += args.join("\n* ");
                 }
                 return ret;
             }).
-            join('\n* * *\n');
+            join("\n");
     },
     "out": function (obj) {
         return Object.keys(obj).
@@ -651,9 +649,9 @@ Folder.prototype.formatters = {
         return list.map(
                 function (args) {
                     var msg = args.shift();
-                    var ret = "\n* MESSAGE: " + msg;
+                    var ret = "* " + msg;
                     if (args.length) {
-                        ret += "\n* DETAILS:\n\n    * " + 
+                        ret += "\n    * " + 
                             args.join("\n    * ");
                     }
                     return ret;
@@ -747,9 +745,9 @@ Folder.prototype.reportOut = function (filter) {
               return str;
           }).
           filter(function (el) {return !!el;}).
-          join('\n* * *\n');
+          join("\n");
           if (temp) {
-            ret +=  (ret ? "\n" : "") + "DOC: " + key + "\n===\n" + temp;
+            ret +=  (ret ? "\n" : "") + "# DOC: " + key + "\n"  + temp;
           } 
     });
     var dig = this.logs;
@@ -771,9 +769,9 @@ Folder.prototype.reportOut = function (filter) {
         return str;
     }).
     filter(function (el) {return !!el;}).
-    join('\n* * *\n');
+    join("\n");
     if (temp) {
-      ret +=  (ret ? "\n" : "") + "FOLDER LOGS: \n===\n" + temp;
+      ret +=  (ret ? "\n" : "") + "# FOLDER LOGS\n" + temp;
     } 
     ret = ret.replace('\n`````\n' + "\n", '\n`````\n');
     return ret;
@@ -1824,12 +1822,14 @@ Folder.commands = {   eval : sync(function ( text, args ) {
             } else {
                 ret = prop.apply(input, args);
                 if (typeof ret === "undefined") {
-                    doc.log("method returned undefined " + propname, input, propname, args);
+                    doc.log("method returned undefined ", 
+                        "cmd:dot", input, "proerty requested:" + propname, args);
                     ret = input;
                 } 
             }
         } else if (typeof prop === "undefined") {
-            doc.log("property undefined " + propname, input, propname, args); 
+            doc.log( "property undefined ", 
+                "cmd:dot", input, "property requested:" + propname, args); 
             ret = input; 
         } else {
             ret = prop;
@@ -4874,40 +4874,45 @@ return ret;
 });
 
 var Matrix = function (code, args) {
-    var rowsep = args[0] || this.rowsep;
-    var colsep = args[1] || this.colsep;
-    var esc = args[2] || this.esc;
-    var doTrim = ( typeof args[3] !== "undefined") ? args[3] : this.doTrim;
-    
-    var i = 0;
-    var start = 0;
-    var row = [];
-    this.mat = [row];
-    var seps = [rowsep, esc, colsep];
-    var char;
-    while (i < code.length) {
-        char = code[i];
-        if (char === rowsep) {
-            row.push(code.slice(start, i));
-            start = i + 1;
-            row = [];
-            this.mat.push(row);
-        } else if (char === colsep) {
-            row.push(code.slice(start, i));
-            start = i + 1;
-        } else if (char === esc) {
-            char = code[i+1];
-            if (seps.indexOf(char) !== -1) {
-                code = code.slice(0,i) + char +
-                    code.slice(i+1);
+    var rowsep, colsep, esc, doTrim, i, start, row, seps, char;
+    if (typeit(code, 'string')) {
+        rowsep = args[0] || this.rowsep;
+        colsep = args[1] || this.colsep;
+        esc = args[2] || this.esc;
+        doTrim = ( typeof args[3] !== "undefined") ? args[3] : this.doTrim;
+        
+        i = 0;
+        start = 0;
+        row = [];
+        this.mat = [row];
+        seps = [rowsep, esc, colsep];
+        while (i < code.length) {
+            char = code[i];
+            if (char === rowsep) {
+                row.push(code.slice(start, i));
+                start = i + 1;
+                row = [];
+                this.mat.push(row);
+            } else if (char === colsep) {
+                row.push(code.slice(start, i));
+                start = i + 1;
+            } else if (char === esc) {
+                char = code[i+1];
+                if (seps.indexOf(char) !== -1) {
+                    code = code.slice(0,i) + char +
+                        code.slice(i+1);
+                }
             }
+            i += 1;
         }
-        i += 1;
+        row.push(code.slice(start));
+        if (doTrim) {
+            this.trim();
+        }
+    } else if (typeit(code, 'array')) {
+        this.mat = code;
     }
-    row.push(code.slice(start));
-    if (doTrim) {
-        this.trim();
-    }
+
     return this;
 };
 
@@ -4978,6 +4983,8 @@ Matrix.prototype =  {
         return this;
     }
 };
+
+Folder.Matrix = Matrix;
 
 Folder.sync("matrixify", function (input, args) {
     return new Matrix(input, args);

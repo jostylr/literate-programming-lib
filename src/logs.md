@@ -150,11 +150,11 @@ It is designed to eliminate any parts that are empty of content.
         docs.forEach(function (key) {
               var dig = folder.docs[key].logs;
               _":text generation | sub DOCSTRING,
-                ec('"DOC: " + key + "\n===\n"') "
+                ec('"# DOC: " + key + "\n" ') "
         });
         var dig = this.logs;
         _":text generation | sub DOCSTRING, 
-            ec('"FOLDER LOGS: \n===\n"') "
+            ec('"# FOLDER LOGS\n"') "
 
 The fences may add too many newlines, so we remove one.
 
@@ -184,7 +184,7 @@ This is the common part of the text.
         return str;
     }).
     filter(function (el) {return !!el;}).
-    join(SEP);
+    join("\n");
     if (temp) {
       ret +=  (ret ? "\n" : "") + DOCSTRING + temp;
     } 
@@ -192,7 +192,7 @@ This is the common part of the text.
 [details]()
 
     if (args.length) {
-        ret += "\n* DETAILS:\n\n    * " + 
+        ret += "\n    * " + 
             args.join("\n    * ");
     }
 
@@ -223,7 +223,7 @@ This is the logging function
         return list.map(
                 function (args) {
                     var msg = args.shift();
-                    var ret = "\n* MESSAGE: " + msg;
+                    var ret = "* " + msg;
                     _"out reporter:details"
                     return ret;
             }).
@@ -256,11 +256,13 @@ This can be used to do a foreach on the error argument.
             function (args) {
                 var kind = args.shift();
                 var description = args.shift();
-                var ret = "\n* KIND: " + kind + "\n* DESCRIPTION: " + description;
-                _"out reporter:details"
+                var ret = "### " + kind + "\n" + description + "\n";
+                if (args.length) {
+                    ret += args.join("\n* ");
+                }
                 return ret;
             }).
-            join(SEP);
+            join("\n");
     }
 
 

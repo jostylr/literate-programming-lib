@@ -414,9 +414,8 @@ Some commonly used variables.
 [json]()
 
     var obj = text;
-    var keys = obj.keys();
     var newobj = {};
-    keys.forEach(function (el) {
+    Object.keys(obj).forEach(function (el) {
         newobj[el] = obj[el];
     });
     text = JSON.stringify(newobj);

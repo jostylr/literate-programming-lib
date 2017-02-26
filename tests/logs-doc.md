@@ -16,38 +16,24 @@ Let's do some evaling
 ---out:out
 bye
 ---reports:
-DOC: in
-===
+# DOC: in
 ## 2
-
-* MESSAGE: message
-* DETAILS:
-
+* message
     * arg1
     * arg2
-* * *
 ## WARN
+### what
+just a little something
+5
+### great
+just a little more
 
-* KIND: what
-* DESCRIPTION: just a little something
-* DETAILS:
-
-    * 5
-* * *
-
-* KIND: great
-* DESCRIPTION: just a little more
-* * *
 ## OUT
 ### big
 `````
 hey, hey
 `````
-* * *
 ## JSHINT
-
-* MESSAGE: whatever
-* DETAILS:
-
+* whatever
     * 9
     * 11

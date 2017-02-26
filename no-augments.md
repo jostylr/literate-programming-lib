@@ -20,7 +20,8 @@ Minidoc replacements:
   look into allowing templating to choose or a smoother mechanism for storage,
   something like `get template-name -> $2`with the prevailing input just going
   along. 
-* `.store blockname` replaced with `*store blockname:*KEY*` 
+* `.store blockname` replaced with `*store blockname:*KEY*` or `*store
+  blockname, *KEY*`
 * `.clear` same as store
 * `.apply key, cmd, args` replaced with `apply`
 * `.clone` with `clone`

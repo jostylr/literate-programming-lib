@@ -5,6 +5,8 @@ This creates a two dimension array from the text.
 
     Matrix.prototype = _"prototype";
 
+    Folder.Matrix = Matrix;
+
     Folder.sync("matrixify", _":fun");
 
 [fun]() 
@@ -22,41 +24,52 @@ We escape it by slicing out the escape character if the next is an escaped
 character. 
 
     function (code, args) {
-        var rowsep = args[0] || this.rowsep;
-        var colsep = args[1] || this.colsep;
-        var esc = args[2] || this.esc;
-        var doTrim = ( typeof args[3] !== "undefined") ? args[3] : this.doTrim;
-        
-        var i = 0;
-        var start = 0;
-        var row = [];
-        this.mat = [row];
-        var seps = [rowsep, esc, colsep];
-        var char;
-        while (i < code.length) {
-            char = code[i];
-            if (char === rowsep) {
-                row.push(code.slice(start, i));
-                start = i + 1;
-                row = [];
-                this.mat.push(row);
-            } else if (char === colsep) {
-                row.push(code.slice(start, i));
-                start = i + 1;
-            } else if (char === esc) {
-                char = code[i+1];
-                if (seps.indexOf(char) !== -1) {
-                    code = code.slice(0,i) + char +
-                        code.slice(i+1);
-                }
-            }
-            i += 1;
+        var rowsep, colsep, esc, doTrim, i, start, row, seps, char;
+        if (typeit(code, 'string')) {
+            _":string"
+        } else if (typeit(code, 'array')) {
+            this.mat = code;
         }
-        row.push(code.slice(start));
-        if (doTrim) {
-            this.trim();
-        }
+
         return this;
+    }
+
+[string]()
+
+If it is a string passed in, then we parse it and create.
+ 
+    rowsep = args[0] || this.rowsep;
+    colsep = args[1] || this.colsep;
+    esc = args[2] || this.esc;
+    doTrim = ( typeof args[3] !== "undefined") ? args[3] : this.doTrim;
+    
+    i = 0;
+    start = 0;
+    row = [];
+    this.mat = [row];
+    seps = [rowsep, esc, colsep];
+    while (i < code.length) {
+        char = code[i];
+        if (char === rowsep) {
+            row.push(code.slice(start, i));
+            start = i + 1;
+            row = [];
+            this.mat.push(row);
+        } else if (char === colsep) {
+            row.push(code.slice(start, i));
+            start = i + 1;
+        } else if (char === esc) {
+            char = code[i+1];
+            if (seps.indexOf(char) !== -1) {
+                code = code.slice(0,i) + char +
+                    code.slice(i+1);
+            }
+        }
+        i += 1;
+    }
+    row.push(code.slice(start));
+    if (doTrim) {
+        this.trim();
     }
 
 ## Doc

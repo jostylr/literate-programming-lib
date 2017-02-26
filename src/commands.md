@@ -1222,12 +1222,14 @@ If property does not exist yet, this causes a problem.
             } else {
                 ret = prop.apply(input, args);
                 if (typeof ret === "undefined") {
-                    doc.log("method returned undefined " + propname, input, propname, args);
+                    doc.log("method returned undefined ", 
+                        "cmd:dot", input, "proerty requested:" + propname, args);
                     ret = input;
                 } 
             }
         } else if (typeof prop === "undefined") {
-            doc.log("property undefined " + propname, input, propname, args); 
+            doc.log( "property undefined ", 
+                "cmd:dot", input, "property requested:" + propname, args); 
             ret = input; 
         } else {
             ret = prop;

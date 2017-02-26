@@ -14,8 +14,7 @@ great work people
 great work dogs
 great work cats
 ---reports:
-DOC: in
-===
+# DOC: in
 ## COMMAND LOG
 ### 
 great work people
@@ -28,7 +27,6 @@ great work cats
 true
 ~~~
 whatever,doc
-* * *
 ## DIRECTIVE LOG
 val
 `````

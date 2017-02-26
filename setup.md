@@ -30,7 +30,9 @@ This is compiled by litpro and uses the following lprc.js file
     /*global module, require*/ 
     module.exports = function(Folder, args) {
 
-        require('litpro-jshint')(Folder, args);
+        //require('litpro-jshint')(Folder, args);
+        Folder.plugins.jshint.clean = true;
+
 
     };
 
