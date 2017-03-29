@@ -224,9 +224,10 @@ functions might modify and add to the state. Note that the state starts as the
 arguments parsed from a directive link, but that things get added to it. 
 
 In particular, namefactory should add an emitname and handlerfactory should
-add in handler.
+add in handler. The post option is for something that could lead to emitting
+the trigger immediately (state.wait). 
 
-    function (namefactory, handlerfactory, other) {
+    function (namefactory, handlerfactory, other, post) {
 
         return function (state) {
             _":init"
@@ -238,6 +239,10 @@ add in handler.
             other.call(doc, state);
 
             _":emit"
+
+            if (post) {
+                post.call(doc, state);
+            }
         };
         
 
@@ -282,12 +287,22 @@ We make sure each emitname ends in ":" as this allows for unnamed mainblocks
 to be cut correctly in the subname computation (subname
 transformation:slicing).  
 
+state.wait allows for waiting on a custom event before emitting the data. The
+data passed on is from that emit event.
+
     doc.pipeDirSetup(state.pipes, state.emitname, state.handler, 
         ( state.start ||  state.block || '') );
 
     var pipeEmitStart = "text ready:" + state.emitname + colon.v + "sp";
     if (! state.value) {
         doc.retrieve(state.start, pipeEmitStart);
+    } else if (state.wait) {
+        gcd.once(state.wait, function (data) {
+            if (state.preprocess) {
+                data = state.preprocess(data);
+            }
+            gcd.emit(pipeEmitStart, data);
+        });
     } else {
         gcd.once("parsing done:"+this.file, function () {
             gcd.emit(pipeEmitStart, state.value || "" );
@@ -361,7 +376,7 @@ The args should be `filename to save, section to wait for`.
 
 ### Out
 
-This is the same as save, except it just ouputs it to the console via doc.log. 
+This is the same as save, except it just outputs it to the console via doc.log. 
 
 
     dirFactory(_":emitname", _":handler", _":other")
@@ -681,16 +696,746 @@ This loads the url if needed. The file is loaded exactly once.
         gcd.emit("need document:" + urlesc, url );
     }
 
-### Pipe
+## Pipe
 
 The href is a place to load from. The linkname is the place to send it. The
-pipes transform the loaded information. 
+pipes transform the loaded information.
 
-#### Pipes
+So we have some plumbing to look at the href and determine what input method
+is to be used. This should be easily overwritable. 
+
+Then we have a standard emit (text ready?) that returns from that method. We
+run it through the pipes. The end result, another text ready, then gets sent
+to whatever the linkname tells us, which is something else that has
+conventions to decide what to do with it. 
+
+The pipe directive is a single input to output command. 
+
+
+
+Here we write the save function using the factory function. 
+
+    _"fcd setup"
+    
+    dirFactory(_":emitname", _":handler factory", _":other", _":post")
+
+[emitname]()
+
+The protocol object of doc has the parser and the possible different
+protocols, such as file, http, .... The parser figures out what the key is and
+puts it in the 0th slot and the actual resource location is in the 1st slot.
+We add a prefix if it is around. The emitname and url is for the post-pipes
+saving portion. 
+
+    function (state) {
+        var doc = this;
+        var url = state.saveurl = doc.protocol.parser(state.linkname);
+        if (state.saveprefix) {
+            url[1] = (state.saveprefix || '') + url[1];
+        }
+        state.emitname =  "out of pipe:" + this.file + ":" +
+          url[0] + doc.colon.v + url[1];
+    }
+
+
+[handler factory]()
+
+The handler is called to do the saving and reacts to the emit name. This is
+all post pipes.
+
+    function (state) {
+        _"|globals doc, gcd"
+        var url = state.saveurl;
+
+        var f = function (data) {
+            doc.protocol.save(url, data);  
+        };
+        state.handler = f;
+    }
+
+[other]()
+
+This sets everything up before the pipes. It sets state.waiting to the
+emitname that will be emitted once the resource is loaded. It checks the
+protocol for "doc" and handles that differently -- it just uses that directly. 
+
+    function (state) {
+    
+        _"|globals doc, gcd"
+       
+        var loadFrom = state.loadFrom = doc.protocol.parser(state.href);
+        var loadUrl = loadFrom[0] + doc.colon.v + loadFrom[1];
+
+If it is the doc protocol, then it should use state.start so that it flows
+correctly with minor blocks. 
+
+        gcd.emit("waiting for:pipe:" + loadUrl,
+            [state.emitname, "pipe", loadFrom, doc.file]);
+
+        if (loadFrom[0] === "doc")  {
+           state.start = loadFrom[1]; 
+           return; 
+        } 
+        
+        state.start = null;
+        state.block = state.cur;    
+        state.wait = "into pipe:" + doc.file + ":" + loadURL;
+    }
+
+
+[post]()
+
+This does the retrieval if it is not from doc. It happens here to ensure that
+the listener for state.wait is setup. 
+
+    function (state) {
+        if (state.wait) {
+            doc.protocol.retrieve(loadFrom, state.wait, doc); 
+        }
+    }
+
+
+
+
+##### ddoc
+
+    * **pipe** This takes in a place to load from and takes the result from
+      that, sends it through the pipes, and then saves it to the linkname. 
+      `[save here](load-from-here "pipe:| cmds")`
+
+      Each implementation can have its own mechanism for loading and saving
+      along with the scheme that calls it. 
+
+## Protocol 
+
+The protocol object is what handles the input and output of pipe/pipes
+directives. It is organized in parts: 
+
+* `input` This handles inputs. It is an object whose keys are the protocol
+  names and points to a function that takes in a string url for retrieval and
+  an emitname for calling the object. It is called in a context of the doc. 
+* `output` This handles outputs. Same setup as above except in addition to the
+  url, it also require an incoming text to store or it can be an object if the
+  storage format respects that (such as emitting or doc storing).  There is
+  currently no emitname, as that should be handled by the protocol level (like
+  storing something in the doc -- the doc emits that it is done). Maybe an
+  optional third argument if one wants to, but one still needs to accommodate
+  the async nature. 
+* `parser`  This parses a string to determine which protocol to use. 
+* `cache` This handles what has and has not been seen. For saving, it saves a
+  hash to see if it is different or not; this should be amenable to saving.
+  For retrieving, the data itself is saved. 
+* `retrieve` This is a function that calls the relevant protocol after
+  checking the cache. 
+* `save` This is a function that stores the data, having a cache to avoid
+  redundancy. If it is cached, it calls the (stub) function `redundant`.
+
+---
+
+    { 
+        parser : _'interface language',
+        cache : _'cache',
+        input : _'input',
+        output : _'output',
+        retrieve : _'retrieve',
+        save : _'save',
+        redundant : _'redundant'
+    }
+
+        
+### Interface language 
+
+The interface language for the pipes should work fairly similar in both ways.
+The idea:
+
+* `#...` is for either storing or retrieving data in the usual litpro fashion
+* `>...` could be a user input or output to console or other. 
+* `~..` is for a default behavior 
+* `!...` This is the null protocol and is used to have something informative
+  in the link even if there is no output. 
+* `:...` will listen for or emit the data using what follows as the emitname.
+  This is mostly to be used programmatically inside of pipes. Listening
+  requires proper placement within the program to ensure hearing the event.
+* `proto://` will call the protocol with the following address. Could save as
+  well with a defined protocol method. 
+* `functionname-extra-extra2:` this will call a function on what follows which will
+  determine how it gets saved. This is essentially the same as protocol except
+  it is shorter and also allows for dashes that provide for extra info to be
+  passed along
+* If there are no matches, then it is assumed to be a filename. 
+
+If a name contains a colon, it should not be defaulted to the last. Be
+explicit in the protocol or function to call. 
+
+So this function processes a string and returns a command object. 
+
+    function (str) {
+        var ind, pieces;
+        var protocol = this;
+        if  ((!str) || (str[0] === '!') ) {
+            return ["null", ''];
+        }
+        if (str[0] === '#') {
+            return ["doc", str.slice(1)];
+        } 
+        if (str[0] === '>') {
+            return ["console", str.slice(1)];
+        }
+        if (str[0] === ':') {
+            return ["emit", str.slice(1)];
+        }
+
+        if (str[0] == '~') {
+            return protocol.default(str.slice(1));
+        }   
+
+        // this takes the protocol to pass on, the other to pass on.
+        if ( (ind = str.indexOf('://') ) !== -1) {
+            return [str.slice(0, ind), str.slice(ind+3)];
+        }
+        if ( (ind = str.indexOf(':') !== -1 ) {
+            //allows for extra info to passed in by using dashes
+            pieces = str.slice(0,ind).split('-');
+            pieces.splice(1, 0, str.slice(ind+1)); 
+            return pieces;
+        }
+        
+        return protocol.default(str);
+    }
+
+### Default protocol
+
+This is a function that returns what should be the default protocol. This is
+what is called if there is no special trigger or if there is a leading `~`.
+If any of the special leading characters are needed, then one can always
+specify the protocol as either `proto:` or `proto://`. 
+
+The default default is file. 
+
+    function (str) {
+        return ["file", str];
+    }
+
+
+### Retrieve
+
+This actually runs the retrieval. It will use the protocol object as `this`,
+checking the cache and the input. Its third argument should be the doc. 
+
+Notice that the cache variable is specified down to the protocol's cache
+object. If it does not exist, we do not worry about caching. 
+
+    function (protoUrl, emitname, doc) {
+        var protoObj = this;
+        var protocol = protourl[0];
+        var url = protourl[1];
+        var gcd = doc.gcd;
+        var cache = protoObj.cache.input[protocol];  
+
+        if (cache) {
+            _":check cache"
+
+            _":setup cache storage"
+        }
+
+        protoObj.input[protocol].call(doc, url, emitname, protoUrl.slice(2));
+        
+        return;
+    }
+
+[check cache]()
+
+This checks the cache to see if the key already exists. If it does, then it
+should either have the form `[null, emitname]`  and  it reads
+off the emitname to wait for or it is of the form `[value]` in which case it
+emits that value.  
+
+    var val = cache[url];
+    if (val) {
+        if (val.length === 2) {
+            gcd.once(val[1], function (data) {
+                gcd.emit(emitname, data);
+            });
+        } else {
+            gcd.emit(emitname, val[0]);
+        }
+        return ; 
+    }
+
+[setup cache storage]()
+
+We see this if there is no cache object for this url. So we set it up 
+
+    cache[url] = [null, emitname];
+    gcd.once(emitname, function (data) {
+        cache[url] = [data];
+    });
+
+
+### Pipe Save
+
+This manages the saving. It will use the protocol object as `this`,
+checking the cache output. Its third argument should be the doc. 
+
+Notice that the cache variable is specified down to the protocol's cache
+object. If it does not exist, we do not worry about caching. 
+
+    function (protoUrl, data, doc) {
+        var protoObj = this;
+        var protocol = protourl[0];
+        var url = protourl[1];
+        var gcd = doc.gcd;
+        var cache = protoObj.cache.output[protocol];
+
+        if (cache) {
+            _":hash data"
+
+            _":check cache"
+
+            _":setup cache storage"
+        }
+
+        protoObj.output[protocol].call(doc, url, data, protoUrl.slice(2));
+        
+        return;
+    }
+
+[hash data]()
+
+    var crypto = require('crypto');
+    var shasum = crypto.createHash('sha1');
+    shasum.update(data);
+    var hash = shasum.digest('hex');
+
+[check cache]()
+
+This checks the cache to see if this data has already been saved. If it has
+and it is the same, then we skip it. 
+
+    var val = cache[url];
+    if (val === hash) {
+        protoObj.redundant(url, hash, val);        
+        return; 
+
+    }
+
+[setup cache storage]()
+
+We see this if there is no cache object for this url. So we set it up 
+
+    cache[url] = hash;
+
+
+### Redundant
+
+This is just a stub function. It can be overwritten so that it reports the
+redundancy to someone. 
+
+    function () {
+        return; 
+    }
+
+
+### Cache
+
+The cache is an object that helps prevent multiple calls for the same
+resource. Here we make the default object. Any protocol that does not want a
+cache should not have a key in this object.  
+
+    {
+        input : {
+            file:{},
+            http:{},
+            https:{}
+        }, 
+        output : {
+            file:{},
+            http:{},
+            https:{}
+        }
+    }
+
+
+
+### Input
+
+
+These are the default input mechanisms. 
+
+    {
+        "null" : function (url, emitname) {
+            this.gcd.emit(emitname, '');
+        },
+        "doc" :  function (url, emitname) {
+           this.retrieve(url, emitname); 
+        },
+        "emit" : function (url, emitname) {
+            this.gcd.once(url, function (data) {
+                this.gcd.emit(emitname, data);
+            });
+        },
+        "console" : _":console",
+        "file" : _":file",
+        "http" : _":web",
+        "https" : _":web | sub http:, https:"
+    }
+
+[file]()
+
+This does a simple readfile
+
+    function (url, emitname) {
+        var gcd = this.gcd;
+        var fs = require('fs');
+
+        fs.readFile(url, function (err, data) {
+            gcd.emit(emitname, data);
+        }
+    }
+
+[console]()
+
+This takes the url as the question to ask and the sends the answer along using
+the emitname. 
+
+This should be overwritten in a non-nodejs environment. 
+
+    function (url, emitname) {
+        var gcd = this.gcd;
+        var readline = require('readline');
+        var rl = readline.createInterface({
+          input: process.stdin,
+          output: process.stdout
+        });
+
+        rl.question(url, (answer) => {
+            rl.close();
+            gcd.emit(emitname, answer);
+        });  
+    }
+
+[web]()
+
+This is a bit of a quick hack using the native node.js http library. YMMV.
+Should be overriden.  
+
+    function (url, emitname) {
+        var http = require('http');
+        var gcd = this.gcd;
+
+        return http.get(request, function(response) {
+            // Continuously update stream with data
+            var body = '';
+            response.on('data', function(data) {
+                body += data;
+            });
+            response.on('end', function() {
+                gcd.emit(emitname, body);
+            });
+        });
+    }
+
+
+### Output
+
+This is where stuff gets saved to. 
+
+    {
+        "null" : function (url, data) {
+            this.warn("dir:pipe", "sent to null:" + url);
+        },
+        "doc" :  function (url, data) {
+           this.store(url, data); 
+        },
+        "emit" : function (url, data) {
+            this.gcd.emit(url, data); 
+        },
+        "console" : function (url, data) {
+            this.log(data, url); 
+        }, 
+        "file" : _":file",
+        "http" : _":web",
+        "https" : _":web | sub http:, https:, 80, 443"
+    }
+
+[file]()
+
+This saves the file.
+
+    function (url, data) {
+        var fs = require('fs);
+        fs.writeFile(url, data, function (err) {
+            if (err) {
+                doc.error("dir:pipe", "error in saving file: " + url,
+                    err.message);
+            } else {
+                gcd.emit("file saved:" + url);
+            }
+        });
+    }
+
+
+[web]()
+
+This is a simple post function for the data. Probably good to overwrite it to
+make it more robust. 
+
+    function (url, data) {
+    
+        var http = require('http');
+        var gcd = this.gcd;
+        var url = require('url');
+
+        var options = url.parse(url);
+        options.methd = 'POST';
+        options.headers =  {
+            'Content-Type:' : 'text/plain'
+        };
+        options.port = 80;
+
+        var req = http.request(options, function(response) {
+            // Continuously update stream with data
+            var body = '';
+            response.on('data', function(data) {
+                body += data;
+            });
+            response.on('end', function() {
+                doc.log(body, 'web response to saving file:' + url);
+            });
+        });
+        req.on('error', function (err) {
+            doc.error("dir:pipe", "error in posting data", err.message);
+        });
+        req.write(data);
+        req.end();
+    }
+
+### FCD setup
+
+The FCD is designed to handle the interface between the program and the
+external world. 
+
+    _"fcd scopes"
+
+    fcd.on("load", _"fcd read");
+    fcd.on("write", _"fcd write");
+
+
+### fcd read
+
+The function initiates the reading of an external resource, using the scope to
+get the external calling function. It should be an async function with the
+callback `(err, data)` signature. 
+
+The event is `load:type:file` and will emit `read:type:file`. There also needs
+to be a cache. The event Object pieces has the form `[file, type, load]`.
+
+    function (options, evObj, fcd) {
+        var type = evObj.pieces[1];
+        var url = evObj.pieces[0];
+        var tail = type `:` + url;
+        var folder = fcd.folder;
+
+        var proto;
+        _":get protocol"
+        
+        var emitname = `load:` + tail;
+        var cb;
+        var cache = proto.cache;
+        if (cache) {
+            _":check cache"
+            _":setup cache"
+        } else {
+            _":define cb"
+        }
+
+        proto(url, options, cb);
+
+        return;
+    }
+
+[define cb]() 
+
+There is a callback function that gets passed into the function and executed
+upon the return of data or an error. This is where we define the callback
+
+    function (err, data) {
+        if (err) {
+            folder.error("read", "loading type " + type + " had issues", url,
+                err);
+            fcd.emit('failed to read:' + type + ':' + url', err);
+        } else {
+            //cache here
+            fcd.emit(emitname, data);
+        }
+    }
+
+[get protocol]()
+
+Here we look up the scope to see if there is a protocol object. If not, then
+we warn about that and do a default. The second item in `evObj.pieces` should
+be the protocol type and that is the scope we look up. 
+
+    var proto = evObj.scopes['read:' + type];
+    if (typeit(proto, "!function")) {
+       options = [fcd.folder, evObj.ev];
+    } 
+    
+[check cache]()
+
+This checks the cache to see if the key already exists. If it does, then it
+should either have the form `[]` in which case we continue to wait
+or `[value]` in which case it emits that value (again). 
+
+    var val = cache[url];
+    if (val) {
+        if (val.length === 1) {
+            fcd.emit(emitname, val[0]);
+        }
+        return ; 
+    }
+
+[setup cache storage]()
+
+We see this if there is no cache object for this url. So we set it up 
+
+    cache[url] = [];
+    fcd.once("cache:load:" + tail, function (data) {
+        cache[url].push(data);
+        cb = _":define cb | sub //cache here, 
+            ec(`fcd.emit('cache:load:' + tail, data);`) ";
+    });
+
+    
+
+### fcd write
+
+This is similar to read, but we write. Incoming is `write`, when done,
+outgoing is `saved`. While for `read`, the data comes after, here the data
+caomes
+    
+
+### fcd scopes
+
+Each protocol function should be stored in either `read:proto` or
+`write:proto`. If it has a cache object, then a cache will be stored. In
+creating the cache, one might load an external file. Be wary of this, but it
+can be useful. Remember to save the cache to file if you want persistence. 
+
+We have two stubs here, demonstrating the flow and also serving as default.
+The options object is specifically created for the stub and not indicative of
+what to expect; that will vary on the protocol. 
+
+    fcd.scopes('load', _":load stub");
+    fcd.scopes('write', _":write stub");
+
+[load stub]()
+
+The read functions should have signature `url, options, cb` with cb a callback function 
+signature of `err,data`. The prototype function is `fs.readFile`. 
+
+This assumes it is the default and the options are the created object. 
+ 
+    function (url, options, cb) {
+       var fcd = options[0];
+       var ev = options[1];
+       fcd.folder.warn("load protocol",  "protocol not defined as function", ev);
+       cb(null, '');
+       return;
+    }
+
+[write stub]()
+
+Here, writeFile is the prototype. So signature of `url, data, options, cb`. 
+
+    function (url, data, options, cb) {
+        var fcd = options[0];
+        var ev = options[1];
+        fcd.folder.warn("write protocol", "protocol not defined as function",
+            ev);
+        cb(null, '');
+        return;
+    }
+
+
+## Pipes
 
 This takes in an href that points to a set of files to load and then sends
 them to pipes and then outputs them per the link name which has some kind of
 pattern matching. 
+
+This is very similar to pipe, but the inputs are expected to come from
+multiple inputs each input is run through the pipes. We create an object with
+keys that store the result of those actions. Then we iterate over the keys and
+using the linkname scheme, we decide where each bit of text goes. 
+
+The linkname inherits the matches that correspond to the key which is the full
+text from the pipe object. It can use a string to save it out to or it can 
+
+The href should be of the form `proto:source of keys:proto:pattern`. We will
+decodeURI as commonmark might encode some important characters. There are no
+slashes marking the pattern. 
+
+If the source is a directory (very common), the source should end in a slash. 
+
+The linkname should be a replacement string with dollar signs; if no dollar
+signs, then the whole object with all the keys are saved. 
+
+This will work by, after getting each key, sending each source object through
+pipe and catching it with a custom emit. The pipes are also scoured for
+`*KEY(\d*)*` with a replacement of that string as in mapc. Could also maybe
+do a replacement function, but that seems a bit more complex in terms of
+setting up; hoping not needed. 
+
+
+    function (args) {
+        var doc = this;
+        var link = args.link.trim();
+        var href = agrs.href.trim();
+        var pipes = args.input.trim();
+
+        _":parse href"
+
+        gcd.once(emitname, _":got list");
+
+        //getList is a protocol return of proto,url
+        doc.protcol.retrieve(getList, emitname, doc);
+
+    }
+
+[parse href]()
+
+We use the protocol parser, but then we need to change the url further using
+the first colon to split (escapable) into source vs proto:pattern. 
+
+We also want to support not having a protocol and just using the default and
+running with the entire returned list. 
+
+[got list]()
+
+Once the list is returned as the data, we can parse it, filtering based on
+matching the pattern. We take the name and use the link to create an output
+name/protocol 
+
+
+##### ddoc
+
+    * **pipes** This takes in a place to load multiple files from, loads the
+      ones that match the pattern, runs each through the commands, and then
+      saves i
+       and takes the results from
+      that, sends it through the pipes, and then saves it to the linkname. 
+      `[save sub](load-pattern "pipe:| cmds")`
+
+
+### regex
+
+This has the additional feature of having multiple inputs and outputs. So this
+takes a pattern for the input and uses the substitution syntax of js to
+generate the output name. if no match stuff in the string, then the whole
+object of the pipes is stored. 
+
+
 
 ### cd
 

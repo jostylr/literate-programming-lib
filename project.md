@@ -187,6 +187,10 @@ We have a default scope called `g` for global.
         //.when will preserve initial, not emitted order
         gcd.initialOrdering = true; 
         
+        // this is for handling file loading
+        var fcd = this.fcd = new EvW();
+        fcd.folder = this; // so it can issue warnings, etc.
+        
         this.docs = {};
         this.scopes = { g:{} };
         
@@ -301,7 +305,7 @@ listeners and then set `evObj.stop = true` to prevent the propagation upwards.
 ### Example of folder constructor use
 
 This is an example that roughly sketches out what to pass in to constructor
-and hten what to do.
+and then what to do.
 
     folder = new Folder({
         "on" : [ 
@@ -979,7 +983,7 @@ There are a variety of directives that come built in.
   incoming argument is an array and uses the next available array element; if
   the @i appears at the end of the arg list, then it unloads the rest of its
   elements there. This may be a little klunky and the syntax may change. We
-  also have as special commands in compose: `` which does nothing but handles
+  also have as special commands in compose: ` ` which does nothing but handles
   two accidental pipes in a row smoothly,  `->$i` which stores the incoming
   into the ith variable to use later as a named dollar sign variable, `$i->`
   which sends along the ith variable to the next pipe, `->@i` which pushes the

@@ -26,6 +26,10 @@ var Folder = function (actions) {
     //.when will preserve initial, not emitted order
     gcd.initialOrdering = true; 
     
+    // this is for handling file loading
+    var fcd = this.fcd = new EvW();
+    fcd.folder = this; // so it can issue warnings, etc.
+    
     this.docs = {};
     this.scopes = { g:{} };
     
@@ -1941,7 +1945,7 @@ Folder.commands = {   eval : sync(function ( text, args ) {
     }
 };
 
-var dirFactory = Folder.prototype.dirFactory = function (namefactory, handlerfactory, other) {
+var dirFactory = Folder.prototype.dirFactory = function (namefactory, handlerfactory, other, post) {
 
     return function (state) {
         var doc = this;
@@ -1969,10 +1973,21 @@ var dirFactory = Folder.prototype.dirFactory = function (namefactory, handlerfac
         var pipeEmitStart = "text ready:" + state.emitname + colon.v + "sp";
         if (! state.value) {
             doc.retrieve(state.start, pipeEmitStart);
+        } else if (state.wait) {
+            gcd.once(state.wait, function (data) {
+                if (state.preprocess) {
+                    data = state.preprocess(data);
+                }
+                gcd.emit(pipeEmitStart, data);
+            });
         } else {
             gcd.once("parsing done:"+this.file, function () {
                 gcd.emit(pipeEmitStart, state.value || "" );
             });
+        }
+
+        if (post) {
+            post.call(doc, state);
         }
     };
     
