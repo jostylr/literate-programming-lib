@@ -712,7 +712,6 @@ conventions to decide what to do with it.
 The pipe directive is a single input to output command. 
 
 
-
 Here we write the save function using the factory function. 
 
     _"fcd setup"
@@ -834,12 +833,12 @@ directives. It is organized in parts:
 
     { 
         parser : _'interface language',
-        cache : _'cache',
+        cache : \_'cache',
         input : _'input',
         output : _'output',
         retrieve : _'retrieve',
-        save : _'save',
-        redundant : _'redundant'
+        save : _'pipe save',
+        redundant : \_'redundant'
     }
 
         
@@ -1026,37 +1025,6 @@ We see this if there is no cache object for this url. So we set it up
     cache[url] = hash;
 
 
-### Redundant
-
-This is just a stub function. It can be overwritten so that it reports the
-redundancy to someone. 
-
-    function () {
-        return; 
-    }
-
-
-### Cache
-
-The cache is an object that helps prevent multiple calls for the same
-resource. Here we make the default object. Any protocol that does not want a
-cache should not have a key in this object.  
-
-    {
-        input : {
-            file:{},
-            http:{},
-            https:{}
-        }, 
-        output : {
-            file:{},
-            http:{},
-            https:{}
-        }
-    }
-
-
-
 ### Input
 
 
@@ -1233,13 +1201,13 @@ to be a cache. The event Object pieces has the form `[file, type, load]`.
     function (options, evObj, fcd) {
         var type = evObj.pieces[1];
         var url = evObj.pieces[0];
-        var tail = type `:` + url;
+        var tail = type ':' + url;
         var folder = fcd.folder;
 
         var proto;
         _":get protocol"
         
-        var emitname = `load:` + tail;
+        var emitname = 'load:' + tail;
         var cb;
         var cache = proto.cache;
         if (cache) {
@@ -1295,7 +1263,7 @@ or `[value]` in which case it emits that value (again).
         return ; 
     }
 
-[setup cache storage]()
+[setup cache]()
 
 We see this if there is no cache object for this url. So we set it up 
 
@@ -1312,8 +1280,154 @@ We see this if there is no cache object for this url. So we set it up
 
 This is similar to read, but we write. Incoming is `write`, when done,
 outgoing is `saved`. While for `read`, the data comes after, here the data
-caomes
+comes first. 
+
+The function initiates the writing of an external resource, using the scope to
+get the external calling function. It should be an async function with the
+callback `(err, data)` signature. 
+
+The event is `write:type:file` and will emit `save:type:file`. There also can be 
+a cache, but the cache here is a hash to see if it is different or not. 
+
+The event Object pieces has the form `[file, type, write]`.
+
+For writing, we have data to save as well as options. 
+
+    function (dtop, evObj, fcd) {
+        var type = evObj.pieces[1];
+        var url = evObj.pieces[0];
+        var tail = type ':' + url;
+        var folder = fcd.folder;
+        var data = dtop.data;
+        var options = dtop.options;
+
+        var proto;
+        _":get protocol"
+        
+        var emitname = 'write:' + tail;
+        var cb;
+        var cache = proto.cache;
+        if (cache) {
+            _":hash data"
+            _":check cache"
+            _":setup cache"
+        } else {
+            _":define cb"
+        }
+        
+        if (!options) {
+            options = proto.options;
+        }
+
+        proto(url, data, options, cb);
+
+        return;
+    }
+
+[define cb]() 
+
+There is a callback function that gets passed into the function and executed
+upon the return of data or an error. This is where we define the callback
+
+    function (err, data) {
+        if (err) {
+            folder.error("read", "loading type " + type + " had issues", url,
+                err);
+            fcd.emit('failed to read:' + type + ':' + url', err);
+        } else {
+            //cache here
+            fcd.emit(emitname, data);
+        }
+    }
+
+[get protocol]()
+
+Here we look up the scope to see if there is a protocol object. If not, then
+we warn about that and do a default. The second item in `evObj.pieces` should
+be the protocol type and that is the scope we look up. 
+
+    var proto = evObj.scopes['read:' + type];
+    if (typeit(proto, "!function")) {
+       options = [fcd.folder, evObj.ev];
+    } 
     
+[check cache]()
+
+This checks the cache to see if the key already exists. If it does, then it
+should either have the form `[]` in which case we continue to wait
+or `[value]` in which case it emits that value (again). 
+
+    var val = cache[url];
+    if (val) {
+        if (val.length === 1) {
+            fcd.emit(emitname, val[0]);
+        }
+        return ; 
+    }
+
+[setup cache]()
+
+We see this if there is no cache object for this url. So we set it up 
+
+    cache[url] = [];
+    fcd.once("cache:load:" + tail, function (data) {
+        cache[url].push(data);
+        cb = _":define cb | sub //cache here, 
+            ec(`fcd.emit('cache:load:' + tail, data);`) ";
+    });
+
+    
+
+        if (cache) {
+            _":hash data"
+
+            _":check cache"
+
+            _":setup cache storage"
+        }
+
+        protoObj.output[protocol].call(doc, url, data, protoUrl.slice(2));
+        
+        return;
+    }
+
+[hash data]()
+
+    var crypto = require('crypto');
+    var shasum = crypto.createHash('sha1');
+    shasum.update(data);
+    var hash = shasum.digest('hex');
+
+[check cache]()
+
+This checks the cache to see if this data has already been saved. If it has
+and it is the same, then we call proto.same or skip it. If it is different,
+then we call proto.diff or continue as if it was new.  If proto.diff returns
+true, then we stop at that point, otherwise we continue. 
+
+    var val = cache[url];
+    if (typeit(val, '!undefined')) {
+        if (val === hash) {
+            if (proto.same) {
+                proto.same(url, hash, data, cache, fcd);
+            }
+            return; 
+        } else {
+            if (proto.diff) {
+                if (proto.diff(url, hash, data, cache, fcd) ) {
+                    return;
+                }
+            } 
+        }
+    }
+
+[setup cache storage]()
+
+We see this if there is no cache object for this url or if it was different
+and proto.diff does not stop it. So we define it.
+
+    cache[url] = hash;
+
 
 ### fcd scopes
 
@@ -1326,36 +1440,46 @@ We have two stubs here, demonstrating the flow and also serving as default.
 The options object is specifically created for the stub and not indicative of
 what to expect; that will vary on the protocol. 
 
+
     fcd.scopes('load', _":load stub");
     fcd.scopes('write', _":write stub");
 
+
+[stub]()
+
+The stubs look very similar. The only difference is in the signature and the
+warning. 
+
+    function () {
+        var f = function (SIG) {
+           var fcd = options[0];
+           var ev = options[1];
+           fcd.folder.warn("TYPE protocol",  "protocol not defined as function", ev);
+           cb(null, '');
+           return;
+        };
+
+        f.cache = {}; //could do a readfile to load cache 
+        f.options = {}; //default options
+
+        return f;
+    }
+
+
+
 [load stub]()
+
+    _":stub | sub SIG, ec(`url, options, cb`), TYPE, load"
 
 The read functions should have signature `url, options, cb` with cb a callback function 
 signature of `err,data`. The prototype function is `fs.readFile`. 
 
-This assumes it is the default and the options are the created object. 
- 
-    function (url, options, cb) {
-       var fcd = options[0];
-       var ev = options[1];
-       fcd.folder.warn("load protocol",  "protocol not defined as function", ev);
-       cb(null, '');
-       return;
-    }
 
 [write stub]()
 
 Here, writeFile is the prototype. So signature of `url, data, options, cb`. 
 
-    function (url, data, options, cb) {
-        var fcd = options[0];
-        var ev = options[1];
-        fcd.folder.warn("write protocol", "protocol not defined as function",
-            ev);
-        cb(null, '');
-        return;
-    }
+    _":stub | sub SIG, ec(`url, data, options, cb`), TYPE, write"
 
 
 ## Pipes
