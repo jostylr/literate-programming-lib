@@ -524,7 +524,7 @@ There are a variety of directives that come built in.
   incoming argument is an array and uses the next available array element; if
   the @i appears at the end of the arg list, then it unloads the rest of its
   elements there. This may be a little klunky and the syntax may change. We
-  also have as special commands in compose: `` which does nothing but handles
+  also have as special commands in compose: ` ` which does nothing but handles
   two accidental pipes in a row smoothly,  `->$i` which stores the incoming
   into the ith variable to use later as a named dollar sign variable, `$i->`
   which sends along the ith variable to the next pipe, `->@i` which pushes the
@@ -644,23 +644,35 @@ commas, colons, quotes).
   templating. If no blockname is given, then the current one is used. Any
   further arguments should be in pairs, with the second possibly empty, of
   a minor block name to fill in with the value in the second place. 
-* **sub** `key1, val1, key2, val2, ...`  This replaces `key#` in the text
+* **sub** 
+
+  A: Replaces parts of incoming text.   
+  
+  S: `str -> key1, val1, key2, val2, ... -> str`, 
+    `str-> regexp, replacement str/fun -> str`
+
+  This replaces `key#` in the text
   with `val#`. The replacement is sorted based on the length of the key
   value. This is to help with SUBTITLE being replaced before TITLE, for
   example, while allowing one to write it in an order that makes reading
-  make sense. This is a bad, but convenient idea. Recommend just using
-  one pair at a time. 
+  make sense. This is a bad, but convenient idea. 
+  
+  Recommend just using one pair at a time as commands can be piped along.  
 
   Alternate signature `regexp, replacement str/func`.
    This does a regular expression replacement
   where the first is a reg ( `reg(str, flags)` ) 
   that acts on the string and replaces it using
-  the usual javascript replacement syntax for the second. 
+  the [usual javascript replacement](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/replace) syntax for the second. 
 
   The regex syntax can be part of pair sequences. In accordance with
   shorter first, regex's which typically are epansive, will go last, but
   amongst regex's, the order of processing is preserved.
   Recommendation is to not mix in multiple pairs with regexs. 
+
+  E:
+  
+  #basic, string
 * **store** `variable name`  This stores the incoming text into the
   variable name.  This is good for stashing something in mid computation.
   For example, `...|store temp | sub THIS, that | store awe | _"temp"` will
@@ -824,7 +836,7 @@ and if it
   arguments as attributes. An equals sign creates an attribute with value,
   no equals implies a class. An attribute value will get wrapped in
   quotes. 
-  `text-> | html-wrap p data, pretty, data-var=right`
+  `text-> | html-wrap p, data, pretty, data-var=right`
   will lead to  `<p class="data pretty" data-var="right">text</p>`
 * **html-table** This requires an array of arrays; matrix is
   good. The first argument should either be an array of headers or

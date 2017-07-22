@@ -101,9 +101,13 @@ This produces the command documentation.
     _"comdoc | .join \n"    
     _"matrix::doc"
 
-
-
 * [comdoc](#cdoc "h5: ")
+
+### Example inputs
+
+    text = [];
+    text.push("This is some text to play around with");
+
 
 ## Folder prototype
     
@@ -700,23 +704,60 @@ This is the function that replaces a part of a string with another.
 
 ##### cdoc
 
-    * **sub** `key1, val1, key2, val2, ...`  This replaces `key#` in the text
+    * **sub** 
+    
+      A: Replaces parts of incoming text.   
+      
+      S: `str -> key1, val1, key2, val2, ... -> str`, 
+        `str-> regexp, replacement str/fun -> str`
+    
+      This replaces `key#` in the text
       with `val#`. The replacement is sorted based on the length of the key
       value. This is to help with SUBTITLE being replaced before TITLE, for
       example, while allowing one to write it in an order that makes reading
-      make sense. This is a bad, but convenient idea. Recommend just using
-      one pair at a time. 
+      make sense. This is a bad, but convenient idea. 
+      
+      Recommend just using one pair at a time as commands can be piped along.  
 
       Alternate signature `regexp, replacement str/func`.
        This does a regular expression replacement
       where the first is a reg ( `reg(str, flags)` ) 
       that acts on the string and replaces it using
-      the usual javascript replacement syntax for the second. 
+      the [usual javascript replacement](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/replace) syntax for the second. 
 
       The regex syntax can be part of pair sequences. In accordance with
       shorter first, regex's which typically are epansive, will go last, but
       amongst regex's, the order of processing is preserved.
       Recommendation is to not mix in multiple pairs with regexs. 
+
+      E:
+      
+      #basic, string
+
+
+###### Example
+
+    Simple example illustrating pairwise replacement:
+
+    `&1| sub t, !, this, that`
+    
+    Could also be written as
+
+    `&1| sub this, that | sub t, ! `
+    
+    And is different from 
+
+    `&1 | sub t, ! | sub this, that `
+    
+    Here is a regex substitution using the dollar sign replacement syntax of
+    JS. 
+
+    `&1| sub reg(\s(t)), $1$1`
+
+    And here is one with a replacement function
+
+    ``&1 | sub reg(\s(t|s)), fun(` (m, ts) => ts.toUpperCase() `)``
+
 
 ### Store Command
 
@@ -2009,7 +2050,7 @@ single word. The others we throw in as is.
       arguments as attributes. An equals sign creates an attribute with value,
       no equals implies a class. An attribute value will get wrapped in
       quotes. 
-      `text-> | html-wrap p data, pretty, data-var=right`
+      `text-> | html-wrap p, data, pretty, data-var=right`
       will lead to  `<p class="data pretty" data-var="right">text</p>`
 
 ## Html-table
