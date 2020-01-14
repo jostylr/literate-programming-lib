@@ -90,10 +90,12 @@ The requisite npm package file.
 
     tests
     test.js
-    travis.yml
+    .travis.yml
     ghpages
     node_modules
     *.md
+    lprc.js
+    build/
 
 
 ## Travis
