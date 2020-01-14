@@ -186,6 +186,19 @@ We have a default scope called `g` for global.
         var gcd = this.gcd = new EvW();
         //.when will preserve initial, not emitted order
         gcd.initialOrdering = true; 
+
+We want all "text ready" events to be cached. So we replace emit with
+emitCache for those events. 
+
+        { let {emit} = gcd;
+        gcd.emit = function (ev, data, timing) {
+            if (ev.slice(0,10) === 'text ready') {
+                gcd._onceCache[ev] = data;
+            } 
+            emit.call(this, ev, data, timing);
+            };
+        }
+
         
         // this is for handling file loading
         var fcd = this.fcd = new EvW();

@@ -19,17 +19,19 @@
   "engines": {
     "node": ">=0.10"
   },
-  "dependencies":{
-    "event-when" : "^1.6.1",
-    "commonmark" : "^0.27.0",
-    "string.fromcodepoint" : "^0.2.1"
+  "dependencies": {
+    "event-when": "^1.6.1",
+    "commonmark": "^0.27.0",
+    "string.fromcodepoint": "^0.2.1"
   },
-  "devDependencies" : {
-    "tape" : "^4.6.3",
-    "litpro-jshint" : "^0.3.1"
+  "devDependencies": {
+    "tape": "^4.6.3",
+    "litpro-jshint": "^0.3.1"
   },
-  "scripts" : { 
-    "test" : "node ./test.js"
+  "scripts": {
+    "test": "node ./test.js"
   },
-  "keywords": ["literate programming"]
+  "keywords": [
+    "literate programming"
+  ]
 }
